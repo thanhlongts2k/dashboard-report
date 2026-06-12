@@ -9,6 +9,3 @@ env/
 
 # VS Code
 .vscode/
-
-# Django
-db.sqlite3
