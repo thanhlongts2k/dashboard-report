@@ -1,4 +1,4 @@
-# Tài liệu hướng dẫn tổng quan dự án Report2026 (Hạo Phương Co.)
+# Tài liệu hướng dẫn tổng quan dự án Report2026 (HP Co.)
 
 Chào mừng bạn tiếp quản dự án! Đừng lo lắng nếu bạn chưa rành về Python. Tài liệu này được thiết kế để giúp bạn nắm bắt toàn bộ bức tranh của dự án từ kiến trúc, nghiệp vụ đến cách vận hành thực tế.
 
