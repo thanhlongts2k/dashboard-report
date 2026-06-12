@@ -1,0 +1,306 @@
+
+<h2 class="sr-only">Dashboard báo cáo thu nợ khách hàng trọng yếu ngày 04–05/05/2026</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.dash{font-family:'Segoe UI',system-ui,sans-serif;background:#f4f3ef;color:#2c2c2a;font-size:13px;padding:16px;}
+.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;padding-bottom:12px;border-bottom:0.5px solid #d3d1c7;}
+.hdr-left h1{font-size:18px;font-weight:500;color:#2c2c2a;}
+.hdr-left p{font-size:11px;color:#888780;margin-top:2px;}
+.hdr-right{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.badge{font-size:10px;padding:3px 8px;border-radius:5px;background:#EAF3DE;color:#3B6D11;font-weight:500;}
+.badge-blue{font-size:10px;padding:3px 8px;border-radius:5px;background:#E6F1FB;color:#185FA5;font-weight:500;}
+.slbl{font-size:10px;font-weight:500;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px;}
+.kpi5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+.kc{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:11px 12px 10px;position:relative;overflow:hidden;}
+.kc::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;border-radius:2px 0 0 2px;}
+.blue::before{background:#185FA5;}.teal::before{background:#1D9E75;}.amber::before{background:#BA7517;}.purple::before{background:#534AB7;}.coral::before{background:#D85A30;}
+.kl{font-size:10px;color:#888780;padding-left:6px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kv{font-size:19px;font-weight:500;color:#2c2c2a;padding-left:6px;line-height:1.15;}
+.ku{font-size:10px;font-weight:400;color:#888780;}
+.kt{font-size:10px;color:#b4b2a9;padding-left:6px;margin-top:2px;}
+.krow{display:flex;align-items:center;gap:5px;padding-left:6px;margin-top:5px;}
+.kpct{font-size:12px;font-weight:500;min-width:36px;}
+.kbg{flex:1;background:#f1efe8;border-radius:3px;height:5px;}
+.kfill{height:5px;border-radius:3px;}
+.kdelta{font-size:10px;padding-left:6px;margin-top:3px;}
+.r2{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px;}
+.r2b{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.card{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:13px 14px;}
+.ct{font-size:13px;font-weight:500;color:#2c2c2a;margin-bottom:8px;}
+.leg-row{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:#5f5e5a;}
+.lsq{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.bt{width:100%;border-collapse:collapse;}
+.bt th{font-size:10px;color:#888780;font-weight:400;padding:5px 7px;border-bottom:0.5px solid #e8e6e0;text-align:right;white-space:nowrap;}
+.bt th:first-child{text-align:left;}
+.bt td{padding:6px 7px;border-bottom:0.5px solid #f1efe8;font-size:11px;color:#2c2c2a;text-align:right;vertical-align:middle;}
+.bt td:first-child{text-align:left;font-weight:500;}
+.bt tr.tot{background:#f7f6f2;}.bt tr.tot td{font-weight:500;border-top:0.5px solid #d3d1c7;}
+.bt tr:last-child td{border-bottom:none;}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:500;}
+.pr{background:#FCEBEB;color:#A32D2D;}.pa{background:#FAEEDA;color:#854F0B;}.pg{background:#EAF3DE;color:#3B6D11;}.pb{background:#E6F1FB;color:#185FA5;}
+.tld{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+.tlr{background:#E24B4A;}.tla{background:#EF9F27;}.tlg{background:#639922;}
+.gr{color:#A32D2D;font-size:10px;}.ga{color:#854F0B;font-size:10px;}.gg{color:#3B6D11;font-size:10px;}
+.blue-n{color:#185FA5;}
+.rate-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:11px;}
+.rate-lbl{width:100px;color:#5f5e5a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;}
+.rate-track{flex:1;height:5px;background:#f1efe8;border-radius:3px;overflow:hidden;}
+.rate-fill{height:5px;border-radius:3px;background:#185FA5;}
+.rate-pct{width:28px;text-align:right;font-size:10px;color:#888780;}
+.chart-wrap{position:relative;width:100%;height:200px;}
+.chart-wrap2{position:relative;width:100%;height:170px;}
+</style>
+
+<div class="dash">
+
+<div class="hdr">
+  <div class="hdr-left">
+    <h1>Thu Nợ Khách Hàng Trọng Yếu</h1>
+    <p>Ngày báo cáo: 04/05/2026 &nbsp;|&nbsp; Bao gồm HISA &nbsp;|&nbsp; Tất cả BU</p>
+  </div>
+  <div class="hdr-right">
+    <span class="badge">Cập nhật: 04/05/2026</span>
+    <span class="badge-blue">Hôm nay: 05/05/2026</span>
+  </div>
+</div>
+
+<div class="slbl">Tổng quan ngày 04/05/2026</div>
+<div class="kpi5">
+  <div class="kc blue">
+    <div class="kl">Tổng dư nợ cần thu</div>
+    <div class="kv">12,665<span class="ku"> tỷ</span></div>
+    <div class="kt">6 BU tổng hợp</div>
+    <div class="krow"><span class="kpct" style="color:#185FA5;">—</span></div>
+    <div class="kdelta" style="color:#5f5e5a;">05/05: <span style="color:#185FA5;">12,522 tỷ</span></div>
+  </div>
+  <div class="kc teal">
+    <div class="kl">Tổng thu trong ngày</div>
+    <div class="kv">2,898<span class="ku"> tỷ</span></div>
+    <div class="kt">Thu nợ + trong hạn + COD</div>
+    <div class="krow"><span class="kpct" style="color:#1D9E75;">100%</span><div class="kbg"><div class="kfill" style="width:100%;background:#1D9E75;"></div></div></div>
+    <div class="kdelta" style="color:#3B6D11;">▲ Đạt kế hoạch ngày</div>
+  </div>
+  <div class="kc blue">
+    <div class="kl">Cam kết thu (nợ quá hạn)</div>
+    <div class="kv">390<span class="ku"> tỷ</span></div>
+    <div class="kt">Từ nợ đến hạn + quá hạn</div>
+    <div class="krow"><span class="kpct" style="color:#185FA5;">—</span></div>
+    <div class="kdelta" style="color:#5f5e5a;">05/05: <span style="color:#185FA5;">150 tỷ</span></div>
+  </div>
+  <div class="kc teal">
+    <div class="kl">Đã thu từ nợ đến hạn</div>
+    <div class="kv">928<span class="ku"> tỷ</span></div>
+    <div class="kt">vs cam kết 390 tỷ</div>
+    <div class="krow"><span class="kpct" style="color:#1D9E75;">238%</span><div class="kbg"><div class="kfill" style="width:100%;background:#1D9E75;"></div></div></div>
+    <div class="kdelta" style="color:#3B6D11;">▲ +538 tỷ vượt cam kết</div>
+  </div>
+  <div class="kc amber">
+    <div class="kl">Tỷ lệ thu / cam kết (05/05)</div>
+    <div class="kv">1<span class="ku">%</span></div>
+    <div class="kt">Cam kết: 150 tỷ</div>
+    <div class="krow"><span class="kpct" style="color:#BA7517;">1%</span><div class="kbg"><div class="kfill" style="width:1%;background:#BA7517;"></div></div></div>
+    <div class="kdelta" style="color:#A32D2D;">▼ Chưa đạt mục tiêu</div>
+  </div>
+</div>
+
+<div class="r2">
+  <div class="card">
+    <div class="ct">Chi tiết thu theo BU — 04/05/2026</div>
+    <div style="overflow-x:auto;">
+    <table class="bt">
+      <thead>
+        <tr>
+          <th style="text-align:left;">BU</th>
+          <th>Dư nợ cần thu</th>
+          <th>Cam kết (quá hạn)</th>
+          <th>Đã thu (đến hạn)</th>
+          <th>Thu trong hạn + COD</th>
+          <th>Tổng thu</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ELEVATOR</td>
+          <td class="blue-n">8,831,246</td>
+          <td>389,958</td>
+          <td>461,915</td>
+          <td>436,877</td>
+          <td style="color:#1D9E75;font-weight:500;">898,791</td>
+        </tr>
+        <tr>
+          <td>IBIZ PREMIUM</td>
+          <td class="blue-n">1,716,276</td>
+          <td>—</td>
+          <td>465,712</td>
+          <td>1,472,445</td>
+          <td style="color:#1D9E75;font-weight:500;">1,938,157</td>
+        </tr>
+        <tr>
+          <td>IBIZ VALUE</td>
+          <td class="blue-n">45,254</td>
+          <td>—</td>
+          <td>—</td>
+          <td>15,571</td>
+          <td style="color:#1D9E75;font-weight:500;">15,571</td>
+        </tr>
+        <tr>
+          <td>ECO</td>
+          <td class="blue-n">875,357</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td style="color:#b4b2a9;">—</td>
+        </tr>
+        <tr>
+          <td>AGRITECH</td>
+          <td class="blue-n">934,073</td>
+          <td>—</td>
+          <td>—</td>
+          <td>45,360</td>
+          <td style="color:#1D9E75;font-weight:500;">45,360</td>
+        </tr>
+        <tr>
+          <td>MANUFACTURE</td>
+          <td class="blue-n">262,410</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td style="color:#b4b2a9;">—</td>
+        </tr>
+        <tr class="tot">
+          <td>TỔNG</td>
+          <td class="blue-n">12,664,614</td>
+          <td>389,958</td>
+          <td>927,626</td>
+          <td>1,970,253</td>
+          <td style="color:#1D9E75;">2,897,879</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <div style="font-size:10px;color:#b4b2a9;margin-top:6px;">Đơn vị: nghìn đồng (000 VNĐ)</div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Cảnh báo điều hành</div>
+    <table class="bt">
+      <thead><tr><th style="text-align:left;">BU / Chỉ tiêu</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tld tlr"></span>ECO — chưa thu</td><td><span class="pill pr">0%</span></td><td><span class="gr">Cần đôn đốc</span></td></tr>
+        <tr><td><span class="tld tlr"></span>MANUFACTURE — chưa thu</td><td><span class="pill pr">0%</span></td><td><span class="gr">Cần đôn đốc</span></td></tr>
+        <tr><td><span class="tld tlr"></span>IBIZ VALUE — không cam kết</td><td><span class="pill pr">—</span></td><td><span class="gr">Thiếu cam kết</span></td></tr>
+        <tr><td><span class="tld tla"></span>Tỷ lệ thu 05/05</td><td><span class="pill pa">1%</span></td><td><span class="ga">Chưa đạt</span></td></tr>
+        <tr><td><span class="tld tla"></span>AGRITECH — thu thấp</td><td><span class="pill pa">45M</span></td><td><span class="ga">Dưới kỳ vọng</span></td></tr>
+        <tr><td><span class="tld tlg"></span>IBIZ PREMIUM — thu tốt</td><td><span class="pill pg">1,938 tỷ</span></td><td><span class="gg">Vượt kỳ vọng</span></td></tr>
+        <tr><td><span class="tld tlg"></span>ELEVATOR — vượt cam kết</td><td><span class="pill pg">238%</span></td><td><span class="gg">Đạt tốt</span></td></tr>
+        <tr><td><span class="tld tlg"></span>Dư nợ 05/05 giảm</td><td><span class="pill pg">–143 tỷ</span></td><td><span class="gg">Tốt</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="r2b">
+  <div class="card">
+    <div class="ct">Tổng thu theo BU — 04/05</div>
+    <div class="leg-row">
+      <div class="leg"><div class="lsq" style="background:#185FA5;"></div>Thu từ nợ đến hạn</div>
+      <div class="leg"><div class="lsq" style="background:#1D9E75;"></div>Thu trong hạn + COD</div>
+    </div>
+    <div class="chart-wrap"><canvas id="barChart" role="img" aria-label="Biểu đồ thu theo BU ngày 04/05">ELEVATOR: 898 tỷ, IBIZ PREMIUM: 1938 tỷ, IBIZ VALUE: 15.6 tỷ, AGRITECH: 45 tỷ.</canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Dư nợ cần thu — 05/05/2026</div>
+    <div style="margin-bottom:10px;">
+      <div class="rate-row"><div class="rate-lbl">ELEVATOR</div><div class="rate-track"><div class="rate-fill" style="width:70%;"></div></div><div class="rate-pct">70%</div></div>
+      <div class="rate-row"><div class="rate-lbl">IBIZ PREMIUM</div><div class="rate-track"><div class="rate-fill" style="width:10%;"></div></div><div class="rate-pct">10%</div></div>
+      <div class="rate-row"><div class="rate-lbl">ECO</div><div class="rate-track"><div class="rate-fill" style="width:9%;background:#BA7517;"></div></div><div class="rate-pct">9%</div></div>
+      <div class="rate-row"><div class="rate-lbl">AGRITECH</div><div class="rate-track"><div class="rate-fill" style="width:7%;background:#534AB7;"></div></div><div class="rate-pct">7%</div></div>
+      <div class="rate-row"><div class="rate-lbl">MANUFACTURE</div><div class="rate-track"><div class="rate-fill" style="width:2%;background:#888780;"></div></div><div class="rate-pct">2%</div></div>
+      <div class="rate-row"><div class="rate-lbl">IBIZ VALUE</div><div class="rate-track"><div class="rate-fill" style="width:0.4%;background:#D85A30;"></div></div><div class="rate-pct">0.4%</div></div>
+    </div>
+    <div class="chart-wrap2"><canvas id="donut" role="img" aria-label="Biểu đồ dư nợ 05/05">ELEVATOR 70%, IBIZ PREMIUM 10%, ECO 9%, AGRITECH 7%, MANUFACTURE 2%, IBIZ VALUE 0.4%.</canvas></div>
+  </div>
+</div>
+
+<div class="slbl">Dư nợ & cam kết — 05/05/2026</div>
+<div class="card" style="margin-bottom:10px;">
+  <div style="overflow-x:auto;">
+  <table class="bt">
+    <thead>
+      <tr>
+        <th style="text-align:left;">BU</th>
+        <th>Dư nợ cần thu (05/05)</th>
+        <th>Cam kết thu (nợ quá hạn)</th>
+        <th>Tỷ lệ thu / cam kết</th>
+        <th>So với hôm qua</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>ELEVATOR</td>
+        <td class="blue-n">8,818,239</td>
+        <td>150,350</td>
+        <td><span class="pill pb">2%</span></td>
+        <td style="color:#3B6D11;font-size:10px;">▼ –13,007 tỷ</td>
+      </tr>
+      <tr>
+        <td>IBIZ PREMIUM</td>
+        <td class="blue-n">1,300,990</td>
+        <td>—</td>
+        <td><span class="pill pr">0%</span></td>
+        <td style="color:#3B6D11;font-size:10px;">▼ –415,286</td>
+      </tr>
+      <tr>
+        <td>IBIZ VALUE</td>
+        <td class="blue-n">45,788</td>
+        <td>—</td>
+        <td><span class="pill pr">0%</span></td>
+        <td style="color:#A32D2D;font-size:10px;">▲ +534</td>
+      </tr>
+      <tr>
+        <td>ECO</td>
+        <td class="blue-n">1,160,926</td>
+        <td>—</td>
+        <td><span class="pill pr">0%</span></td>
+        <td style="color:#A32D2D;font-size:10px;">▲ +285,568</td>
+      </tr>
+      <tr>
+        <td>AGRITECH</td>
+        <td class="blue-n">934,073</td>
+        <td>—</td>
+        <td><span class="pill pr">0%</span></td>
+        <td style="color:#5f5e5a;font-size:10px;">— Không đổi</td>
+      </tr>
+      <tr>
+        <td>MANUFACTURE</td>
+        <td class="blue-n">262,410</td>
+        <td>—</td>
+        <td><span class="pill pr">0%</span></td>
+        <td style="color:#5f5e5a;font-size:10px;">— Không đổi</td>
+      </tr>
+      <tr class="tot">
+        <td>TỔNG</td>
+        <td class="blue-n">12,522,425</td>
+        <td>150,350</td>
+        <td><span class="pill pb">1%</span></td>
+        <td style="color:#3B6D11;font-size:10px;">▼ –142,189</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="font-size:10px;color:#b4b2a9;margin-top:6px;">Đơn vị: nghìn đồng (000 VNĐ)</div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var so={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.parsed.y/1e9).toFixed(2)+' tỷ'}}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780',autoSkip:false,maxRotation:0}},y:{stacked:true,grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>v?(v/1e9).toFixed(1)+'tỷ':'0'}}}};
+var lb=['ELEVATOR','IBIZ\nPREM','IBIZ\nVALUE','ECO','AGRITECH','MANUF.'];
+var d1=[461914515,465711813,0,0,0,0];
+var d2=[436876642,1472445323,15570725,0,45360000,0];
+new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:lb,datasets:[{label:'Thu từ nợ đến hạn',data:d1,backgroundColor:'#185FA5',borderRadius:3,borderSkipped:false,stack:'s'},{label:'Thu trong hạn+COD',data:d2,backgroundColor:'#1D9E75',borderRadius:3,borderSkipped:false,stack:'s'}]},options:so});
+new Chart(document.getElementById('donut'),{type:'doughnut',data:{labels:['ELEVATOR','IBIZ PREMIUM','ECO','AGRITECH','MANUFACTURE','IBIZ VALUE'],datasets:[{data:[8818238819,1300989951,1160925827,934072500,262409544,45788112],backgroundColor:['#185FA5','#1D9E75','#BA7517','#534AB7','#888780','#D85A30'],borderWidth:1,borderColor:'#f4f3ef'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+(c.raw/1e9).toFixed(0)+' tỷ ('+(c.raw/12522424753*100).toFixed(1)+'%)' }}}}});
+</script>
