@@ -1,413 +1,1441 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard Chi Tiết Từng BU — 11/04/2026</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#f4f3ef;color:#2c2c2a;font-size:13px;}
-.dash{padding:16px;max-width:1400px;margin:0 auto;}
-/* HEADER */
-.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;padding-bottom:12px;border-bottom:0.5px solid #d3d1c7;}
-.hdr h1{font-size:18px;font-weight:500;color:#2c2c2a;}
-.hdr p{font-size:11px;color:#888780;margin-top:2px;}
-.hdr-right{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-.filter-sel{font-size:11px;padding:5px 10px;border:0.5px solid #d3d1c7;border-radius:7px;background:#fff;color:#2c2c2a;cursor:pointer;outline:none;}
-/* BU TABS */
-.bu-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
-.bu-tab{font-size:12px;padding:6px 16px;border-radius:8px;border:0.5px solid #d3d1c7;background:#fff;cursor:pointer;color:#5f5e5a;transition:all .15s;font-weight:400;}
-.bu-tab.active{background:#2c2c2a;color:#fff;border-color:#2c2c2a;}
-.bu-tab.red{border-color:#E24B4A;color:#A32D2D;}
-.bu-tab.amber{border-color:#EF9F27;color:#854F0B;}
-.bu-tab.green{border-color:#639922;color:#3B6D11;}
-.bu-tab.active.red,.bu-tab.active.amber,.bu-tab.active.green{background:#2c2c2a;color:#fff;border-color:#2c2c2a;}
-/* BU VIEW */
-.bu-view{display:none;} .bu-view.active{display:block;}
-/* SECTION */
-.slbl{font-size:10px;font-weight:500;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px;}
-/* KPI */
-.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px;}
-.kpi2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}
-.kc{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:11px 12px 10px;position:relative;overflow:hidden;}
-.kc::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;}
-.blue::before{background:#185FA5;} .teal::before{background:#1D9E75;} .amber::before{background:#BA7517;}
-.purple::before{background:#534AB7;} .coral::before{background:#D85A30;} .green::before{background:#3B6D11;}
-.kl{font-size:10px;color:#888780;padding-left:6px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.kv{font-size:20px;font-weight:500;color:#2c2c2a;padding-left:6px;line-height:1.15;}
-.ku{font-size:10px;font-weight:400;color:#888780;}
-.kt{font-size:10px;color:#b4b2a9;padding-left:6px;margin-top:2px;}
-.krow{display:flex;align-items:center;gap:5px;padding-left:6px;margin-top:5px;}
-.kpct{font-size:12px;font-weight:500;min-width:36px;}
-.kbg{flex:1;background:#f1efe8;border-radius:3px;height:5px;}
-.kfill{height:5px;border-radius:3px;}
-.kdelta{font-size:10px;padding-left:6px;margin-top:3px;}
-/* CARDS */
-.r2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
-.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
-.r27{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px;}
-.card{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:13px 14px;}
-.ct{font-size:13px;font-weight:500;color:#2c2c2a;margin-bottom:8px;}
-.leg-row{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;}
-.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:#5f5e5a;}
-.lsq{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
-/* TABLE */
-.bt{width:100%;border-collapse:collapse;}
-.bt th{font-size:10px;color:#888780;font-weight:400;padding:5px 8px;border-bottom:0.5px solid #e8e6e0;text-align:right;white-space:nowrap;}
-.bt th:first-child{text-align:left;}
-.bt td{padding:6px 8px;border-bottom:0.5px solid #f1efe8;font-size:11px;color:#2c2c2a;text-align:right;vertical-align:middle;}
-.bt td:first-child{text-align:left;font-weight:500;}
-.bt tr.sub td{color:#5f5e5a;font-size:10px;} .bt tr.sub td:first-child{padding-left:16px;font-weight:400;}
-.bt tr.tot{background:#f7f6f2;} .bt tr.tot td{font-weight:500;border-top:0.5px solid #d3d1c7;}
-.bt tr:last-child td{border-bottom:none;}
-/* PILL */
-.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:500;}
-.pr{background:#FCEBEB;color:#A32D2D;} .pa{background:#FAEEDA;color:#854F0B;} .pg{background:#EAF3DE;color:#3B6D11;} .pb{background:#E6F1FB;color:#185FA5;}
-.tld{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
-.tlr{background:#E24B4A;} .tla{background:#EF9F27;} .tlg{background:#639922;}
-.gr{color:#A32D2D;font-size:10px;} .ga{color:#854F0B;font-size:10px;} .gg{color:#3B6D11;font-size:10px;}
-/* TT 3 NGÀY */
-.tt3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px;}
-.tt3c{background:#fff;border-radius:9px;border:0.5px solid #d3d1c7;padding:10px 12px;}
-.tt3d{font-size:9px;color:#888780;margin-bottom:3px;}
-.tt3v{font-size:16px;font-weight:500;color:#1D9E75;}
-.tt3sub{font-size:10px;color:#888780;margin-top:2px;}
-.tt3p{font-size:10px;font-weight:500;margin-top:3px;}
-.tt3today{border-color:#185FA5;background:#f8fbff;}
-/* BU header badge */
-.bu-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;}
-.bu-name{font-size:15px;font-weight:500;} .bu-owner{font-size:11px;color:#888780;margin-top:1px;}
-.bu-status-badge{margin-left:auto;font-size:10px;padding:3px 10px;border-radius:5px;font-weight:500;}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard Chi Tiết Từng BU — 11/04/2026</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f4f3ef;
+      color: #2c2c2a;
+      font-size: 13px;
+    }
+
+    .dash {
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* HEADER */
+    .hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 0.5px solid #d3d1c7;
+    }
+
+    .hdr h1 {
+      font-size: 18px;
+      font-weight: 500;
+      color: #2c2c2a;
+    }
+
+    .hdr p {
+      font-size: 11px;
+      color: #888780;
+      margin-top: 2px;
+    }
+
+    .hdr-right {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-sel {
+      font-size: 11px;
+      padding: 5px 10px;
+      border: 0.5px solid #d3d1c7;
+      border-radius: 7px;
+      background: #fff;
+      color: #2c2c2a;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* BU TABS */
+    .bu-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .bu-tab {
+      font-size: 12px;
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: 0.5px solid #d3d1c7;
+      background: #fff;
+      cursor: pointer;
+      color: #5f5e5a;
+      transition: all .15s;
+      font-weight: 400;
+    }
+
+    .bu-tab.active {
+      background: #2c2c2a;
+      color: #fff;
+      border-color: #2c2c2a;
+    }
+
+    .bu-tab.red {
+      border-color: #E24B4A;
+      color: #A32D2D;
+    }
+
+    .bu-tab.amber {
+      border-color: #EF9F27;
+      color: #854F0B;
+    }
+
+    .bu-tab.green {
+      border-color: #639922;
+      color: #3B6D11;
+    }
+
+    .bu-tab.active.red,
+    .bu-tab.active.amber,
+    .bu-tab.active.green {
+      background: #2c2c2a;
+      color: #fff;
+      border-color: #2c2c2a;
+    }
+
+    /* BU VIEW */
+    .bu-view {
+      display: none;
+    }
+
+    .bu-view.active {
+      display: block;
+    }
+
+    /* SECTION */
+    .slbl {
+      font-size: 10px;
+      font-weight: 500;
+      color: #888780;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin: 0 0 8px;
+    }
+
+    /* KPI */
+    .kpi4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .kpi2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .kc {
+      background: #fff;
+      border-radius: 10px;
+      border: 0.5px solid #d3d1c7;
+      padding: 11px 12px 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kc::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+    }
+
+    .blue::before {
+      background: #185FA5;
+    }
+
+    .teal::before {
+      background: #1D9E75;
+    }
+
+    .amber::before {
+      background: #BA7517;
+    }
+
+    .purple::before {
+      background: #534AB7;
+    }
+
+    .coral::before {
+      background: #D85A30;
+    }
+
+    .green::before {
+      background: #3B6D11;
+    }
+
+    .kl {
+      font-size: 10px;
+      color: #888780;
+      padding-left: 6px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kv {
+      font-size: 20px;
+      font-weight: 500;
+      color: #2c2c2a;
+      padding-left: 6px;
+      line-height: 1.15;
+    }
+
+    .ku {
+      font-size: 10px;
+      font-weight: 400;
+      color: #888780;
+    }
+
+    .kt {
+      font-size: 10px;
+      color: #b4b2a9;
+      padding-left: 6px;
+      margin-top: 2px;
+    }
+
+    .krow {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding-left: 6px;
+      margin-top: 5px;
+    }
+
+    .kpct {
+      font-size: 12px;
+      font-weight: 500;
+      min-width: 36px;
+    }
+
+    .kbg {
+      flex: 1;
+      background: #f1efe8;
+      border-radius: 3px;
+      height: 5px;
+    }
+
+    .kfill {
+      height: 5px;
+      border-radius: 3px;
+    }
+
+    .kdelta {
+      font-size: 10px;
+      padding-left: 6px;
+      margin-top: 3px;
+    }
+
+    /* CARDS */
+    .r2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .r3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .r27 {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      border: 0.5px solid #d3d1c7;
+      padding: 13px 14px;
+    }
+
+    .ct {
+      font-size: 13px;
+      font-weight: 500;
+      color: #2c2c2a;
+      margin-bottom: 8px;
+    }
+
+    .leg-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .leg {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: #5f5e5a;
+    }
+
+    .lsq {
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* TABLE */
+    .bt {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .bt th {
+      font-size: 10px;
+      color: #888780;
+      font-weight: 400;
+      padding: 5px 8px;
+      border-bottom: 0.5px solid #e8e6e0;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .bt th:first-child {
+      text-align: left;
+    }
+
+    .bt td {
+      padding: 6px 8px;
+      border-bottom: 0.5px solid #f1efe8;
+      font-size: 11px;
+      color: #2c2c2a;
+      text-align: right;
+      vertical-align: middle;
+    }
+
+    .bt td:first-child {
+      text-align: left;
+      font-weight: 500;
+    }
+
+    .bt tr.sub td {
+      color: #5f5e5a;
+      font-size: 10px;
+    }
+
+    .bt tr.sub td:first-child {
+      padding-left: 16px;
+      font-weight: 400;
+    }
+
+    .bt tr.tot {
+      background: #f7f6f2;
+    }
+
+    .bt tr.tot td {
+      font-weight: 500;
+      border-top: 0.5px solid #d3d1c7;
+    }
+
+    .bt tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* PILL */
+    .pill {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .pr {
+      background: #FCEBEB;
+      color: #A32D2D;
+    }
+
+    .pa {
+      background: #FAEEDA;
+      color: #854F0B;
+    }
+
+    .pg {
+      background: #EAF3DE;
+      color: #3B6D11;
+    }
+
+    .pb {
+      background: #E6F1FB;
+      color: #185FA5;
+    }
+
+    .tld {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .tlr {
+      background: #E24B4A;
+    }
+
+    .tla {
+      background: #EF9F27;
+    }
+
+    .tlg {
+      background: #639922;
+    }
+
+    .gr {
+      color: #A32D2D;
+      font-size: 10px;
+    }
+
+    .ga {
+      color: #854F0B;
+      font-size: 10px;
+    }
+
+    .gg {
+      color: #3B6D11;
+      font-size: 10px;
+    }
+
+    /* TT 3 NGÀY */
+    .tt3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .tt3c {
+      background: #fff;
+      border-radius: 9px;
+      border: 0.5px solid #d3d1c7;
+      padding: 10px 12px;
+    }
+
+    .tt3d {
+      font-size: 9px;
+      color: #888780;
+      margin-bottom: 3px;
+    }
+
+    .tt3v {
+      font-size: 16px;
+      font-weight: 500;
+      color: #1D9E75;
+    }
+
+    .tt3sub {
+      font-size: 10px;
+      color: #888780;
+      margin-top: 2px;
+    }
+
+    .tt3p {
+      font-size: 10px;
+      font-weight: 500;
+      margin-top: 3px;
+    }
+
+    .tt3today {
+      border-color: #185FA5;
+      background: #f8fbff;
+    }
+
+    /* BU header badge */
+    .bu-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: #fff;
+      border-radius: 10px;
+      border: 0.5px solid #d3d1c7;
+    }
+
+    .bu-name {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .bu-owner {
+      font-size: 11px;
+      color: #888780;
+      margin-top: 1px;
+    }
+
+    .bu-status-badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+  </style>
 </head>
+
 <body>
-<div class="dash">
+  <div class="dash">
 
-<!-- HEADER -->
-<div class="hdr">
-  <div>
-    <h1>Dashboard Chi Tiết Từng BU</h1>
-    <p>Ngày báo cáo: 11/04/2026 &nbsp;|&nbsp; Tháng 04/2026</p>
-  </div>
-  <div class="hdr-right">
-    <select class="filter-sel"><option>T04/2026</option><option>T03/2026</option></select>
-    <a href="dash1_overview.html" style="font-size:11px;padding:5px 12px;border:0.5px solid #d3d1c7;border-radius:7px;background:#fff;color:#185FA5;text-decoration:none;">← Tổng quan</a>
-  </div>
-</div>
-
-<!-- BU TABS -->
-<div class="bu-tabs">
-  <button class="bu-tab active" onclick="showBU('elevator',this)">Elevator</button>
-  <button class="bu-tab amber" onclick="showBU('ibiz-premium',this)">iBiz Premium</button>
-  <button class="bu-tab red" onclick="showBU('ibiz-value',this)">iBiz Value</button>
-  <button class="bu-tab green" onclick="showBU('eco',this)">ECO</button>
-  <button class="bu-tab red" onclick="showBU('agritech',this)">AgriTech</button>
-</div>
-
-<!-- ===== ELEVATOR ===== -->
-<div id="bu-elevator" class="bu-view active">
-  <div class="bu-header">
-    <div>
-      <div class="bu-name">Elevator</div>
-      <div class="bu-owner">Phụ trách: Mr. Tiến Dũng &nbsp;|&nbsp; 4 sub-mảng: HPC · Hisa–HPC · 5EX · Hisa–FJT</div>
-    </div>
-    <span class="bu-status-badge" style="background:#FAEEDA;color:#854F0B;">DT: 34% KH &nbsp;|&nbsp; TT: 20% KH</span>
-  </div>
-
-  <div class="slbl">KPI tháng — Elevator</div>
-  <div class="kpi4">
-    <div class="kc blue"><div class="kl">DT tháng</div><div class="kv">13,493<span class="ku"> tr</span></div><div class="kt">/ 39,880 tr</div><div class="krow"><span class="kpct" style="color:#BA7517;">34%</span><div class="kbg"><div class="kfill" style="width:34%;background:#BA7517;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –26,387 tr &nbsp;<span style="color:#888780;">T03: 42,173</span></div></div>
-    <div class="kc teal"><div class="kl">Thu tiền tháng</div><div class="kv">7,635<span class="ku"> tr</span></div><div class="kt">/ 37,775 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">20%</span><div class="kbg"><div class="kfill" style="width:20%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –30,140 tr &nbsp;<span style="color:#888780;">T03: 31,100</span></div></div>
-    <div class="kc blue"><div class="kl">DT hôm nay</div><div class="kv">499<span class="ku"> tr</span></div><div class="kt">/ 1,534 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#BA7517;">33%</span><div class="kbg"><div class="kfill" style="width:33%;background:#BA7517;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –1,035 tr</div></div>
-    <div class="kc teal"><div class="kl">Thu tiền hôm nay</div><div class="kv">96<span class="ku"> tr</span></div><div class="kt">/ 4,555 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#A32D2D;">2%</span><div class="kbg"><div class="kfill" style="width:2%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –4,459 tr</div></div>
-  </div>
-
-  <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
-  <div class="tt3">
-    <div class="tt3c"><div class="tt3d">09/04</div><div class="tt3v">320 tr</div><div class="tt3sub">DT: 950 tr</div><div class="tt3p" style="color:#A32D2D;">TT: 7% KH tuần</div></div>
-    <div class="tt3c"><div class="tt3d">10/04</div><div class="tt3v">480 tr</div><div class="tt3sub">DT: 750 tr</div><div class="tt3p" style="color:#854F0B;">TT: 10% KH tuần</div></div>
-    <div class="tt3c tt3today"><div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div><div class="tt3v">96 tr</div><div class="tt3sub">DT: 499 tr</div><div class="tt3p" style="color:#A32D2D;">TT: 2% KH tuần</div></div>
-  </div>
-
-  <div class="r2">
-    <div class="card">
-      <div class="ct">Sub-mảng — DT KH vs lũy kế T04</div>
-      <div class="leg-row">
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH tháng</span>
-        <span class="leg"><span class="lsq" style="background:#185FA5;"></span>Thực hiện</span>
-        <span class="leg"><span class="lsq" style="background:#EAF3DE;border:0.5px solid #C0DD97;"></span>Gap</span>
+    <!-- HEADER -->
+    <div class="hdr">
+      <div>
+        <h1>Dashboard Chi Tiết Từng BU</h1>
+        <p>Ngày báo cáo: 11/04/2026 &nbsp;|&nbsp; Tháng 04/2026</p>
       </div>
-      <div style="position:relative;width:100%;height:220px;"><canvas id="cElDT" role="img" aria-label="Elevator DT sub">.</canvas></div>
-    </div>
-    <div class="card">
-      <div class="ct">Sub-mảng — TT KH vs lũy kế T04</div>
-      <div class="leg-row">
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH tháng</span>
-        <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>Thực hiện</span>
-        <span class="leg"><span class="lsq" style="background:#E1F5EE;border:0.5px solid #9FE1CB;"></span>Gap</span>
+      <div class="hdr-right">
+        <select class="filter-sel">
+          <option>T04/2026</option>
+          <option>T03/2026</option>
+        </select>
+        <a href="dash1_overview.html"
+          style="font-size:11px;padding:5px 12px;border:0.5px solid #d3d1c7;border-radius:7px;background:#fff;color:#185FA5;text-decoration:none;">←
+          Tổng quan</a>
       </div>
-      <div style="position:relative;width:100%;height:220px;"><canvas id="cElTT" role="img" aria-label="Elevator TT sub">.</canvas></div>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="ct">Bảng chi tiết — Elevator sub-mảng T04/2026</div>
-    <table class="bt">
-      <thead>
-        <tr><th style="text-align:left;">Sub-mảng</th><th>KH DT</th><th>KQ DT ngày</th><th>LK DT T04</th><th>LK DT T03</th><th>% KH DT</th><th>Gap DT</th><th>KH TT</th><th>LK TT T04</th><th>% KH TT</th><th>vs T03 DT</th></tr>
-      </thead>
-      <tbody>
-        <tr class="tot"><td>Tổng Elevator</td><td>39,880</td><td>499</td><td>13,493</td><td>42,173</td><td><span class="pill pa">34%</span></td><td style="color:#A32D2D;">–26,387</td><td>37,775</td><td>7,635</td><td><span class="pill pr">20%</span></td><td><span class="pill pa">32%</span></td></tr>
-        <tr><td>Elevator (HPC)</td><td>17,500</td><td>430</td><td>7,604</td><td>17,709</td><td><span class="pill pa">43%</span></td><td style="color:#854F0B;">–9,896</td><td>13,497</td><td>3,339</td><td><span class="pill pr">25%</span></td><td><span class="pill pa">43%</span></td></tr>
-        <tr><td>Hisa–HPC</td><td>4,000</td><td>69</td><td>5,475</td><td>9,603</td><td><span class="pill pg">137%</span></td><td style="color:#3B6D11;">+1,475</td><td>20,898</td><td>3,919</td><td><span class="pill pr">19%</span></td><td><span class="pill pa">57%</span></td></tr>
-        <tr><td>5EX</td><td>3,380</td><td>—</td><td>414</td><td>927</td><td><span class="pill pr">12%</span></td><td style="color:#A32D2D;">–2,966</td><td>3,380</td><td>377</td><td><span class="pill pr">11%</span></td><td><span class="pill pa">45%</span></td></tr>
-        <tr><td>Hisa–FJT</td><td>15,000</td><td>—</td><td>0</td><td>13,936</td><td><span class="pill pr">0%</span></td><td style="color:#A32D2D;">–15,000</td><td>—</td><td>0</td><td>—</td><td><span class="pill pr">0%</span></td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+    <!-- BU TABS -->
+    <div class="bu-tabs">
+      <button class="bu-tab active" onclick="showBU('elevator',this)">Elevator</button>
+      <button class="bu-tab amber" onclick="showBU('ibiz-premium',this)">iBiz Premium</button>
+      <button class="bu-tab red" onclick="showBU('ibiz-value',this)">iBiz Value</button>
+      <button class="bu-tab green" onclick="showBU('eco',this)">ECO</button>
+      <button class="bu-tab red" onclick="showBU('agritech',this)">AgriTech</button>
+    </div>
 
-<!-- ===== iBIZ PREMIUM ===== -->
-<div id="bu-ibiz-premium" class="bu-view">
-  <div class="bu-header">
-    <div><div class="bu-name">iBiz Premium</div><div class="bu-owner">Phụ trách: Mr. Nhật Minh</div></div>
-    <span class="bu-status-badge" style="background:#FAEEDA;color:#854F0B;">DT: 40% KH &nbsp;|&nbsp; TT: 18% KH</span>
-  </div>
-
-  <div class="slbl">KPI tháng — iBiz Premium</div>
-  <div class="kpi4">
-    <div class="kc blue"><div class="kl">DT tháng</div><div class="kv">5,566<span class="ku"> tr</span></div><div class="kt">/ 13,900 tr</div><div class="krow"><span class="kpct" style="color:#BA7517;">40%</span><div class="kbg"><div class="kfill" style="width:40%;background:#BA7517;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –8,334 tr &nbsp;<span style="color:#888780;">T03: 19,638</span></div></div>
-    <div class="kc teal"><div class="kl">Thu tiền tháng</div><div class="kv">2,204<span class="ku"> tr</span></div><div class="kt">/ 12,504 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">18%</span><div class="kbg"><div class="kfill" style="width:18%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –10,300 tr &nbsp;<span style="color:#888780;">T03: 10,464</span></div></div>
-    <div class="kc blue"><div class="kl">DT hôm nay</div><div class="kv">498<span class="ku"> tr</span></div><div class="kt">/ 535 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#3B6D11;">93%</span><div class="kbg"><div class="kfill" style="width:93%;background:#3B6D11;"></div></div></div><div class="kdelta" style="color:#3B6D11;">▲ Đúng nhịp</div></div>
-    <div class="kc teal"><div class="kl">Thu tiền hôm nay</div><div class="kv">102<span class="ku"> tr</span></div><div class="kt">/ 124 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#BA7517;">82%</span><div class="kbg"><div class="kfill" style="width:82%;background:#BA7517;"></div></div></div><div class="kdelta" style="color:#3B6D11;">▲ Tốt</div></div>
-  </div>
-
-  <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
-  <div class="tt3">
-    <div class="tt3c"><div class="tt3d">09/04</div><div class="tt3v">280 tr</div><div class="tt3sub">DT: 650 tr</div><div class="tt3p" style="color:#854F0B;">TT: 52% KH tuần</div></div>
-    <div class="tt3c"><div class="tt3d">10/04</div><div class="tt3v">350 tr</div><div class="tt3sub">DT: 520 tr</div><div class="tt3p" style="color:#854F0B;">TT: 65% KH tuần</div></div>
-    <div class="tt3c tt3today"><div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div><div class="tt3v">102 tr</div><div class="tt3sub">DT: 498 tr</div><div class="tt3p" style="color:#854F0B;">TT: 82% KH tuần</div></div>
-  </div>
-
-  <div class="r27">
-    <div class="card">
-      <div class="ct">DT & TT — KH vs lũy kế T04 &nbsp;<span style="font-size:11px;font-weight:400;color:#888780;">đơn vị: tỷ đồng</span></div>
-      <div class="leg-row">
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH DT</span>
-        <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH TT</span>
-        <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+    <!-- ===== ELEVATOR ===== -->
+    <div id="bu-elevator" class="bu-view active">
+      <div class="bu-header">
+        <div>
+          <div class="bu-name">Elevator</div>
+          <div class="bu-owner">Phụ trách: Mr. Tiến Dũng &nbsp;|&nbsp; 4 sub-mảng: HPC · Hisa–HPC · 5EX · Hisa–FJT</div>
+        </div>
+        <span class="bu-status-badge" style="background:#FAEEDA;color:#854F0B;">DT: 34% KH &nbsp;|&nbsp; TT: 20%
+          KH</span>
       </div>
-      <div style="position:relative;width:100%;height:220px;"><canvas id="cIBPChart" role="img" aria-label="iBiz Premium DT TT">.</canvas></div>
-    </div>
-    <div class="card">
-      <div class="ct">Chỉ tiêu chi tiết</div>
-      <table class="bt">
-        <thead><tr><th style="text-align:left;">Chỉ tiêu</th><th>KH tháng</th><th>Thực hiện</th><th>T03</th><th>% KH</th><th>vs T03</th></tr></thead>
-        <tbody>
-          <tr><td>Doanh thu</td><td>13,900</td><td>5,566</td><td>19,638</td><td><span class="pill pa">40%</span></td><td><span class="pill pa">28%</span></td></tr>
-          <tr><td>Thu tiền</td><td>12,504</td><td>2,204</td><td>10,464</td><td><span class="pill pr">18%</span></td><td><span class="pill pa">21%</span></td></tr>
-          <tr><td>DT ngày</td><td>535</td><td>498</td><td>—</td><td><span class="pill pg">93%</span></td><td>—</td></tr>
-          <tr><td>TT ngày</td><td>124</td><td>102</td><td>—</td><td><span class="pill pg">82%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần DT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pg">111%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần TT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pg">143%</span></td><td>—</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
 
-<!-- ===== iBIZ VALUE ===== -->
-<div id="bu-ibiz-value" class="bu-view">
-  <div class="bu-header">
-    <div><div class="bu-name">iBiz Value</div><div class="bu-owner">Phụ trách: Mr. Duy Hiếu</div></div>
-    <span class="bu-status-badge" style="background:#FCEBEB;color:#A32D2D;">DT: 11% KH &nbsp;|&nbsp; TT: 11% KH — Cần theo dõi</span>
-  </div>
-
-  <div class="slbl">KPI tháng — iBiz Value</div>
-  <div class="kpi4">
-    <div class="kc blue"><div class="kl">DT tháng</div><div class="kv">188<span class="ku"> tr</span></div><div class="kt">/ 1,680 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">11%</span><div class="kbg"><div class="kfill" style="width:11%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –1,492 tr &nbsp;<span style="color:#888780;">T03: 238</span></div></div>
-    <div class="kc teal"><div class="kl">Thu tiền tháng</div><div class="kv">186<span class="ku"> tr</span></div><div class="kt">/ 1,680 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">11%</span><div class="kbg"><div class="kfill" style="width:11%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#3B6D11;">T03: 185 tr — ngang &nbsp;<span class="pill pg">101%</span></div></div>
-    <div class="kc blue"><div class="kl">DT hôm nay</div><div class="kv">56<span class="ku"> tr</span></div><div class="kt">/ 65 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#BA7517;">87%</span><div class="kbg"><div class="kfill" style="width:87%;background:#BA7517;"></div></div></div><div class="kdelta" style="color:#3B6D11;">▲ Tốt trong ngày</div></div>
-    <div class="kc teal"><div class="kl">Thu tiền hôm nay</div><div class="kv">24<span class="ku"> tr</span></div><div class="kt">/ 65 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#A32D2D;">37%</span><div class="kbg"><div class="kfill" style="width:37%;background:#BA7517;"></div></div></div><div class="kdelta" style="color:#854F0B;">▼ –41 tr</div></div>
-  </div>
-
-  <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
-  <div class="tt3">
-    <div class="tt3c"><div class="tt3d">09/04</div><div class="tt3v">45 tr</div><div class="tt3sub">DT: 68 tr</div><div class="tt3p" style="color:#854F0B;">TT: 69% KH tuần</div></div>
-    <div class="tt3c"><div class="tt3d">10/04</div><div class="tt3v">38 tr</div><div class="tt3sub">DT: 52 tr</div><div class="tt3p" style="color:#854F0B;">TT: 58% KH tuần</div></div>
-    <div class="tt3c tt3today"><div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div><div class="tt3v">24 tr</div><div class="tt3sub">DT: 56 tr</div><div class="tt3p" style="color:#A32D2D;">TT: 37% KH tuần</div></div>
-  </div>
-
-  <div class="r27">
-    <div class="card">
-      <div class="ct">DT & TT — KH vs lũy kế T04</div>
-      <div class="leg-row">
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH DT</span>
-        <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH TT</span>
-        <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+      <div class="slbl">KPI tháng — Elevator</div>
+      <div class="kpi4">
+        <div class="kc blue">
+          <div class="kl">DT tháng</div>
+          <div class="kv">13,493<span class="ku"> tr</span></div>
+          <div class="kt">/ 39,880 tr</div>
+          <div class="krow"><span class="kpct" style="color:#BA7517;">34%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:34%;background:#BA7517;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –26,387 tr &nbsp;<span style="color:#888780;">T03: 42,173</span>
+          </div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền tháng</div>
+          <div class="kv">7,635<span class="ku"> tr</span></div>
+          <div class="kt">/ 37,775 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">20%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:20%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –30,140 tr &nbsp;<span style="color:#888780;">T03: 31,100</span>
+          </div>
+        </div>
+        <div class="kc blue">
+          <div class="kl">DT hôm nay</div>
+          <div class="kv">499<span class="ku"> tr</span></div>
+          <div class="kt">/ 1,534 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#BA7517;">33%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:33%;background:#BA7517;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –1,035 tr</div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền hôm nay</div>
+          <div class="kv">96<span class="ku"> tr</span></div>
+          <div class="kt">/ 4,555 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">2%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:2%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –4,459 tr</div>
+        </div>
       </div>
-      <div style="position:relative;width:100%;height:220px;"><canvas id="cIBVChart" role="img" aria-label="iBiz Value DT TT">.</canvas></div>
-    </div>
-    <div class="card">
-      <div class="ct">Chỉ tiêu chi tiết</div>
-      <table class="bt">
-        <thead><tr><th style="text-align:left;">Chỉ tiêu</th><th>KH tháng</th><th>Thực hiện</th><th>T03</th><th>% KH</th><th>vs T03</th></tr></thead>
-        <tbody>
-          <tr><td>Doanh thu</td><td>1,680</td><td>188</td><td>238</td><td><span class="pill pr">11%</span></td><td><span class="pill pg">79%</span></td></tr>
-          <tr><td>Thu tiền</td><td>1,680</td><td>186</td><td>185</td><td><span class="pill pr">11%</span></td><td><span class="pill pg">101%</span></td></tr>
-          <tr><td>DT ngày</td><td>65</td><td>56</td><td>—</td><td><span class="pill pa">87%</span></td><td>—</td></tr>
-          <tr><td>TT ngày</td><td>65</td><td>24</td><td>—</td><td><span class="pill pa">37%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần DT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pa">37%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần TT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pa">20%</span></td><td>—</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
 
-<!-- ===== ECO ===== -->
-<div id="bu-eco" class="bu-view">
-  <div class="bu-header">
-    <div><div class="bu-name">ECO</div><div class="bu-owner">Phụ trách: Mr. Văn Mừng</div></div>
-    <span class="bu-status-badge" style="background:#EAF3DE;color:#3B6D11;">DT: 72% KH — Đang tốt &nbsp;|&nbsp; TT: 23% KH</span>
-  </div>
-
-  <div class="slbl">KPI tháng — ECO</div>
-  <div class="kpi4">
-    <div class="kc green"><div class="kl">DT tháng</div><div class="kv">1,405<span class="ku"> tr</span></div><div class="kt">/ 1,942 tr</div><div class="krow"><span class="kpct" style="color:#3B6D11;">72%</span><div class="kbg"><div class="kfill" style="width:72%;background:#3B6D11;"></div></div></div><div class="kdelta" style="color:#3B6D11;">▲ T03: 442 tr — tăng 318%</div></div>
-    <div class="kc teal"><div class="kl">Thu tiền tháng</div><div class="kv">453<span class="ku"> tr</span></div><div class="kt">/ 1,942 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">23%</span><div class="kbg"><div class="kfill" style="width:23%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#3B6D11;">T03: 354 tr — tăng 128%</div></div>
-    <div class="kc blue"><div class="kl">DT hôm nay</div><div class="kv">0<span class="ku"> tr</span></div><div class="kt">/ 75 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span><div class="kbg"><div class="kfill" style="width:0%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">Chưa phát sinh hôm nay</div></div>
-    <div class="kc teal"><div class="kl">Thu tiền hôm nay</div><div class="kv">316<span class="ku"> tr</span></div><div class="kt">/ 75 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#3B6D11;">423%</span><div class="kbg"><div class="kfill" style="width:100%;background:#3B6D11;"></div></div></div><div class="kdelta" style="color:#3B6D11;">▲ Vượt KH tuần</div></div>
-  </div>
-
-  <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
-  <div class="tt3">
-    <div class="tt3c"><div class="tt3d">09/04</div><div class="tt3v">20 tr</div><div class="tt3sub">DT: 180 tr</div><div class="tt3p" style="color:#854F0B;">TT: 27% KH tuần</div></div>
-    <div class="tt3c"><div class="tt3d">10/04</div><div class="tt3v">45 tr</div><div class="tt3sub">DT: 210 tr</div><div class="tt3p" style="color:#854F0B;">TT: 60% KH tuần</div></div>
-    <div class="tt3c tt3today"><div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div><div class="tt3v" style="color:#3B6D11;font-size:20px;">316 tr</div><div class="tt3sub">DT: 0 tr</div><div class="tt3p" style="color:#3B6D11;">TT: 423% KH tuần ↑↑</div></div>
-  </div>
-
-  <div class="r27">
-    <div class="card">
-      <div class="ct">DT & TT — KH vs lũy kế T04</div>
-      <div class="leg-row">
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH DT</span>
-        <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH TT</span>
-        <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+      <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
+      <div class="tt3">
+        <div class="tt3c">
+          <div class="tt3d">09/04</div>
+          <div class="tt3v">320 tr</div>
+          <div class="tt3sub">DT: 950 tr</div>
+          <div class="tt3p" style="color:#A32D2D;">TT: 7% KH tuần</div>
+        </div>
+        <div class="tt3c">
+          <div class="tt3d">10/04</div>
+          <div class="tt3v">480 tr</div>
+          <div class="tt3sub">DT: 750 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 10% KH tuần</div>
+        </div>
+        <div class="tt3c tt3today">
+          <div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div>
+          <div class="tt3v">96 tr</div>
+          <div class="tt3sub">DT: 499 tr</div>
+          <div class="tt3p" style="color:#A32D2D;">TT: 2% KH tuần</div>
+        </div>
       </div>
-      <div style="position:relative;width:100%;height:220px;"><canvas id="cECOChart" role="img" aria-label="ECO DT TT">.</canvas></div>
-    </div>
-    <div class="card">
-      <div class="ct">Chỉ tiêu chi tiết</div>
-      <table class="bt">
-        <thead><tr><th style="text-align:left;">Chỉ tiêu</th><th>KH tháng</th><th>Thực hiện</th><th>T03</th><th>% KH</th><th>vs T03</th></tr></thead>
-        <tbody>
-          <tr><td>Doanh thu</td><td>1,942</td><td>1,405</td><td>442</td><td><span class="pill pg">72%</span></td><td><span class="pill pg">318%</span></td></tr>
-          <tr><td>Thu tiền</td><td>1,942</td><td>453</td><td>354</td><td><span class="pill pr">23%</span></td><td><span class="pill pg">128%</span></td></tr>
-          <tr><td>DT ngày</td><td>75</td><td>0</td><td>—</td><td><span class="pill pr">0%</span></td><td>—</td></tr>
-          <tr><td>TT ngày</td><td>75</td><td>316</td><td>—</td><td><span class="pill pg">423%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần DT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pg">311%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần TT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pg">101%</span></td><td>—</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
 
-<!-- ===== AGRITECH ===== -->
-<div id="bu-agritech" class="bu-view">
-  <div class="bu-header">
-    <div><div class="bu-name">AgriTech</div><div class="bu-owner">Phụ trách: Mr. Kỳ Quan</div></div>
-    <span class="bu-status-badge" style="background:#FCEBEB;color:#A32D2D;">DT: 8% KH &nbsp;|&nbsp; TT: 0% — Rủi ro cao</span>
-  </div>
-
-  <div class="slbl">KPI tháng — AgriTech</div>
-  <div class="kpi4">
-    <div class="kc blue"><div class="kl">DT tháng</div><div class="kv">42<span class="ku"> tr</span></div><div class="kt">/ 550 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">8%</span><div class="kbg"><div class="kfill" style="width:8%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –508 tr &nbsp;<span style="color:#888780;">T03: 670</span></div></div>
-    <div class="kc teal"><div class="kl">Thu tiền tháng</div><div class="kv">0<span class="ku"> tr</span></div><div class="kt">/ 550 tr</div><div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span><div class="kbg"><div class="kfill" style="width:0%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">▼ –550 tr &nbsp;<span style="color:#888780;">T03: 335</span></div></div>
-    <div class="kc blue"><div class="kl">DT hôm nay</div><div class="kv">0<span class="ku"> tr</span></div><div class="kt">/ 21 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span><div class="kbg"><div class="kfill" style="width:0%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">Chưa phát sinh</div></div>
-    <div class="kc teal"><div class="kl">Thu tiền hôm nay</div><div class="kv">0<span class="ku"> tr</span></div><div class="kt">/ 21 tr (ngày)</div><div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span><div class="kbg"><div class="kfill" style="width:0%;background:#E24B4A;"></div></div></div><div class="kdelta" style="color:#A32D2D;">Chưa phát sinh</div></div>
-  </div>
-
-  <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
-  <div class="tt3">
-    <div class="tt3c"><div class="tt3d">09/04</div><div class="tt3v" style="color:#A32D2D;">0 tr</div><div class="tt3sub">DT: 0 tr</div><div class="tt3p" style="color:#A32D2D;">Không phát sinh</div></div>
-    <div class="tt3c"><div class="tt3d">10/04</div><div class="tt3v" style="color:#A32D2D;">0 tr</div><div class="tt3sub">DT: 0 tr</div><div class="tt3p" style="color:#A32D2D;">Không phát sinh</div></div>
-    <div class="tt3c tt3today"><div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div><div class="tt3v" style="color:#A32D2D;">0 tr</div><div class="tt3sub">DT: 0 tr</div><div class="tt3p" style="color:#A32D2D;">Không phát sinh</div></div>
-  </div>
-
-  <div class="r27">
-    <div class="card">
-      <div class="ct">DT & TT — KH vs lũy kế T04</div>
-      <div class="leg-row">
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH DT</span>
-        <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
-        <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH TT</span>
-        <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+      <div class="r2">
+        <div class="card">
+          <div class="ct">Sub-mảng — DT KH vs lũy kế T04</div>
+          <div class="leg-row">
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH
+              tháng</span>
+            <span class="leg"><span class="lsq" style="background:#185FA5;"></span>Thực hiện</span>
+            <span class="leg"><span class="lsq" style="background:#EAF3DE;border:0.5px solid #C0DD97;"></span>Gap</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="cElDT" role="img"
+              aria-label="Elevator DT sub">.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="ct">Sub-mảng — TT KH vs lũy kế T04</div>
+          <div class="leg-row">
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH
+              tháng</span>
+            <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>Thực hiện</span>
+            <span class="leg"><span class="lsq" style="background:#E1F5EE;border:0.5px solid #9FE1CB;"></span>Gap</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="cElTT" role="img"
+              aria-label="Elevator TT sub">.</canvas></div>
+        </div>
       </div>
-      <div style="position:relative;width:100%;height:220px;"><canvas id="cAGRChart" role="img" aria-label="AgriTech DT TT">.</canvas></div>
+
+      <div class="card">
+        <div class="ct">Bảng chi tiết — Elevator sub-mảng T04/2026</div>
+        <table class="bt">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Sub-mảng</th>
+              <th>KH DT</th>
+              <th>KQ DT ngày</th>
+              <th>LK DT T04</th>
+              <th>LK DT T03</th>
+              <th>% KH DT</th>
+              <th>Gap DT</th>
+              <th>KH TT</th>
+              <th>LK TT T04</th>
+              <th>% KH TT</th>
+              <th>vs T03 DT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="tot">
+              <td>Tổng Elevator</td>
+              <td>39,880</td>
+              <td>499</td>
+              <td>13,493</td>
+              <td>42,173</td>
+              <td><span class="pill pa">34%</span></td>
+              <td style="color:#A32D2D;">–26,387</td>
+              <td>37,775</td>
+              <td>7,635</td>
+              <td><span class="pill pr">20%</span></td>
+              <td><span class="pill pa">32%</span></td>
+            </tr>
+            <tr>
+              <td>Elevator (HPC)</td>
+              <td>17,500</td>
+              <td>430</td>
+              <td>7,604</td>
+              <td>17,709</td>
+              <td><span class="pill pa">43%</span></td>
+              <td style="color:#854F0B;">–9,896</td>
+              <td>13,497</td>
+              <td>3,339</td>
+              <td><span class="pill pr">25%</span></td>
+              <td><span class="pill pa">43%</span></td>
+            </tr>
+            <tr>
+              <td>Hisa–HPC</td>
+              <td>4,000</td>
+              <td>69</td>
+              <td>5,475</td>
+              <td>9,603</td>
+              <td><span class="pill pg">137%</span></td>
+              <td style="color:#3B6D11;">+1,475</td>
+              <td>20,898</td>
+              <td>3,919</td>
+              <td><span class="pill pr">19%</span></td>
+              <td><span class="pill pa">57%</span></td>
+            </tr>
+            <tr>
+              <td>5EX</td>
+              <td>3,380</td>
+              <td>—</td>
+              <td>414</td>
+              <td>927</td>
+              <td><span class="pill pr">12%</span></td>
+              <td style="color:#A32D2D;">–2,966</td>
+              <td>3,380</td>
+              <td>377</td>
+              <td><span class="pill pr">11%</span></td>
+              <td><span class="pill pa">45%</span></td>
+            </tr>
+            <tr>
+              <td>Hisa–FJT</td>
+              <td>15,000</td>
+              <td>—</td>
+              <td>0</td>
+              <td>13,936</td>
+              <td><span class="pill pr">0%</span></td>
+              <td style="color:#A32D2D;">–15,000</td>
+              <td>—</td>
+              <td>0</td>
+              <td>—</td>
+              <td><span class="pill pr">0%</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="card">
-      <div class="ct">Chỉ tiêu chi tiết</div>
-      <table class="bt">
-        <thead><tr><th style="text-align:left;">Chỉ tiêu</th><th>KH tháng</th><th>Thực hiện</th><th>T03</th><th>% KH</th><th>vs T03</th></tr></thead>
-        <tbody>
-          <tr><td>Doanh thu</td><td>550</td><td>42</td><td>670</td><td><span class="pill pr">8%</span></td><td><span class="pill pr">6%</span></td></tr>
-          <tr><td>Thu tiền</td><td>550</td><td>0</td><td>335</td><td><span class="pill pr">0%</span></td><td><span class="pill pr">0%</span></td></tr>
-          <tr><td>DT ngày</td><td>21</td><td>0</td><td>—</td><td><span class="pill pr">0%</span></td><td>—</td></tr>
-          <tr><td>TT ngày</td><td>21</td><td>0</td><td>—</td><td><span class="pill pr">0%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần DT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pr">33%</span></td><td>—</td></tr>
-          <tr><td>% KH tuần TT</td><td>—</td><td>—</td><td>—</td><td><span class="pill pr">0%</span></td><td>—</td></tr>
-        </tbody>
-      </table>
+
+    <!-- ===== iBIZ PREMIUM ===== -->
+    <div id="bu-ibiz-premium" class="bu-view">
+      <div class="bu-header">
+        <div>
+          <div class="bu-name">iBiz Premium</div>
+          <div class="bu-owner">Phụ trách: Mr. Nhật Minh</div>
+        </div>
+        <span class="bu-status-badge" style="background:#FAEEDA;color:#854F0B;">DT: 40% KH &nbsp;|&nbsp; TT: 18%
+          KH</span>
+      </div>
+
+      <div class="slbl">KPI tháng — iBiz Premium</div>
+      <div class="kpi4">
+        <div class="kc blue">
+          <div class="kl">DT tháng</div>
+          <div class="kv">5,566<span class="ku"> tr</span></div>
+          <div class="kt">/ 13,900 tr</div>
+          <div class="krow"><span class="kpct" style="color:#BA7517;">40%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:40%;background:#BA7517;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –8,334 tr &nbsp;<span style="color:#888780;">T03: 19,638</span>
+          </div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền tháng</div>
+          <div class="kv">2,204<span class="ku"> tr</span></div>
+          <div class="kt">/ 12,504 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">18%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:18%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –10,300 tr &nbsp;<span style="color:#888780;">T03: 10,464</span>
+          </div>
+        </div>
+        <div class="kc blue">
+          <div class="kl">DT hôm nay</div>
+          <div class="kv">498<span class="ku"> tr</span></div>
+          <div class="kt">/ 535 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#3B6D11;">93%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:93%;background:#3B6D11;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">▲ Đúng nhịp</div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền hôm nay</div>
+          <div class="kv">102<span class="ku"> tr</span></div>
+          <div class="kt">/ 124 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#BA7517;">82%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:82%;background:#BA7517;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">▲ Tốt</div>
+        </div>
+      </div>
+
+      <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
+      <div class="tt3">
+        <div class="tt3c">
+          <div class="tt3d">09/04</div>
+          <div class="tt3v">280 tr</div>
+          <div class="tt3sub">DT: 650 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 52% KH tuần</div>
+        </div>
+        <div class="tt3c">
+          <div class="tt3d">10/04</div>
+          <div class="tt3v">350 tr</div>
+          <div class="tt3sub">DT: 520 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 65% KH tuần</div>
+        </div>
+        <div class="tt3c tt3today">
+          <div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div>
+          <div class="tt3v">102 tr</div>
+          <div class="tt3sub">DT: 498 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 82% KH tuần</div>
+        </div>
+      </div>
+
+      <div class="r27">
+        <div class="card">
+          <div class="ct">DT & TT — KH vs lũy kế T04 &nbsp;<span
+              style="font-size:11px;font-weight:400;color:#888780;">đơn vị: tỷ đồng</span></div>
+          <div class="leg-row">
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH
+              DT</span>
+            <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH
+              TT</span>
+            <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="cIBPChart" role="img"
+              aria-label="iBiz Premium DT TT">.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="ct">Chỉ tiêu chi tiết</div>
+          <table class="bt">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Chỉ tiêu</th>
+                <th>KH tháng</th>
+                <th>Thực hiện</th>
+                <th>T03</th>
+                <th>% KH</th>
+                <th>vs T03</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Doanh thu</td>
+                <td>13,900</td>
+                <td>5,566</td>
+                <td>19,638</td>
+                <td><span class="pill pa">40%</span></td>
+                <td><span class="pill pa">28%</span></td>
+              </tr>
+              <tr>
+                <td>Thu tiền</td>
+                <td>12,504</td>
+                <td>2,204</td>
+                <td>10,464</td>
+                <td><span class="pill pr">18%</span></td>
+                <td><span class="pill pa">21%</span></td>
+              </tr>
+              <tr>
+                <td>DT ngày</td>
+                <td>535</td>
+                <td>498</td>
+                <td>—</td>
+                <td><span class="pill pg">93%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>TT ngày</td>
+                <td>124</td>
+                <td>102</td>
+                <td>—</td>
+                <td><span class="pill pg">82%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần DT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pg">111%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần TT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pg">143%</span></td>
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-</div><!-- .dash -->
+    <!-- ===== iBIZ VALUE ===== -->
+    <div id="bu-ibiz-value" class="bu-view">
+      <div class="bu-header">
+        <div>
+          <div class="bu-name">iBiz Value</div>
+          <div class="bu-owner">Phụ trách: Mr. Duy Hiếu</div>
+        </div>
+        <span class="bu-status-badge" style="background:#FCEBEB;color:#A32D2D;">DT: 11% KH &nbsp;|&nbsp; TT: 11% KH —
+          Cần theo dõi</span>
+      </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-var dp={id:'dp',afterDatasetsDraw(c){var x=c.ctx;c.data.datasets.forEach((d,i)=>{if(!d._d)return;c.getDatasetMeta(i).data.forEach(b=>{var{x:bx,y:by,width:bw,base:bb}=b.getProps(['x','y','width','base'],true);var h=bw/2;x.save();x.setLineDash([3,3]);x.strokeStyle=d.borderColor;x.lineWidth=1.5;x.strokeRect(bx-h,by,bw,bb-by);x.restore();});});}};
-var lp={id:'lp',afterDatasetsDraw(c){var x=c.ctx;c.data.datasets.forEach((ds,i)=>{if(ds._d||ds.type==='line')return;var meta=c.getDatasetMeta(i);if(meta.hidden)return;meta.data.forEach((bar,j)=>{var v=ds.data[j];if(!v||v<50)return;var{x:bx,y:by,width:bw,base:bb}=bar.getProps(['x','y','width','base'],true);var bh=bb-by;if(bh<14)return;x.save();x.font='500 11px sans-serif';x.fillStyle='#fff';x.textAlign='center';x.textBaseline='middle';x.fillText((v/1000).toFixed(1),bx,by+Math.min(12,bh/2));x.restore();});});}};
-Chart.register(dp,lp);
+      <div class="slbl">KPI tháng — iBiz Value</div>
+      <div class="kpi4">
+        <div class="kc blue">
+          <div class="kl">DT tháng</div>
+          <div class="kv">188<span class="ku"> tr</span></div>
+          <div class="kt">/ 1,680 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">11%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:11%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –1,492 tr &nbsp;<span style="color:#888780;">T03: 238</span>
+          </div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền tháng</div>
+          <div class="kv">186<span class="ku"> tr</span></div>
+          <div class="kt">/ 1,680 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">11%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:11%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">T03: 185 tr — ngang &nbsp;<span class="pill pg">101%</span></div>
+        </div>
+        <div class="kc blue">
+          <div class="kl">DT hôm nay</div>
+          <div class="kv">56<span class="ku"> tr</span></div>
+          <div class="kt">/ 65 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#BA7517;">87%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:87%;background:#BA7517;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">▲ Tốt trong ngày</div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền hôm nay</div>
+          <div class="kv">24<span class="ku"> tr</span></div>
+          <div class="kt">/ 65 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">37%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:37%;background:#BA7517;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#854F0B;">▼ –41 tr</div>
+        </div>
+      </div>
 
-var so={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.parsed.y/1000).toFixed(1)+' tỷ'}}},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780',autoSkip:false,maxRotation:0}},y:{stacked:true,grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>v?(v/1000)+'tỷ':'0'}}}};
+      <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
+      <div class="tt3">
+        <div class="tt3c">
+          <div class="tt3d">09/04</div>
+          <div class="tt3v">45 tr</div>
+          <div class="tt3sub">DT: 68 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 69% KH tuần</div>
+        </div>
+        <div class="tt3c">
+          <div class="tt3d">10/04</div>
+          <div class="tt3v">38 tr</div>
+          <div class="tt3sub">DT: 52 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 58% KH tuần</div>
+        </div>
+        <div class="tt3c tt3today">
+          <div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div>
+          <div class="tt3v">24 tr</div>
+          <div class="tt3sub">DT: 56 tr</div>
+          <div class="tt3p" style="color:#A32D2D;">TT: 37% KH tuần</div>
+        </div>
+      </div>
 
-/* Elevator sub DT */
-var elLb=['Elev\n(HPC)','Hisa\nHPC','5EX','Hisa\nFJT'];
-var elKD=[17500,4000,3380,15000],elLD=[7604,5475,414,0],elGD=elKD.map((k,i)=>Math.max(0,k-elLD[i]));
-new Chart(document.getElementById('cElDT'),{type:'bar',data:{labels:elLb,datasets:[{label:'KH',data:elKD,backgroundColor:'rgba(0,0,0,0)',_d:true,borderColor:'#185FA5',borderWidth:0,borderSkipped:false,stack:'k'},{label:'TH',data:elLD,backgroundColor:'#185FA5',borderRadius:3,borderSkipped:false,stack:'r'},{label:'Gap',data:elGD,backgroundColor:'#EAF3DE',borderRadius:3,borderSkipped:false,stack:'r'}]},options:{...so,scales:{...so.scales,y:{...so.scales.y,max:20000}}}});
+      <div class="r27">
+        <div class="card">
+          <div class="ct">DT & TT — KH vs lũy kế T04</div>
+          <div class="leg-row">
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH
+              DT</span>
+            <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH
+              TT</span>
+            <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="cIBVChart" role="img"
+              aria-label="iBiz Value DT TT">.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="ct">Chỉ tiêu chi tiết</div>
+          <table class="bt">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Chỉ tiêu</th>
+                <th>KH tháng</th>
+                <th>Thực hiện</th>
+                <th>T03</th>
+                <th>% KH</th>
+                <th>vs T03</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Doanh thu</td>
+                <td>1,680</td>
+                <td>188</td>
+                <td>238</td>
+                <td><span class="pill pr">11%</span></td>
+                <td><span class="pill pg">79%</span></td>
+              </tr>
+              <tr>
+                <td>Thu tiền</td>
+                <td>1,680</td>
+                <td>186</td>
+                <td>185</td>
+                <td><span class="pill pr">11%</span></td>
+                <td><span class="pill pg">101%</span></td>
+              </tr>
+              <tr>
+                <td>DT ngày</td>
+                <td>65</td>
+                <td>56</td>
+                <td>—</td>
+                <td><span class="pill pa">87%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>TT ngày</td>
+                <td>65</td>
+                <td>24</td>
+                <td>—</td>
+                <td><span class="pill pa">37%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần DT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pa">37%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần TT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pa">20%</span></td>
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-/* Elevator sub TT */
-var elKT=[13497,20898,3380,0],elLT=[3339,3919,377,0],elGT=elKT.map((k,i)=>Math.max(0,k-elLT[i]));
-new Chart(document.getElementById('cElTT'),{type:'bar',data:{labels:elLb,datasets:[{label:'KH',data:elKT,backgroundColor:'rgba(0,0,0,0)',_d:true,borderColor:'#1D9E75',borderWidth:0,borderSkipped:false,stack:'k'},{label:'TH',data:elLT,backgroundColor:'#1D9E75',borderRadius:3,borderSkipped:false,stack:'r'},{label:'Gap',data:elGT,backgroundColor:'#E1F5EE',borderRadius:3,borderSkipped:false,stack:'r'}]},options:{...so,scales:{...so.scales,y:{...so.scales.y,max:25000}}}});
+    <!-- ===== ECO ===== -->
+    <div id="bu-eco" class="bu-view">
+      <div class="bu-header">
+        <div>
+          <div class="bu-name">ECO</div>
+          <div class="bu-owner">Phụ trách: Mr. Văn Mừng</div>
+        </div>
+        <span class="bu-status-badge" style="background:#EAF3DE;color:#3B6D11;">DT: 72% KH — Đang tốt &nbsp;|&nbsp; TT:
+          23% KH</span>
+      </div>
 
-/* iBiz Premium grouped */
-var ibpLb=['KH DT','TH DT','KH TT','TH TT'];
-var ibpColors=['rgba(21,95,165,0.25)','#185FA5','rgba(29,158,117,0.25)','#1D9E75'];
-new Chart(document.getElementById('cIBPChart'),{type:'bar',data:{labels:ibpLb,datasets:[{data:[13900,5566,12504,2204],backgroundColor:ibpColors,borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.parsed.y/1000).toFixed(1)+' tỷ'}}},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780'}},y:{grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>(v/1000)+'tỷ'},max:16000}}}});
+      <div class="slbl">KPI tháng — ECO</div>
+      <div class="kpi4">
+        <div class="kc green">
+          <div class="kl">DT tháng</div>
+          <div class="kv">1,405<span class="ku"> tr</span></div>
+          <div class="kt">/ 1,942 tr</div>
+          <div class="krow"><span class="kpct" style="color:#3B6D11;">72%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:72%;background:#3B6D11;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">▲ T03: 442 tr — tăng 318%</div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền tháng</div>
+          <div class="kv">453<span class="ku"> tr</span></div>
+          <div class="kt">/ 1,942 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">23%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:23%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">T03: 354 tr — tăng 128%</div>
+        </div>
+        <div class="kc blue">
+          <div class="kl">DT hôm nay</div>
+          <div class="kv">0<span class="ku"> tr</span></div>
+          <div class="kt">/ 75 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:0%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">Chưa phát sinh hôm nay</div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền hôm nay</div>
+          <div class="kv">316<span class="ku"> tr</span></div>
+          <div class="kt">/ 75 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#3B6D11;">423%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:100%;background:#3B6D11;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#3B6D11;">▲ Vượt KH tuần</div>
+        </div>
+      </div>
 
-/* iBiz Value grouped */
-var ibvColors=['rgba(21,95,165,0.25)','#185FA5','rgba(29,158,117,0.25)','#1D9E75'];
-new Chart(document.getElementById('cIBVChart'),{type:'bar',data:{labels:ibpLb,datasets:[{data:[1680,188,1680,186],backgroundColor:ibvColors,borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.parsed.y/1000).toFixed(1)+' tỷ'}}},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780'}},y:{grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>(v/1000)+'tỷ'},max:2000}}}});
+      <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
+      <div class="tt3">
+        <div class="tt3c">
+          <div class="tt3d">09/04</div>
+          <div class="tt3v">20 tr</div>
+          <div class="tt3sub">DT: 180 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 27% KH tuần</div>
+        </div>
+        <div class="tt3c">
+          <div class="tt3d">10/04</div>
+          <div class="tt3v">45 tr</div>
+          <div class="tt3sub">DT: 210 tr</div>
+          <div class="tt3p" style="color:#854F0B;">TT: 60% KH tuần</div>
+        </div>
+        <div class="tt3c tt3today">
+          <div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div>
+          <div class="tt3v" style="color:#3B6D11;font-size:20px;">316 tr</div>
+          <div class="tt3sub">DT: 0 tr</div>
+          <div class="tt3p" style="color:#3B6D11;">TT: 423% KH tuần ↑↑</div>
+        </div>
+      </div>
 
-/* ECO grouped */
-new Chart(document.getElementById('cECOChart'),{type:'bar',data:{labels:ibpLb,datasets:[{data:[1942,1405,1942,453],backgroundColor:ibvColors,borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.parsed.y/1000).toFixed(1)+' tỷ'}}},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780'}},y:{grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>(v/1000)+'tỷ'},max:2200}}}});
+      <div class="r27">
+        <div class="card">
+          <div class="ct">DT & TT — KH vs lũy kế T04</div>
+          <div class="leg-row">
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH
+              DT</span>
+            <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH
+              TT</span>
+            <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="cECOChart" role="img"
+              aria-label="ECO DT TT">.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="ct">Chỉ tiêu chi tiết</div>
+          <table class="bt">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Chỉ tiêu</th>
+                <th>KH tháng</th>
+                <th>Thực hiện</th>
+                <th>T03</th>
+                <th>% KH</th>
+                <th>vs T03</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Doanh thu</td>
+                <td>1,942</td>
+                <td>1,405</td>
+                <td>442</td>
+                <td><span class="pill pg">72%</span></td>
+                <td><span class="pill pg">318%</span></td>
+              </tr>
+              <tr>
+                <td>Thu tiền</td>
+                <td>1,942</td>
+                <td>453</td>
+                <td>354</td>
+                <td><span class="pill pr">23%</span></td>
+                <td><span class="pill pg">128%</span></td>
+              </tr>
+              <tr>
+                <td>DT ngày</td>
+                <td>75</td>
+                <td>0</td>
+                <td>—</td>
+                <td><span class="pill pr">0%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>TT ngày</td>
+                <td>75</td>
+                <td>316</td>
+                <td>—</td>
+                <td><span class="pill pg">423%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần DT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pg">311%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần TT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pg">101%</span></td>
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-/* AgriTech grouped */
-new Chart(document.getElementById('cAGRChart'),{type:'bar',data:{labels:ibpLb,datasets:[{data:[550,42,550,0],backgroundColor:['rgba(226,75,74,0.2)','#E24B4A','rgba(226,75,74,0.2)','#E24B4A'],borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.parsed.y/1000).toFixed(1)+' tỷ'}}},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780'}},y:{grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>(v/1000)+'tỷ'},max:700}}}});
+    <!-- ===== AGRITECH ===== -->
+    <div id="bu-agritech" class="bu-view">
+      <div class="bu-header">
+        <div>
+          <div class="bu-name">AgriTech</div>
+          <div class="bu-owner">Phụ trách: Mr. Kỳ Quan</div>
+        </div>
+        <span class="bu-status-badge" style="background:#FCEBEB;color:#A32D2D;">DT: 8% KH &nbsp;|&nbsp; TT: 0% — Rủi ro
+          cao</span>
+      </div>
 
-/* Tab switcher */
-function showBU(id,btn){
-  document.querySelectorAll('.bu-view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.bu-tab').forEach(b=>b.classList.remove('active'));
-  document.getElementById('bu-'+id).classList.add('active');
-  btn.classList.add('active');
-}
-</script>
+      <div class="slbl">KPI tháng — AgriTech</div>
+      <div class="kpi4">
+        <div class="kc blue">
+          <div class="kl">DT tháng</div>
+          <div class="kv">42<span class="ku"> tr</span></div>
+          <div class="kt">/ 550 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">8%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:8%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –508 tr &nbsp;<span style="color:#888780;">T03: 670</span></div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền tháng</div>
+          <div class="kv">0<span class="ku"> tr</span></div>
+          <div class="kt">/ 550 tr</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:0%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">▼ –550 tr &nbsp;<span style="color:#888780;">T03: 335</span></div>
+        </div>
+        <div class="kc blue">
+          <div class="kl">DT hôm nay</div>
+          <div class="kv">0<span class="ku"> tr</span></div>
+          <div class="kt">/ 21 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:0%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">Chưa phát sinh</div>
+        </div>
+        <div class="kc teal">
+          <div class="kl">Thu tiền hôm nay</div>
+          <div class="kv">0<span class="ku"> tr</span></div>
+          <div class="kt">/ 21 tr (ngày)</div>
+          <div class="krow"><span class="kpct" style="color:#A32D2D;">0%</span>
+            <div class="kbg">
+              <div class="kfill" style="width:0%;background:#E24B4A;"></div>
+            </div>
+          </div>
+          <div class="kdelta" style="color:#A32D2D;">Chưa phát sinh</div>
+        </div>
+      </div>
+
+      <div class="slbl">Thu tiền — 3 ngày gần nhất</div>
+      <div class="tt3">
+        <div class="tt3c">
+          <div class="tt3d">09/04</div>
+          <div class="tt3v" style="color:#A32D2D;">0 tr</div>
+          <div class="tt3sub">DT: 0 tr</div>
+          <div class="tt3p" style="color:#A32D2D;">Không phát sinh</div>
+        </div>
+        <div class="tt3c">
+          <div class="tt3d">10/04</div>
+          <div class="tt3v" style="color:#A32D2D;">0 tr</div>
+          <div class="tt3sub">DT: 0 tr</div>
+          <div class="tt3p" style="color:#A32D2D;">Không phát sinh</div>
+        </div>
+        <div class="tt3c tt3today">
+          <div class="tt3d" style="color:#185FA5;">11/04 (hôm nay)</div>
+          <div class="tt3v" style="color:#A32D2D;">0 tr</div>
+          <div class="tt3sub">DT: 0 tr</div>
+          <div class="tt3p" style="color:#A32D2D;">Không phát sinh</div>
+        </div>
+      </div>
+
+      <div class="r27">
+        <div class="card">
+          <div class="ct">DT & TT — KH vs lũy kế T04</div>
+          <div class="leg-row">
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #185FA5;background:transparent;"></span>KH
+              DT</span>
+            <span class="leg"><span class="lsq" style="background:#185FA5;"></span>TH DT</span>
+            <span class="leg"><span class="lsq" style="border:1.5px dashed #1D9E75;background:transparent;"></span>KH
+              TT</span>
+            <span class="leg"><span class="lsq" style="background:#1D9E75;"></span>TH TT</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="cAGRChart" role="img"
+              aria-label="AgriTech DT TT">.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="ct">Chỉ tiêu chi tiết</div>
+          <table class="bt">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Chỉ tiêu</th>
+                <th>KH tháng</th>
+                <th>Thực hiện</th>
+                <th>T03</th>
+                <th>% KH</th>
+                <th>vs T03</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Doanh thu</td>
+                <td>550</td>
+                <td>42</td>
+                <td>670</td>
+                <td><span class="pill pr">8%</span></td>
+                <td><span class="pill pr">6%</span></td>
+              </tr>
+              <tr>
+                <td>Thu tiền</td>
+                <td>550</td>
+                <td>0</td>
+                <td>335</td>
+                <td><span class="pill pr">0%</span></td>
+                <td><span class="pill pr">0%</span></td>
+              </tr>
+              <tr>
+                <td>DT ngày</td>
+                <td>21</td>
+                <td>0</td>
+                <td>—</td>
+                <td><span class="pill pr">0%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>TT ngày</td>
+                <td>21</td>
+                <td>0</td>
+                <td>—</td>
+                <td><span class="pill pr">0%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần DT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pr">33%</span></td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>% KH tuần TT</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill pr">0%</span></td>
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- .dash -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script>
+    var dp = { id: 'dp', afterDatasetsDraw(c) { var x = c.ctx; c.data.datasets.forEach((d, i) => { if (!d._d) return; c.getDatasetMeta(i).data.forEach(b => { var { x: bx, y: by, width: bw, base: bb } = b.getProps(['x', 'y', 'width', 'base'], true); var h = bw / 2; x.save(); x.setLineDash([3, 3]); x.strokeStyle = d.borderColor; x.lineWidth = 1.5; x.strokeRect(bx - h, by, bw, bb - by); x.restore(); }); }); } };
+    var lp = { id: 'lp', afterDatasetsDraw(c) { var x = c.ctx; c.data.datasets.forEach((ds, i) => { if (ds._d || ds.type === 'line') return; var meta = c.getDatasetMeta(i); if (meta.hidden) return; meta.data.forEach((bar, j) => { var v = ds.data[j]; if (!v || v < 50) return; var { x: bx, y: by, width: bw, base: bb } = bar.getProps(['x', 'y', 'width', 'base'], true); var bh = bb - by; if (bh < 14) return; x.save(); x.font = '500 11px sans-serif'; x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((v / 1000).toFixed(1), bx, by + Math.min(12, bh / 2)); x.restore(); }); }); } };
+    Chart.register(dp, lp);
+
+    var so = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + (c.parsed.y / 1000).toFixed(1) + ' tỷ' } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888780', autoSkip: false, maxRotation: 0 } }, y: { stacked: true, grid: { color: '#f1efe8' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => v ? (v / 1000) + 'tỷ' : '0' } } } };
+
+    /* Elevator sub DT */
+    var elLb = ['Elev\n(HPC)', 'Hisa\nHPC', '5EX', 'Hisa\nFJT'];
+    var elKD = [17500, 4000, 3380, 15000], elLD = [7604, 5475, 414, 0], elGD = elKD.map((k, i) => Math.max(0, k - elLD[i]));
+    new Chart(document.getElementById('cElDT'), { type: 'bar', data: { labels: elLb, datasets: [{ label: 'KH', data: elKD, backgroundColor: 'rgba(0,0,0,0)', _d: true, borderColor: '#185FA5', borderWidth: 0, borderSkipped: false, stack: 'k' }, { label: 'TH', data: elLD, backgroundColor: '#185FA5', borderRadius: 3, borderSkipped: false, stack: 'r' }, { label: 'Gap', data: elGD, backgroundColor: '#EAF3DE', borderRadius: 3, borderSkipped: false, stack: 'r' }] }, options: { ...so, scales: { ...so.scales, y: { ...so.scales.y, max: 20000 } } } });
+
+    /* Elevator sub TT */
+    var elKT = [13497, 20898, 3380, 0], elLT = [3339, 3919, 377, 0], elGT = elKT.map((k, i) => Math.max(0, k - elLT[i]));
+    new Chart(document.getElementById('cElTT'), { type: 'bar', data: { labels: elLb, datasets: [{ label: 'KH', data: elKT, backgroundColor: 'rgba(0,0,0,0)', _d: true, borderColor: '#1D9E75', borderWidth: 0, borderSkipped: false, stack: 'k' }, { label: 'TH', data: elLT, backgroundColor: '#1D9E75', borderRadius: 3, borderSkipped: false, stack: 'r' }, { label: 'Gap', data: elGT, backgroundColor: '#E1F5EE', borderRadius: 3, borderSkipped: false, stack: 'r' }] }, options: { ...so, scales: { ...so.scales, y: { ...so.scales.y, max: 25000 } } } });
+
+    /* iBiz Premium grouped */
+    var ibpLb = ['KH DT', 'TH DT', 'KH TT', 'TH TT'];
+    var ibpColors = ['rgba(21,95,165,0.25)', '#185FA5', 'rgba(29,158,117,0.25)', '#1D9E75'];
+    new Chart(document.getElementById('cIBPChart'), { type: 'bar', data: { labels: ibpLb, datasets: [{ data: [13900, 5566, 12504, 2204], backgroundColor: ibpColors, borderRadius: 4, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + (c.parsed.y / 1000).toFixed(1) + ' tỷ' } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888780' } }, y: { grid: { color: '#f1efe8' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => (v / 1000) + 'tỷ' }, max: 16000 } } } });
+
+    /* iBiz Value grouped */
+    var ibvColors = ['rgba(21,95,165,0.25)', '#185FA5', 'rgba(29,158,117,0.25)', '#1D9E75'];
+    new Chart(document.getElementById('cIBVChart'), { type: 'bar', data: { labels: ibpLb, datasets: [{ data: [1680, 188, 1680, 186], backgroundColor: ibvColors, borderRadius: 4, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + (c.parsed.y / 1000).toFixed(1) + ' tỷ' } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888780' } }, y: { grid: { color: '#f1efe8' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => (v / 1000) + 'tỷ' }, max: 2000 } } } });
+
+    /* ECO grouped */
+    new Chart(document.getElementById('cECOChart'), { type: 'bar', data: { labels: ibpLb, datasets: [{ data: [1942, 1405, 1942, 453], backgroundColor: ibvColors, borderRadius: 4, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + (c.parsed.y / 1000).toFixed(1) + ' tỷ' } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888780' } }, y: { grid: { color: '#f1efe8' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => (v / 1000) + 'tỷ' }, max: 2200 } } } });
+
+    /* AgriTech grouped */
+    new Chart(document.getElementById('cAGRChart'), { type: 'bar', data: { labels: ibpLb, datasets: [{ data: [550, 42, 550, 0], backgroundColor: ['rgba(226,75,74,0.2)', '#E24B4A', 'rgba(226,75,74,0.2)', '#E24B4A'], borderRadius: 4, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + (c.parsed.y / 1000).toFixed(1) + ' tỷ' } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888780' } }, y: { grid: { color: '#f1efe8' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => (v / 1000) + 'tỷ' }, max: 700 } } } });
+
+    /* Tab switcher */
+    function showBU(id, btn) {
+      document.querySelectorAll('.bu-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.bu-tab').forEach(b => b.classList.remove('active'));
+      document.getElementById('bu-' + id).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
 </body>
+
 </html>

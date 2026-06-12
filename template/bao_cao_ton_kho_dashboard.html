@@ -1,226 +1,656 @@
-
 <h2 class="sr-only">Dashboard báo cáo tồn kho tháng 05/2026 từ 01/05 đến 04/05/2026</h2>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-.dash{font-family:'Segoe UI',system-ui,sans-serif;background:#f4f3ef;color:#2c2c2a;font-size:13px;padding:16px;}
-.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;padding-bottom:12px;border-bottom:0.5px solid #d3d1c7;}
-.hdr-left h1{font-size:18px;font-weight:500;color:#2c2c2a;}
-.hdr-left p{font-size:11px;color:#888780;margin-top:2px;}
-.hdr-right{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-.badge{font-size:10px;padding:3px 8px;border-radius:5px;background:#EAF3DE;color:#3B6D11;font-weight:500;}
-.badge-a{font-size:10px;padding:3px 8px;border-radius:5px;background:#FAEEDA;color:#854F0B;font-weight:500;}
-.slbl{font-size:10px;font-weight:500;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px;}
-.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
-.kc{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:11px 12px 10px;position:relative;overflow:hidden;}
-.kc::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;border-radius:2px 0 0 2px;}
-.blue::before{background:#185FA5;}.teal::before{background:#1D9E75;}.amber::before{background:#BA7517;}.coral::before{background:#D85A30;}
-.kl{font-size:10px;color:#888780;padding-left:6px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.kv{font-size:18px;font-weight:500;color:#2c2c2a;padding-left:6px;line-height:1.15;}
-.ku{font-size:10px;font-weight:400;color:#888780;}
-.kt{font-size:10px;color:#b4b2a9;padding-left:6px;margin-top:2px;}
-.krow{display:flex;align-items:center;gap:5px;padding-left:6px;margin-top:5px;}
-.kpct{font-size:12px;font-weight:500;min-width:36px;}
-.kbg{flex:1;background:#f1efe8;border-radius:3px;height:5px;}
-.kfill{height:5px;border-radius:3px;}
-.kdelta{font-size:10px;padding-left:6px;margin-top:3px;}
-.r2{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px;}
-.r2b{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
-.card{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:13px 14px;}
-.ct{font-size:13px;font-weight:500;color:#2c2c2a;margin-bottom:8px;}
-.leg-row{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;}
-.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:#5f5e5a;}
-.lsq{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
-.bt{width:100%;border-collapse:collapse;}
-.bt th{font-size:10px;color:#888780;font-weight:400;padding:5px 7px;border-bottom:0.5px solid #e8e6e0;text-align:right;white-space:nowrap;}
-.bt th:first-child{text-align:left;}
-.bt th.ctr{text-align:center;}
-.bt td{padding:6px 7px;border-bottom:0.5px solid #f1efe8;font-size:11px;color:#2c2c2a;text-align:right;vertical-align:middle;}
-.bt td:first-child{text-align:left;font-weight:500;}
-.bt td.stt{text-align:center;font-weight:400;color:#888780;font-size:10px;}
-.bt tr.tot{background:#f7f6f2;}.bt tr.tot td{font-weight:500;border-top:0.5px solid #d3d1c7;}
-.bt tr:last-child td{border-bottom:none;}
-.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:500;}
-.pr{background:#FCEBEB;color:#A32D2D;}.pa{background:#FAEEDA;color:#854F0B;}.pg{background:#EAF3DE;color:#3B6D11;}.pb{background:#E6F1FB;color:#185FA5;}
-.tld{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
-.tlr{background:#E24B4A;}.tla{background:#EF9F27;}.tlg{background:#639922;}
-.gr{color:#A32D2D;font-size:10px;}.ga{color:#854F0B;font-size:10px;}.gg{color:#3B6D11;font-size:10px;}
-.blue-n{color:#185FA5;}
-.red-n{color:#A32D2D;font-weight:500;}
-.chart-wrap{position:relative;width:100%;height:210px;}
-.chart-wrap2{position:relative;width:100%;height:190px;}
-.delta-pos{color:#A32D2D;font-size:10px;}
-.delta-neg{color:#3B6D11;font-size:10px;}
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .dash {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f4f3ef;
+    color: #2c2c2a;
+    font-size: 13px;
+    padding: 16px;
+  }
+
+  .hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 0.5px solid #d3d1c7;
+  }
+
+  .hdr-left h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #2c2c2a;
+  }
+
+  .hdr-left p {
+    font-size: 11px;
+    color: #888780;
+    margin-top: 2px;
+  }
+
+  .hdr-right {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: #EAF3DE;
+    color: #3B6D11;
+    font-weight: 500;
+  }
+
+  .badge-a {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: #FAEEDA;
+    color: #854F0B;
+    font-weight: 500;
+  }
+
+  .slbl {
+    font-size: 10px;
+    font-weight: 500;
+    color: #888780;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin: 0 0 8px;
+  }
+
+  .kpi4 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .kc {
+    background: #fff;
+    border-radius: 10px;
+    border: 0.5px solid #d3d1c7;
+    padding: 11px 12px 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kc::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    border-radius: 2px 0 0 2px;
+  }
+
+  .blue::before {
+    background: #185FA5;
+  }
+
+  .teal::before {
+    background: #1D9E75;
+  }
+
+  .amber::before {
+    background: #BA7517;
+  }
+
+  .coral::before {
+    background: #D85A30;
+  }
+
+  .kl {
+    font-size: 10px;
+    color: #888780;
+    padding-left: 6px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .kv {
+    font-size: 18px;
+    font-weight: 500;
+    color: #2c2c2a;
+    padding-left: 6px;
+    line-height: 1.15;
+  }
+
+  .ku {
+    font-size: 10px;
+    font-weight: 400;
+    color: #888780;
+  }
+
+  .kt {
+    font-size: 10px;
+    color: #b4b2a9;
+    padding-left: 6px;
+    margin-top: 2px;
+  }
+
+  .krow {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-left: 6px;
+    margin-top: 5px;
+  }
+
+  .kpct {
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 36px;
+  }
+
+  .kbg {
+    flex: 1;
+    background: #f1efe8;
+    border-radius: 3px;
+    height: 5px;
+  }
+
+  .kfill {
+    height: 5px;
+    border-radius: 3px;
+  }
+
+  .kdelta {
+    font-size: 10px;
+    padding-left: 6px;
+    margin-top: 3px;
+  }
+
+  .r2 {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .r2b {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    border: 0.5px solid #d3d1c7;
+    padding: 13px 14px;
+  }
+
+  .ct {
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c2c2a;
+    margin-bottom: 8px;
+  }
+
+  .leg-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .leg {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #5f5e5a;
+  }
+
+  .lsq {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .bt {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .bt th {
+    font-size: 10px;
+    color: #888780;
+    font-weight: 400;
+    padding: 5px 7px;
+    border-bottom: 0.5px solid #e8e6e0;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .bt th:first-child {
+    text-align: left;
+  }
+
+  .bt th.ctr {
+    text-align: center;
+  }
+
+  .bt td {
+    padding: 6px 7px;
+    border-bottom: 0.5px solid #f1efe8;
+    font-size: 11px;
+    color: #2c2c2a;
+    text-align: right;
+    vertical-align: middle;
+  }
+
+  .bt td:first-child {
+    text-align: left;
+    font-weight: 500;
+  }
+
+  .bt td.stt {
+    text-align: center;
+    font-weight: 400;
+    color: #888780;
+    font-size: 10px;
+  }
+
+  .bt tr.tot {
+    background: #f7f6f2;
+  }
+
+  .bt tr.tot td {
+    font-weight: 500;
+    border-top: 0.5px solid #d3d1c7;
+  }
+
+  .bt tr:last-child td {
+    border-bottom: none;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .pr {
+    background: #FCEBEB;
+    color: #A32D2D;
+  }
+
+  .pa {
+    background: #FAEEDA;
+    color: #854F0B;
+  }
+
+  .pg {
+    background: #EAF3DE;
+    color: #3B6D11;
+  }
+
+  .pb {
+    background: #E6F1FB;
+    color: #185FA5;
+  }
+
+  .tld {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .tlr {
+    background: #E24B4A;
+  }
+
+  .tla {
+    background: #EF9F27;
+  }
+
+  .tlg {
+    background: #639922;
+  }
+
+  .gr {
+    color: #A32D2D;
+    font-size: 10px;
+  }
+
+  .ga {
+    color: #854F0B;
+    font-size: 10px;
+  }
+
+  .gg {
+    color: #3B6D11;
+    font-size: 10px;
+  }
+
+  .blue-n {
+    color: #185FA5;
+  }
+
+  .red-n {
+    color: #A32D2D;
+    font-weight: 500;
+  }
+
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 210px;
+  }
+
+  .chart-wrap2 {
+    position: relative;
+    width: 100%;
+    height: 190px;
+  }
+
+  .delta-pos {
+    color: #A32D2D;
+    font-size: 10px;
+  }
+
+  .delta-neg {
+    color: #3B6D11;
+    font-size: 10px;
+  }
 </style>
 
 <div class="dash">
 
-<div class="hdr">
-  <div class="hdr-left">
-    <h1>Báo Cáo Tồn Kho</h1>
-    <p>Tháng 05/2026 &nbsp;|&nbsp; Từ 01/05 → 04/05/2026 &nbsp;|&nbsp; 10 kho hàng</p>
-  </div>
-  <div class="hdr-right">
-    <span class="badge-a">Cập nhật: 04/05/2026</span>
-    <span class="badge">10 kho tổng hợp</span>
-  </div>
-</div>
-
-<div class="slbl">Tổng quan</div>
-<div class="kpi4">
-  <div class="kc blue">
-    <div class="kl">Giá trị đầu kỳ T5</div>
-    <div class="kv">228,467<span class="ku"> tr</span></div>
-    <div class="kt">= Cuối kỳ T4</div>
-    <div class="krow"><span class="kpct" style="color:#185FA5;">—</span></div>
-    <div class="kdelta" style="color:#5f5e5a;">Tổng 10 kho</div>
-  </div>
-  <div class="kc teal">
-    <div class="kl">Giá trị mua hàng (01–04/05)</div>
-    <div class="kv">3,547<span class="ku"> tr</span></div>
-    <div class="kt">Nhập kho trong kỳ</div>
-    <div class="krow"><span class="kpct" style="color:#1D9E75;">+1.6%</span><div class="kbg"><div class="kfill" style="width:100%;background:#1D9E75;"></div></div></div>
-    <div class="kdelta" style="color:#3B6D11;">▲ Nhập chủ yếu Kho BH Thiết Bị</div>
-  </div>
-  <div class="kc coral">
-    <div class="kl">Giá trị bán hàng (01–04/05)</div>
-    <div class="kv">1,648<span class="ku"> tr</span></div>
-    <div class="kt">Xuất kho trong kỳ</div>
-    <div class="krow"><span class="kpct" style="color:#D85A30;">–0.7%</span><div class="kbg"><div class="kfill" style="width:44%;background:#D85A30;"></div></div></div>
-    <div class="kdelta" style="color:#5f5e5a;">Chủ yếu Kho BU_Elevator</div>
-  </div>
-  <div class="kc amber">
-    <div class="kl">Giá trị cuối kỳ</div>
-    <div class="kv">230,376<span class="ku"> tr</span></div>
-    <div class="kt">Tăng so đầu kỳ</div>
-    <div class="krow"><span class="kpct" style="color:#BA7517;">+0.8%</span><div class="kbg"><div class="kfill" style="width:80%;background:#BA7517;"></div></div></div>
-    <div class="kdelta" style="color:#854F0B;">▲ +1,908 tr so đầu kỳ</div>
-  </div>
-</div>
-
-<div class="r2">
-  <div class="card">
-    <div class="ct">Chi tiết tồn kho theo kho hàng</div>
-    <div style="overflow-x:auto;">
-    <table class="bt">
-      <thead>
-        <tr>
-          <th class="ctr" style="width:28px;">STT</th>
-          <th style="text-align:left;">Kho hàng</th>
-          <th>Đầu kỳ T5</th>
-          <th>Mua hàng</th>
-          <th>Bán hàng</th>
-          <th>Cuối kỳ</th>
-          <th>+/–</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="stt">1</td><td>Kho BH Thiết Bị</td>
-          <td>13,382,767</td><td style="color:#1D9E75;">3,480,253</td><td style="color:#D85A30;">318,866</td>
-          <td class="blue-n">16,544,154</td><td class="delta-pos">+3,161,387</td>
-        </tr>
-        <tr>
-          <td class="stt">2</td><td>Kho Dự Án</td>
-          <td>1,885,792</td><td>—</td><td>—</td>
-          <td class="blue-n">1,885,792</td><td style="color:#888780;font-size:10px;">—</td>
-        </tr>
-        <tr>
-          <td class="stt">3</td><td>Kho Bảo Hành</td>
-          <td>767,952</td><td>—</td><td>—</td>
-          <td class="blue-n">777,102</td><td class="delta-pos">+9,150</td>
-        </tr>
-        <tr>
-          <td class="stt">4</td><td>Hàng đang đi đường</td>
-          <td>154,416</td><td>—</td><td>—</td>
-          <td class="blue-n">154,416</td><td style="color:#888780;font-size:10px;">—</td>
-        </tr>
-        <tr>
-          <td class="stt">5</td><td>Kho BU_Elevator</td>
-          <td>105,884,940</td><td>—</td><td style="color:#D85A30;">473,679</td>
-          <td class="blue-n">105,411,814</td><td class="delta-neg">–473,126</td>
-        </tr>
-        <tr>
-          <td class="stt">6</td><td>Kho BU_Manufacturing</td>
-          <td>5,703,756</td><td style="color:#1D9E75;">5,219</td><td>—</td>
-          <td class="blue-n">5,708,975</td><td class="delta-pos">+5,219</td>
-        </tr>
-        <tr>
-          <td class="stt">7</td><td>Kho BU_Premium</td>
-          <td>74,527,596</td><td style="color:#1D9E75;">61,184</td><td style="color:#D85A30;">847,377</td>
-          <td class="blue-n">73,741,403</td><td class="delta-neg">–786,193</td>
-        </tr>
-        <tr>
-          <td class="stt">8</td><td>Kho BU_Agritech</td>
-          <td>17,119,044</td><td>—</td><td>—</td>
-          <td class="blue-n">17,119,044</td><td style="color:#888780;font-size:10px;">—</td>
-        </tr>
-        <tr>
-          <td class="stt">9</td><td>Kho BU_Eco</td>
-          <td>1,280,222</td><td>—</td><td>—</td>
-          <td class="blue-n">1,280,222</td><td style="color:#888780;font-size:10px;">—</td>
-        </tr>
-        <tr>
-          <td class="stt">10</td><td>Kho BU_Value</td>
-          <td>7,760,720</td><td>—</td><td style="color:#D85A30;">8,115</td>
-          <td class="blue-n">7,752,605</td><td class="delta-neg">–8,115</td>
-        </tr>
-        <tr class="tot">
-          <td class="stt">—</td><td>Tổng cộng</td>
-          <td>228,467,205</td><td style="color:#1D9E75;">3,546,655</td><td style="color:#D85A30;">1,648,036</td>
-          <td class="red-n">230,375,527</td><td class="delta-pos">+1,908,322</td>
-        </tr>
-      </tbody>
-    </table>
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>Báo Cáo Tồn Kho</h1>
+      <p>Tháng 05/2026 &nbsp;|&nbsp; Từ 01/05 → 04/05/2026 &nbsp;|&nbsp; 10 kho hàng</p>
     </div>
-    <div style="font-size:10px;color:#b4b2a9;margin-top:6px;">Đơn vị: nghìn đồng (000 VNĐ)</div>
+    <div class="hdr-right">
+      <span class="badge-a">Cập nhật: 04/05/2026</span>
+      <span class="badge">10 kho tổng hợp</span>
+    </div>
   </div>
 
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <div class="card">
-      <div class="ct">Cảnh báo tồn kho</div>
-      <table class="bt">
-        <thead><tr><th style="text-align:left;">Kho / Chỉ tiêu</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
-        <tbody>
-          <tr><td><span class="tld tla"></span>BU_Elevator — tồn lớn nhất</td><td><span class="pill pa">105 tỷ</span></td><td><span class="ga">46% tổng kho</span></td></tr>
-          <tr><td><span class="tld tla"></span>BU_Premium — xuất nhiều</td><td><span class="pill pa">–786 tr</span></td><td><span class="ga">Giảm nhanh</span></td></tr>
-          <tr><td><span class="tld tlr"></span>BU_Agritech — không biến động</td><td><span class="pill pr">0 mua/bán</span></td><td><span class="gr">Cần kiểm tra</span></td></tr>
-          <tr><td><span class="tld tlr"></span>BU_Eco — không biến động</td><td><span class="pill pr">0 mua/bán</span></td><td><span class="gr">Cần kiểm tra</span></td></tr>
-          <tr><td><span class="tld tlg"></span>Kho BH Thiết Bị — nhập mạnh</td><td><span class="pill pg">+3,161 tr</span></td><td><span class="gg">Tăng tốt</span></td></tr>
-          <tr><td><span class="tld tlg"></span>Tổng kho tăng nhẹ</td><td><span class="pill pg">+0.8%</span></td><td><span class="gg">Ổn định</span></td></tr>
-        </tbody>
-      </table>
+  <div class="slbl">Tổng quan</div>
+  <div class="kpi4">
+    <div class="kc blue">
+      <div class="kl">Giá trị đầu kỳ T5</div>
+      <div class="kv">228,467<span class="ku"> tr</span></div>
+      <div class="kt">= Cuối kỳ T4</div>
+      <div class="krow"><span class="kpct" style="color:#185FA5;">—</span></div>
+      <div class="kdelta" style="color:#5f5e5a;">Tổng 10 kho</div>
     </div>
+    <div class="kc teal">
+      <div class="kl">Giá trị mua hàng (01–04/05)</div>
+      <div class="kv">3,547<span class="ku"> tr</span></div>
+      <div class="kt">Nhập kho trong kỳ</div>
+      <div class="krow"><span class="kpct" style="color:#1D9E75;">+1.6%</span>
+        <div class="kbg">
+          <div class="kfill" style="width:100%;background:#1D9E75;"></div>
+        </div>
+      </div>
+      <div class="kdelta" style="color:#3B6D11;">▲ Nhập chủ yếu Kho BH Thiết Bị</div>
+    </div>
+    <div class="kc coral">
+      <div class="kl">Giá trị bán hàng (01–04/05)</div>
+      <div class="kv">1,648<span class="ku"> tr</span></div>
+      <div class="kt">Xuất kho trong kỳ</div>
+      <div class="krow"><span class="kpct" style="color:#D85A30;">–0.7%</span>
+        <div class="kbg">
+          <div class="kfill" style="width:44%;background:#D85A30;"></div>
+        </div>
+      </div>
+      <div class="kdelta" style="color:#5f5e5a;">Chủ yếu Kho BU_Elevator</div>
+    </div>
+    <div class="kc amber">
+      <div class="kl">Giá trị cuối kỳ</div>
+      <div class="kv">230,376<span class="ku"> tr</span></div>
+      <div class="kt">Tăng so đầu kỳ</div>
+      <div class="krow"><span class="kpct" style="color:#BA7517;">+0.8%</span>
+        <div class="kbg">
+          <div class="kfill" style="width:80%;background:#BA7517;"></div>
+        </div>
+      </div>
+      <div class="kdelta" style="color:#854F0B;">▲ +1,908 tr so đầu kỳ</div>
+    </div>
+  </div>
+
+  <div class="r2">
     <div class="card">
-      <div class="ct">Cơ cấu tồn kho cuối kỳ</div>
-      <div class="chart-wrap2"><canvas id="donut" role="img" aria-label="Cơ cấu tồn kho cuối kỳ">BU_Elevator 46%, BU_Premium 32%, BU_Agritech 7%, Kho BH Thiết Bị 7%, BU_Manufacturing 2%, Others 6%.</canvas></div>
-      <div class="leg-row" style="margin-top:8px;justify-content:center;">
-        <div class="leg"><div class="lsq" style="background:#185FA5;"></div>BU_Elevator 46%</div>
-        <div class="leg"><div class="lsq" style="background:#1D9E75;"></div>BU_Premium 32%</div>
-        <div class="leg"><div class="lsq" style="background:#BA7517;"></div>BU_Agritech 7%</div>
-        <div class="leg"><div class="lsq" style="background:#534AB7;"></div>Kho BH TB 7%</div>
-        <div class="leg"><div class="lsq" style="background:#888780;"></div>Còn lại 8%</div>
+      <div class="ct">Chi tiết tồn kho theo kho hàng</div>
+      <div style="overflow-x:auto;">
+        <table class="bt">
+          <thead>
+            <tr>
+              <th class="ctr" style="width:28px;">STT</th>
+              <th style="text-align:left;">Kho hàng</th>
+              <th>Đầu kỳ T5</th>
+              <th>Mua hàng</th>
+              <th>Bán hàng</th>
+              <th>Cuối kỳ</th>
+              <th>+/–</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="stt">1</td>
+              <td>Kho BH Thiết Bị</td>
+              <td>13,382,767</td>
+              <td style="color:#1D9E75;">3,480,253</td>
+              <td style="color:#D85A30;">318,866</td>
+              <td class="blue-n">16,544,154</td>
+              <td class="delta-pos">+3,161,387</td>
+            </tr>
+            <tr>
+              <td class="stt">2</td>
+              <td>Kho Dự Án</td>
+              <td>1,885,792</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="blue-n">1,885,792</td>
+              <td style="color:#888780;font-size:10px;">—</td>
+            </tr>
+            <tr>
+              <td class="stt">3</td>
+              <td>Kho Bảo Hành</td>
+              <td>767,952</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="blue-n">777,102</td>
+              <td class="delta-pos">+9,150</td>
+            </tr>
+            <tr>
+              <td class="stt">4</td>
+              <td>Hàng đang đi đường</td>
+              <td>154,416</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="blue-n">154,416</td>
+              <td style="color:#888780;font-size:10px;">—</td>
+            </tr>
+            <tr>
+              <td class="stt">5</td>
+              <td>Kho BU_Elevator</td>
+              <td>105,884,940</td>
+              <td>—</td>
+              <td style="color:#D85A30;">473,679</td>
+              <td class="blue-n">105,411,814</td>
+              <td class="delta-neg">–473,126</td>
+            </tr>
+            <tr>
+              <td class="stt">6</td>
+              <td>Kho BU_Manufacturing</td>
+              <td>5,703,756</td>
+              <td style="color:#1D9E75;">5,219</td>
+              <td>—</td>
+              <td class="blue-n">5,708,975</td>
+              <td class="delta-pos">+5,219</td>
+            </tr>
+            <tr>
+              <td class="stt">7</td>
+              <td>Kho BU_Premium</td>
+              <td>74,527,596</td>
+              <td style="color:#1D9E75;">61,184</td>
+              <td style="color:#D85A30;">847,377</td>
+              <td class="blue-n">73,741,403</td>
+              <td class="delta-neg">–786,193</td>
+            </tr>
+            <tr>
+              <td class="stt">8</td>
+              <td>Kho BU_Agritech</td>
+              <td>17,119,044</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="blue-n">17,119,044</td>
+              <td style="color:#888780;font-size:10px;">—</td>
+            </tr>
+            <tr>
+              <td class="stt">9</td>
+              <td>Kho BU_Eco</td>
+              <td>1,280,222</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="blue-n">1,280,222</td>
+              <td style="color:#888780;font-size:10px;">—</td>
+            </tr>
+            <tr>
+              <td class="stt">10</td>
+              <td>Kho BU_Value</td>
+              <td>7,760,720</td>
+              <td>—</td>
+              <td style="color:#D85A30;">8,115</td>
+              <td class="blue-n">7,752,605</td>
+              <td class="delta-neg">–8,115</td>
+            </tr>
+            <tr class="tot">
+              <td class="stt">—</td>
+              <td>Tổng cộng</td>
+              <td>228,467,205</td>
+              <td style="color:#1D9E75;">3,546,655</td>
+              <td style="color:#D85A30;">1,648,036</td>
+              <td class="red-n">230,375,527</td>
+              <td class="delta-pos">+1,908,322</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:#b4b2a9;margin-top:6px;">Đơn vị: nghìn đồng (000 VNĐ)</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card">
+        <div class="ct">Cảnh báo tồn kho</div>
+        <table class="bt">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Kho / Chỉ tiêu</th>
+              <th>Trạng thái</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tld tla"></span>BU_Elevator — tồn lớn nhất</td>
+              <td><span class="pill pa">105 tỷ</span></td>
+              <td><span class="ga">46% tổng kho</span></td>
+            </tr>
+            <tr>
+              <td><span class="tld tla"></span>BU_Premium — xuất nhiều</td>
+              <td><span class="pill pa">–786 tr</span></td>
+              <td><span class="ga">Giảm nhanh</span></td>
+            </tr>
+            <tr>
+              <td><span class="tld tlr"></span>BU_Agritech — không biến động</td>
+              <td><span class="pill pr">0 mua/bán</span></td>
+              <td><span class="gr">Cần kiểm tra</span></td>
+            </tr>
+            <tr>
+              <td><span class="tld tlr"></span>BU_Eco — không biến động</td>
+              <td><span class="pill pr">0 mua/bán</span></td>
+              <td><span class="gr">Cần kiểm tra</span></td>
+            </tr>
+            <tr>
+              <td><span class="tld tlg"></span>Kho BH Thiết Bị — nhập mạnh</td>
+              <td><span class="pill pg">+3,161 tr</span></td>
+              <td><span class="gg">Tăng tốt</span></td>
+            </tr>
+            <tr>
+              <td><span class="tld tlg"></span>Tổng kho tăng nhẹ</td>
+              <td><span class="pill pg">+0.8%</span></td>
+              <td><span class="gg">Ổn định</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="ct">Cơ cấu tồn kho cuối kỳ</div>
+        <div class="chart-wrap2"><canvas id="donut" role="img" aria-label="Cơ cấu tồn kho cuối kỳ">BU_Elevator 46%,
+            BU_Premium 32%, BU_Agritech 7%, Kho BH Thiết Bị 7%, BU_Manufacturing 2%, Others 6%.</canvas></div>
+        <div class="leg-row" style="margin-top:8px;justify-content:center;">
+          <div class="leg">
+            <div class="lsq" style="background:#185FA5;"></div>BU_Elevator 46%
+          </div>
+          <div class="leg">
+            <div class="lsq" style="background:#1D9E75;"></div>BU_Premium 32%
+          </div>
+          <div class="leg">
+            <div class="lsq" style="background:#BA7517;"></div>BU_Agritech 7%
+          </div>
+          <div class="leg">
+            <div class="lsq" style="background:#534AB7;"></div>Kho BH TB 7%
+          </div>
+          <div class="leg">
+            <div class="lsq" style="background:#888780;"></div>Còn lại 8%
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="slbl">Biến động mua / bán theo kho</div>
-<div class="card" style="margin-bottom:10px;">
-  <div class="leg-row">
-    <div class="leg"><div class="lsq" style="background:#1D9E75;"></div>Giá trị mua hàng</div>
-    <div class="leg"><div class="lsq" style="background:#D85A30;"></div>Giá trị bán hàng</div>
+  <div class="slbl">Biến động mua / bán theo kho</div>
+  <div class="card" style="margin-bottom:10px;">
+    <div class="leg-row">
+      <div class="leg">
+        <div class="lsq" style="background:#1D9E75;"></div>Giá trị mua hàng
+      </div>
+      <div class="leg">
+        <div class="lsq" style="background:#D85A30;"></div>Giá trị bán hàng
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="barChart" role="img" aria-label="Biến động mua bán theo kho">Kho BH Thiết Bị mua
+        3,480 tr bán 318 tr; BU_Premium mua 61 tr bán 847 tr; BU_Elevator bán 473 tr; BU_Value bán 8 tr;
+        BU_Manufacturing mua 5 tr.</canvas></div>
   </div>
-  <div class="chart-wrap"><canvas id="barChart" role="img" aria-label="Biến động mua bán theo kho">Kho BH Thiết Bị mua 3,480 tr bán 318 tr; BU_Premium mua 61 tr bán 847 tr; BU_Elevator bán 473 tr; BU_Value bán 8 tr; BU_Manufacturing mua 5 tr.</canvas></div>
-</div>
 
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-new Chart(document.getElementById('donut'),{type:'doughnut',data:{labels:['BU_Elevator','BU_Premium','BU_Agritech','Kho BH Thiết Bị','BU_Value','BU_Manufacturing','Kho Dự Án','BU_Eco','Others'],datasets:[{data:[105411814,73741403,17119044,16544154,7752605,5708975,1885792,1280222,308827],backgroundColor:['#185FA5','#1D9E75','#BA7517','#534AB7','#D85A30','#888780','#b4b2a9','#EF9F27','#e8e6e0'],borderWidth:1,borderColor:'#f4f3ef'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+(c.raw/1e6).toFixed(1)+' tỷ ('+(c.raw/230375527*100).toFixed(1)+'%)'}}}}});
+  new Chart(document.getElementById('donut'), { type: 'doughnut', data: { labels: ['BU_Elevator', 'BU_Premium', 'BU_Agritech', 'Kho BH Thiết Bị', 'BU_Value', 'BU_Manufacturing', 'Kho Dự Án', 'BU_Eco', 'Others'], datasets: [{ data: [105411814, 73741403, 17119044, 16544154, 7752605, 5708975, 1885792, 1280222, 308827], backgroundColor: ['#185FA5', '#1D9E75', '#BA7517', '#534AB7', '#D85A30', '#888780', '#b4b2a9', '#EF9F27', '#e8e6e0'], borderWidth: 1, borderColor: '#f4f3ef' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.label + ': ' + (c.raw / 1e6).toFixed(1) + ' tỷ (' + (c.raw / 230375527 * 100).toFixed(1) + '%)' } } } } });
 
-var lb=['Kho BH\nThiết Bị','Kho\nDự Án','Kho\nBảo Hành','Đang\nĐi Đường','BU\nElevator','BU\nManuf.','BU\nPremium','BU\nAgritech','BU\nEco','BU\nValue'];
-var mua=[3480253,0,0,0,0,5219,61184,0,0,0];
-var ban=[318866,0,0,0,473679,0,847377,0,0,8115];
-new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:lb,datasets:[{label:'Mua hàng',data:mua,backgroundColor:'#1D9E75',borderRadius:3,borderSkipped:false},{label:'Bán hàng',data:ban,backgroundColor:'#D85A30',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.raw/1e3).toFixed(1)+' tr'}}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780',autoSkip:false,maxRotation:0}},y:{grid:{color:'#f1efe8'},ticks:{font:{size:10},color:'#888780',callback:v=>v?(v/1e6).toFixed(1)+'tỷ':'0'}}}}});
+  var lb = ['Kho BH\nThiết Bị', 'Kho\nDự Án', 'Kho\nBảo Hành', 'Đang\nĐi Đường', 'BU\nElevator', 'BU\nManuf.', 'BU\nPremium', 'BU\nAgritech', 'BU\nEco', 'BU\nValue'];
+  var mua = [3480253, 0, 0, 0, 0, 5219, 61184, 0, 0, 0];
+  var ban = [318866, 0, 0, 0, 473679, 0, 847377, 0, 0, 8115];
+  new Chart(document.getElementById('barChart'), { type: 'bar', data: { labels: lb, datasets: [{ label: 'Mua hàng', data: mua, backgroundColor: '#1D9E75', borderRadius: 3, borderSkipped: false }, { label: 'Bán hàng', data: ban, backgroundColor: '#D85A30', borderRadius: 3, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + (c.raw / 1e3).toFixed(1) + ' tr' } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780', autoSkip: false, maxRotation: 0 } }, y: { grid: { color: '#f1efe8' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => v ? (v / 1e6).toFixed(1) + 'tỷ' : '0' } } } } });
 </script>

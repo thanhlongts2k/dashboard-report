@@ -1,9 +1,12 @@
 from accounting.tasks import update_single_bu_performance
 from rest_framework import viewsets, generics
 import pandas as pd
+from datetime import datetime
+from django.db.models import Q, Sum
 from .models import (
     Branch, Warehouse, Customer, Employee, InventorySummary,
-    Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup
+    Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
+    ReceivablesAgeing, AccountDetail
 )
 from .serializers import *
 from knox.views import LoginView as KnoxLoginView
@@ -99,6 +102,18 @@ class PurchaseDetailViewSet(viewsets.ModelViewSet):
 
 
 class BUReportAPIView(APIView):
+    """
+    APIView để truy xuất dữ liệu báo cáo hiệu suất (KPI) tháng của các Đơn vị kinh doanh (BU).
+    
+    Hỗ trợ các tham số lọc động (Query Parameters):
+    - `month`: Tháng cần lấy dữ liệu (Ví dụ: ?month=6).
+    - `year`: Năm cần lấy dữ liệu (Ví dụ: ?year=2026).
+    - `bu_id`: Lọc theo Đơn vị kinh doanh (BU):
+        - 'null' hoặc bỏ trống: Lấy báo cáo của Tổng công ty (BU gốc/không có BU cha).
+        - 'all': Lấy báo cáo của tất cả các BU và Tổng công ty.
+        - [ID]: Lấy báo cáo của riêng BU có ID tương ứng.
+    - `only_roots`: 'true' để chỉ lấy báo cáo của các BU cấp cao nhất (không có BU cha).
+    """
     def get(self, request):
         # 1. Lấy tham số lọc từ query params
         month = request.query_params.get('month')
@@ -145,6 +160,14 @@ class BUReportAPIView(APIView):
         
 
 class BUPerformanceDailyListView(generics.ListAPIView):
+    """
+    APIView để lấy danh sách dữ liệu hiệu suất chi tiết theo từng ngày (doanh thu, thực thu) của BU.
+    
+    Hỗ trợ các tham số lọc động (Query Parameters):
+    - `bu_id`: ID của Đơn vị kinh doanh (Nếu bỏ trống, mặc định lọc theo Tổng công ty).
+    - `month`: Tháng cần lấy dữ liệu (Ví dụ: ?month=6).
+    - `year`: Năm cần lấy dữ liệu (Ví dụ: ?year=2026).
+    """
     serializer_class = BUPerformanceDailySerializer
 
     def get_queryset(self):
@@ -174,10 +197,18 @@ class BUPerformanceDailyListView(generics.ListAPIView):
 
         return queryset.order_by('date')
     
-
 class BUPerformanceUpdateAPIView(APIView):
     """
-    API để trigger cập nhật dữ liệu hiệu suất BU
+    API để yêu cầu tính toán và cập nhật lại chỉ số hiệu suất (KPI) thực tế cho một Đơn vị kinh doanh (BU).
+    
+    Phương thức: POST
+    Dữ liệu yêu cầu (Request Body - JSON):
+    - `bu_id` (Integer, Optional): ID của Đơn vị kinh doanh cần cập nhật. Nếu truyền `null`, hệ thống sẽ cập nhật cho Tổng công ty.
+    - `month` (Integer, Optional): Tháng cần cập nhật (Mặc định là tháng hiện tại).
+    - `year` (Integer, Optional): Năm cần cập nhật (Mặc định là năm hiện tại).
+    - `target_date` (Date string 'YYYY-MM-DD', Optional): Ngày mốc kết thúc tính toán.
+    
+    Hàm xử lý đồng bộ (Synchronous) và trả về thông tin kết quả tính toán chi tiết ngay lập tức.
     """
     def post(self, request):
         serializer = PerformanceUpdateSerializer(data=request.data)
@@ -217,3 +248,101 @@ class BUPerformanceUpdateAPIView(APIView):
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DashboardCollectionByBUAPIView(APIView):
+    """
+    GET /api/dashboard/collection-by-bu/?date=YYYY-MM-DD
+
+    Trả về 5 chỉ số thu nợ theo từng BU chính (is_main=True) cho 1 ngày:
+      - receivable_total       : Dư nợ cần thu (snapshot hiện tại của ReceivablesAgeing)
+      - commitment_overdue     : Cam kết (quá hạn) — dùng tạm overdue_total
+      - collected_due          : Đã thu (đến hạn) — phát sinh trên KH có nợ quá hạn
+      - collected_in_term_cod  : Thu trong hạn + COD = Tổng thu - Đã thu đến hạn
+      - total_collected        : Tổng thu trong ngày
+    """
+
+    def get(self, request):
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response(
+                {"error": "Tham số 'date' là bắt buộc (định dạng YYYY-MM-DD)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {"error": "Định dạng date không hợp lệ. Dùng YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cash_cond = Q(account_number__startswith='111') | Q(account_number__startswith='112')
+        offset_cond = Q(offset_account__startswith='1311') | Q(offset_account__startswith='1312')
+
+        rows = []
+        sum_recv = sum_commit = sum_due = sum_term = sum_total = 0
+
+        # Lấy các BU "chính" để báo cáo dashboard. Ưu tiên cờ is_main; nếu chưa BU nào tick,
+        # rơi xuống fallback: lấy BU con (cấp 2) của BU gốc duy nhất (vd HPC).
+        bu_qs = BusinessUnit.objects.filter(is_main=True)
+        if not bu_qs.exists():
+            roots = BusinessUnit.objects.filter(parent__isnull=True)
+            if roots.count() == 1:
+                bu_qs = BusinessUnit.objects.filter(parent=roots.first())
+            else:
+                bu_qs = BusinessUnit.objects.filter(parent__isnull=False)
+
+        for bu in bu_qs.order_by('code'):
+            # 1. Dư nợ & Cam kết — đi qua Customer.business_unit (giống tasks.py)
+            rec = ReceivablesAgeing.objects.filter(
+                customer__business_unit=bu
+            ).aggregate(
+                total=Sum('total_debt'),
+                overdue=Sum('overdue_total'),
+                due_now=Sum('due_total'),
+            )
+            receivable_total = rec['total'] or 0
+            commitment_overdue = rec['overdue'] or 0
+            # 2. Đã thu (đến hạn) — theo pattern tasks.py dùng due_total từ ReceivablesAgeing
+            collected_due = rec['due_now'] or 0
+
+            # 3. Tổng thu trong ngày — qua AccountDetail.business_unit (đã có sẵn từ import)
+            collection_qs = AccountDetail.objects.filter(
+                posting_date=date,
+                business_unit=bu,
+            ).filter(cash_cond & offset_cond)
+            total_sums = collection_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
+            total_collected = (total_sums['d'] or 0) - (total_sums['c'] or 0)
+
+            # 4. Thu trong hạn + COD = Tổng thu - Đã thu đến hạn
+            collected_in_term_cod = total_collected - collected_due
+
+            rows.append({
+                "bu_id": bu.id,
+                "bu_code": bu.code,
+                "bu_name": bu.name,
+                "receivable_total": receivable_total,
+                "commitment_overdue": commitment_overdue,
+                "collected_due": collected_due,
+                "collected_in_term_cod": collected_in_term_cod,
+                "total_collected": total_collected,
+            })
+
+            sum_recv += receivable_total
+            sum_commit += commitment_overdue
+            sum_due += collected_due
+            sum_term += collected_in_term_cod
+            sum_total += total_collected
+
+        return Response({
+            "date": date_str,
+            "rows": rows,
+            "totals": {
+                "receivable_total": sum_recv,
+                "commitment_overdue": sum_commit,
+                "collected_due": sum_due,
+                "collected_in_term_cod": sum_term,
+                "total_collected": sum_total,
+            },
+        })

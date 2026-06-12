@@ -9,3 +9,8 @@ env/
 
 # VS Code
 .vscode/
+
+# Data test
+DataTest/
+media/
+template/
