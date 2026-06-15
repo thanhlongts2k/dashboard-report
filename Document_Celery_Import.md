@@ -53,10 +53,10 @@ py manage.py runserver
 ```
 
 > [!TIP]
-> **Tự động hóa hoàn toàn**: Chúng ta đã tích hợp mã nguồn khởi chạy vào [manage.py](file:///d:/Sources/dashboard-report/manage.py). Khi anh chạy lệnh `runserver` ở trên:
-> 1. Django sẽ **tự động gọi file `run_celery.bat`** ở chế độ chạy nền.
-> 2. Hai cửa sổ terminal mới của **Celery Worker** và **Celery Beat** sẽ tự động mở lên mà anh không cần phải kích đúp chạy thủ công.
-> 3. Cơ chế thông minh sẽ tự bỏ qua việc khởi chạy lại ở tiến trình con (`auto-reloader`), đảm bảo Celery chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server.
+> **Tự động hóa hoàn toàn**: Chúng ta đã tích hợp mã nguồn quản lý trực tiếp vào [manage.py](file:///d:/Sources/dashboard-report/manage.py). Khi anh chạy lệnh `runserver` ở trên:
+> 1. Django sẽ **tự động khởi chạy Celery Worker và Beat** trong hai cửa sổ terminal mới hoàn toàn tự động.
+> 2. Cơ chế thông minh đảm bảo Celery chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server (không bị lặp lại do `auto-reloader`).
+> 3. **Tự động dọn dẹp khi dừng server**: Khi anh nhấn `Ctrl + C` để dừng `runserver`, Django sẽ tự động gửi lệnh kết thúc và **đóng hoàn toàn 2 cửa sổ terminal Celery** đang chạy, giúp tránh rác tiến trình chạy ngầm.
 
 ---
 
