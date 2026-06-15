@@ -4,11 +4,8 @@ import os
 import sys
 
 
-def main():
-    """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
-    
-    # Tự động chạy Celery Worker và Beat khi khởi động runserver
+def start_background_services():
+    """Tự động khởi chạy Redis Server, Celery Worker và Celery Beat khi chạy lệnh runserver."""
     if len(sys.argv) > 1 and sys.argv[1] == 'runserver':
         if os.environ.get('RUN_MAIN') != 'true':
             import subprocess
@@ -52,7 +49,7 @@ def main():
                 )
                 processes.append(beat_p)
                 
-                def cleanup_celery():
+                def cleanup_services():
                     print("\n🛑 Đang tự động tắt các tiến trình Celery & Redis...")
                     for p in processes:
                         try:
@@ -67,10 +64,18 @@ def main():
                     print("✅ Đã đóng toàn bộ terminal Celery & Redis.")
                 
                 # Đăng ký dọn dẹp khi dừng django server (Ctrl+C hoặc tắt)
-                atexit.register(cleanup_celery)
+                atexit.register(cleanup_services)
                 
             except Exception as e:
-                print(f"⚠️ Không thể tự động khởi chạy Celery: {e}")
+                print(f"⚠️ Không thể tự động khởi chạy Celery & Redis: {e}")
+
+
+def main():
+    """Run administrative tasks."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    
+    # Khởi chạy các dịch vụ nền (Redis, Celery) nếu chạy lệnh runserver
+    start_background_services()
 
     try:
         from django.core.management import execute_from_command_line
