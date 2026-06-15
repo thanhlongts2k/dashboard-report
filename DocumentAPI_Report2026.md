@@ -59,6 +59,7 @@ graph TD
     F --> H[Ghi nhận vào ImportLog]
     G --> H[Ghi nhận vào ImportLog]
     H --> I[Hiển thị trên Django Admin]
+    I --> J[Tự động kích hoạt tính KPI]
 ```
 
 1. **Chu kỳ quét**: Hàng ngày vào lúc **06:00 AM** (giờ Việt Nam, tương ứng cấu hình `crontab(hour=6, minute=0)` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L164) và múi giờ `CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'`), Celery Beat tự động bắn tác vụ vào hàng chờ Redis.
@@ -69,25 +70,66 @@ graph TD
     *   `CONG_NO_NCC*.xlsx` (Công nợ nhà cung cấp) -> Lưu vào `SupplierDebt`
     *   `TUOI_NO_KH*.xlsx` (Tuổi nợ khách hàng) -> Lưu vào `ReceivablesAgeing`
     *   `SO_CHI_TIET*.xlsx` (Sổ chi tiết tài khoản ngân hàng/tiền mặt 111-112) -> Lưu vào `AccountDetail`
-3. **An toàn dữ liệu**: Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). Hệ thống xóa sạch dữ liệu cũ rồi mới nạp dữ liệu mới. Nếu thành công, di chuyển file Excel vào thư mục `success/`. Nếu có bất kỳ lỗi nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh sai lệch dữ liệu.
+3. **An toàn dữ liệu & Phạm vi xóa (Scope of Deletion)**: 
+    Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). Hệ thống thực hiện lệnh xóa sạch toàn bộ dữ liệu hiện tại của bảng tương ứng trước khi nạp (`objects.all().delete()`). 
+    > [!WARNING]
+    > **Thiết kế mặc định (Wipe and Reload):** Vì hệ thống thực thi `objects.all().delete()`, dữ liệu file nạp được ngầm định phải là **file lũy kế (cumulative)** từ đầu kỳ/đầu năm đến nay. Nếu người dùng nạp file lẻ theo tháng (ví dụ chỉ chứa dữ liệu tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa sạch khỏi cơ sở dữ liệu.
+    - Nếu import thành công, file Excel được di chuyển vào thư mục `success/`.
+    - Nếu có bất kỳ lỗi cấu trúc/lỗi kiểu dữ liệu nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh mất/sai lệch dữ liệu cũ.
 4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.
+5. **Cơ chế kích hoạt tính toán tự động (Orchestration Flow)**:
+    - Ngay khi tiến trình import hoàn tất thành công, Celery Worker sẽ **tự động kích hoạt** việc tính toán lại KPI cho Tổng công ty và từng BU bằng cách xếp hàng các tác vụ ngầm:
+      - `update_single_bu_performance.delay(None)` (Cho Tổng công ty).
+      - `update_single_bu_performance.delay(bu.id)` (Cho từng BU cụ thể trong danh mục `BusinessUnit`).
+    - **Lưu ý**: Tiến trình đồng bộ tồn kho kho hàng (`sync_warehouse_inventory_data`) **không tự động chạy** khi kết thúc import mà phải kích hoạt thủ công (xem chi tiết ở Luồng C).
 
 ---
 
 ### Luồng B: Tính toán chỉ số hiệu suất (KPI/Performance)
-Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `update_single_bu_performance` để tổng hợp số liệu cho từng đơn vị kinh doanh (BU) và cho Tổng công ty:
-*   **Doanh thu lũy kế tháng**: Tổng hợp từ bảng `SalesTransaction` dựa trên các khách hàng có `has_revenue=True`.
+Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `update_single_bu_performance` để tổng hợp số liệu cho từng đơn vị kinh doanh (BU) và cho Tổng công ty. Dưới đây là logic nghiệp vụ và kỹ thuật chi tiết:
+
+#### 1. Logic xác định phạm vi (Global / Sub-BU)
+- **Quy ước Global**: Nếu `bu_id` nhận vào là `None` hoặc BU đó không có cha (`parent_id is None`), hệ thống thiết lập biến `is_global = True`.
+- **Hành vi**: Khi `is_global = True`, hệ thống sẽ **bỏ qua bộ lọc theo BU** trên các bảng dữ liệu gốc, trực tiếp tổng hợp toàn bộ dữ liệu của toàn công ty. Đây là quy ước nghiệp vụ của HP Co. chứ không phải là giải thuật gom cụm đệ quy cây phân cấp.
+- **BU cấp dưới (Sub-BU)**: Nếu `bu_id` cụ thể và có BU cha, hệ thống chỉ lọc chính xác bản ghi của riêng BU đó.
+
+#### 2. Logic xử lý mốc thời gian (`target_date`)
+- Nhận tham số ngày kết thúc tính toán `target_date_str`.
+- Nếu không truyền:
+  - Nếu tính toán cho **tháng hiện tại** (trùng tháng/năm hiện tại): `target_date` tự động lấy ngày hôm nay (`today.date()`).
+  - Nếu tính toán cho **tháng cũ** trong quá khứ: `target_date` tự động lấy ngày cuối cùng của tháng đó (`calendar.monthrange(year, month)[1]`).
+- Hệ thống sẽ chạy vòng lặp cập nhật phát sinh thực tế từng ngày (`BUPerformanceDaily`) bắt đầu từ ngày 1 đến hết ngày `target_date`.
+
+#### 3. Bộ lọc Khách hàng ghi nhận doanh thu (`Customer.has_revenue`)
+- Toàn bộ các truy vấn tính Doanh thu (`SalesTransaction`) và Thực thu (`AccountDetail`) đều được áp dụng bộ lọc bắt buộc:
+  `customer__has_revenue=True`
+- Chỉ có những khách hàng được cấu hình ghi nhận doanh thu mới tham gia vào các chỉ số KPI này. Các khách hàng còn lại sẽ bị loại bỏ hoàn toàn khỏi kết quả tính toán.
+
+#### 4. Logic chi tiết tính các chỉ số hiệu suất
+*   **Doanh thu lũy kế tháng**: Tổng hợp từ bảng `SalesTransaction` (cộng cột `actual_sales`).
     > [!IMPORTANT]
-    > **Lưu ý sự bất nhất về logic:**
-    > - Doanh thu tháng (`rev_actual`) được tính bằng cách cộng cột `actual_sales` (Doanh số thực tế) của `SalesTransaction`.
-    > - Doanh thu ngày (`daily_rev`) lại được tính bằng cách cộng cột `sales_amount` (Doanh số bán) của `SalesTransaction`.
-    > Do đó, tổng doanh thu các ngày trong tháng có thể không khớp hoàn toàn với doanh thu lũy kế của tháng đó.
-*   **Thực thu tiền mặt/ngân hàng**: Lọc từ bảng `AccountDetail` các bút toán có tài khoản nợ bắt đầu bằng `111` hoặc `112` và tài khoản đối ứng bắt đầu bằng `1311` hoặc `1312`.
-*   **Tuổi nợ**: Tổng hợp công nợ quá hạn (`overdue_total`) và trước hạn (`due_total`) từ bảng `ReceivablesAgeing`.
-    *   *Đã thu (đến hạn)* (`collection_due_actual`) lấy từ `due_total`.
-    *   *Thu trong hạn + COD* (`collection_in_term_cod`) tính bằng `total_debt - overdue_total`.
-*   **Tồn kho**: Tính tổng giá trị tồn kho từ bảng `InventorySummary` (cột `closing_value`).
-*   Tất cả số liệu này được lưu vào bảng `BUPerformance` (theo tháng) và `BUPerformanceDaily` (theo ngày).
+    > **Sự bất nhất về cột dữ liệu (Technical Debt):**
+    > - Doanh thu tháng (`rev_actual`) tính bằng: `Sum('actual_sales')` từ `SalesTransaction`.
+    > - Doanh thu ngày (`daily_rev` trong `BUPerformanceDaily`) lại tính bằng: `Sum('sales_amount')` từ `SalesTransaction`.
+    > Do đó, tổng cộng doanh thu các ngày của bảng Daily có thể bị lệch so với doanh thu lũy kế tháng của bảng Monthly.
+*   **Thực thu tiền mặt/ngân hàng (Collection - Quy tắc Kế toán)**: 
+    - Lọc từ sổ chi tiết tài khoản `AccountDetail` các bút toán có:
+      - Tài khoản của mình bắt đầu bằng `111` (tiền mặt) hoặc `112` (tiền gửi ngân hàng) (`account_number__startswith`).
+      - Tài khoản đối ứng bắt đầu bằng `1311` hoặc `1312` (các tài khoản phải thu khách hàng) (`offset_account__startswith`).
+    - **Công thức tính thực thu**: `coll_actual = debit_amount - credit_amount` (Phát sinh Nợ trừ Phát sinh Có).
+*   **Tuổi nợ & Công nợ (Receivables Ageing)**:
+    - Lọc từ bảng `ReceivablesAgeing`.
+    - **Dư nợ cần thu** (`receivable_total`): Tính bằng tổng cột `total_debt`.
+    - **Nợ quá hạn** (`receivable_overdue`): Tính bằng tổng cột `overdue_total`.
+    - **Đã thu (đến hạn)** (`collection_due_actual`): Tính bằng tổng cột `due_total` (trên giao diện model tương ứng với cột `due_now`).
+    - **Thu trong hạn + COD** (`collection_in_term_cod`): Tính bằng công thức `receivable_total - receivable_overdue` (Tổng nợ trừ Nợ quá hạn).
+*   **Tồn kho KPI**: 
+    - **Đường đi dữ liệu**: 
+      `InventorySummary` -> `Warehouse` -> `BusinessUnit` (thông qua `warehouse__business_unit_id=bu_id`).
+    - Bảng tồn kho `InventorySummary` không lưu trực tiếp thông tin `business_unit_id` mà phải thông qua liên kết kho hàng `Warehouse`.
+    - **Giá trị tồn kho thực tế** (`inventory_value_actual`) của BU/Tổng công ty được tính bằng tổng cột `closing_value` của bảng `InventorySummary` theo filter BU.
+
+*   Tất cả số liệu sau khi tính toán xong được lưu vào bảng `BUPerformance` (theo tháng) và `BUPerformanceDaily` (theo ngày).
 
 > [!WARNING]
 > **Các trường số liệu thực tế chưa được tính toán:**
@@ -100,8 +142,14 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 ---
 
 ### Luồng C: Đồng bộ tồn kho kho hàng (Warehouse Inventory Sync)
-Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu tồn kho từ bảng `InventorySummary` (đầu kỳ, nhập, xuất, cuối kỳ) rồi cập nhật trực tiếp vào từng kho trong bảng `Warehouse`. 
-Nhà phát triển hoặc Admin có thể kích hoạt đồng bộ thủ công qua tính năng Action trong Django Admin của bảng `Warehouse`.
+Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu tồn kho chi tiết từ bảng `InventorySummary` (cột đầu kỳ `opening_value`, nhập `in_value`, xuất `out_value`, cuối kỳ `closing_value`) nhóm theo kho hàng rồi cập nhật ngược trực tiếp vào các trường tương ứng trong bảng `Warehouse`.
+
+> [!IMPORTANT]
+> **Cơ chế kích hoạt**:
+> Khác với tiến trình tính KPI BU tự động chạy sau khi import Excel, đồng bộ tồn kho kho hàng **bắt buộc phải kích hoạt thủ công** bằng một trong hai cách:
+> 1. Truy cập Django Admin của bảng `Warehouse`, tích chọn các kho hàng cần cập nhật, chọn Action **`🔄 Đồng bộ tồn kho từ Inventory Summary`** rồi ấn Run.
+> 2. Chạy tác vụ Celery `sync_warehouse_inventory_data` thông qua Django Celery Beat hoặc trigger bằng dòng lệnh.
+
 
 ---
 
@@ -265,6 +313,38 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
 * **Logic hoạt động**: Khi gọi API này, luồng HTTP Request sẽ bị chặn (block) để gọi trực tiếp hàm xử lý `update_single_bu_performance()` và chỉ trả về response khi toàn bộ quá trình tính toán KPI cho BU hoàn tất.
 * **Rủi ro hiệu năng**: Khi các bảng dữ liệu gốc (`SalesTransaction`, `AccountDetail`...) phình to lên hàng triệu dòng, việc tính toán đồng bộ trên request này sẽ mất nhiều thời gian, dẫn đến lỗi **HTTP 504 Gateway Timeout** từ phía Web Server (như Nginx/Apache) trước khi kịp trả phản hồi về cho Frontend.
 * **Hướng xử lý tương lai**: Cần chuyển đổi cơ chế gọi hàm trực tiếp sang chạy ngầm thông qua hàng chờ Celery bằng cách dùng phương thức `.delay()` (Ví dụ: `update_single_bu_performance.delay(bu_id, month, year, target_date_str)`). Khi đó, API sẽ lập tức trả về phản hồi `{"status": "processing", "task_id": "..."}` để Frontend hiển thị trạng thái chờ và poll kết quả sau.
+
+---
+
+## 8. Giải đáp các câu hỏi Onboarding thực tế (FAQ dành cho Nhà phát triển)
+
+Dưới đây là phần trả lời chi tiết cho các câu hỏi thường gặp khi nhà phát triển hoặc AI Agent mới bắt đầu nghiên cứu mã nguồn dự án:
+
+### Q1: Trường `Customer.has_revenue` được gán thủ công hay import từ đâu?
+* **Trả lời**: Trường này được hỗ trợ **import tự động** thông qua `CustomerResource` (mapping với cột `Có ghi nhận doanh thu` trong file Excel danh sách Khách hàng). 
+  - Nếu file Excel không có cột này hoặc cột để trống, hệ thống sẽ gán giá trị mặc định là `True`.
+  - Người quản trị hoặc lập trình viên hoàn toàn có thể **chỉnh sửa thủ công** giá trị này trực tiếp trên giao diện Django Admin của model `Customer` bất kỳ lúc nào để điều chỉnh việc tính toán doanh thu/thực thu cho khách hàng đó.
+
+### Q2: Logic `parent == NULL` xác định Global Company là chủ ý nghiệp vụ hay giải pháp tình thế (workaround)?
+* **Trả lời**: Đây là **chủ ý nghiệp vụ** của HP Co.
+  - Hệ thống quy ước: Nếu `bu_id is None` hoặc một Business Unit không có đơn vị cha (`parent_id is None`), BU này sẽ được xem như đại diện cho **Tổng công ty (Global)**.
+  - Khi đó, hệ thống sẽ tính toán tổng hợp số liệu cho toàn công ty bằng cách bỏ qua bộ lọc `business_unit` trên toàn bộ các bảng dữ liệu gốc (chứ không chạy thuật toán gom cụm đệ quy cây phân cấp từ các BU con lên).
+
+### Q3: Các trường `actual_sales` và `sales_amount` khác nhau như thế nào trong nghiệp vụ kế toán của dự án?
+* **Trả lời**: Đây là hai trường số liệu doanh số riêng biệt được lưu trữ trong bảng bán hàng `SalesTransaction`:
+  - `sales_amount` (Doanh số bán): Là doanh số thô ghi nhận trên hóa đơn bán lẻ/đơn hàng bán ban đầu (được dùng để tính chỉ số phát sinh doanh thu ngày `daily_revenue`).
+  - `actual_sales` (Doanh số thực tế): Là doanh số thực tế đã được kế toán hạch toán, rà soát hoặc trừ đi các khoản giảm trừ doanh thu cuối kỳ (được dùng để tính toán doanh thu lũy kế tháng `mtd_revenue_actual`).
+  - Sự khác biệt về mặt nghiệp vụ này chính là lý do dẫn đến sự lệch số liệu giữa doanh thu lũy kế tháng và tổng doanh thu các ngày trong tháng (Technical Debt được ghi nhận ở mục 7.1).
+
+### Q4: Lệnh `objects.all().delete()` ở đầu luồng Import Excel là xóa toàn bộ hay xóa tăng dần (incremental)?
+* **Trả lời**: Logic hiện tại là **xóa sạch toàn bộ lịch sử (Wipe and Reload)** của bảng tương ứng bằng lệnh `objects.all().delete()`.
+  - Hệ thống hoạt động dựa trên giả định rằng các file Excel nạp vào thư mục `auto_imports` luôn là **file lũy kế năm/kỳ** từ trước đến nay.
+  - Nếu người dùng nạp file rời (chỉ chứa dữ liệu phát sinh của riêng 1 tháng), hành vi xóa sạch toàn bộ bảng này sẽ làm **mất hoàn toàn** dữ liệu của các tháng trước đó. Hãy đặc biệt lưu ý rủi ro này (xem thêm chi tiết hướng xử lý tại mục 7.4).
+
+### Q5: Khi import xong, hệ thống có tự động chạy `update_single_bu_performance()` và `sync_warehouse_inventory_data()` không?
+* **Trả lời**: 
+  - **Tự động chạy `update_single_bu_performance()`**: Có. Ngay khi luồng import file kết thúc thành công trong tác vụ `auto_import_excel_from_folder`, hệ thống sẽ tự động gửi các tác vụ Celery ngầm (`.delay()`) để tính toán lại KPI cho Tổng công ty và cho toàn bộ các BU lẻ trong hệ thống.
+  - **KHÔNG tự động chạy `sync_warehouse_inventory_data()`**: Tác vụ đồng bộ dữ liệu tồn kho từ `InventorySummary` vào `Warehouse` không được gọi tự động. Tiến trình này bắt buộc phải được **kích hoạt thủ công** bởi Admin/Developer thông qua nút Action trong danh sách `Warehouse` của Django Admin (hoặc cấu hình lên lịch riêng trong Celery Beat).
 
 
 
