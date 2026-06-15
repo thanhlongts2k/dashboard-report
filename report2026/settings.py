@@ -165,7 +165,7 @@ STATIC_URL = 'static/'
 CELERY_BEAT_SCHEDULE = {
     'auto_import_excel_daily': {
         'task': 'accounting.tasks.auto_import_excel_from_folder',
-        'schedule': crontab(hour=14, minute=10),
+        'schedule': crontab(hour=6, minute=0),
     },
 }
 

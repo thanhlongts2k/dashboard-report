@@ -68,7 +68,7 @@ Khi anh muốn đổi giờ chạy tác vụ tự động, hãy mở file **[rep
 CELERY_BEAT_SCHEDULE = {
     'auto_import_excel_daily': {
         'task': 'accounting.tasks.auto_import_excel_from_folder',
-        'schedule': crontab(hour=14, minute=10), # Chạy lúc 14 giờ 10 phút hàng ngày theo múi giờ Việt Nam
+        'schedule': crontab(hour=6, minute=0), # Chạy lúc 6 giờ 00 phút sáng hàng ngày theo múi giờ Việt Nam
     },
 }
 ```
