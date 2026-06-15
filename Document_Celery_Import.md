@@ -53,14 +53,14 @@ py manage.py runserver
 ```
 
 > [!TIP]
-> **Tự động hóa hoàn toàn**: Chúng ta đã tích hợp mã nguồn quản lý trực tiếp vào [manage.py](file:///d:/Sources/dashboard-report/manage.py). Khi anh chạy lệnh `runserver` ở trên:
+> **Tự động hóa hoàn toàn**: Đã tích hợp mã nguồn quản lý trực tiếp vào [manage.py](file:///d:/Sources/dashboard-report/manage.py). Khi anh chạy lệnh `runserver` ở trên:
 > 1. Django sẽ **tự động khởi chạy Celery Worker và Beat** trong hai cửa sổ terminal mới hoàn toàn tự động.
 > 2. Cơ chế thông minh đảm bảo Celery chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server (không bị lặp lại do `auto-reloader`).
 > 3. **Tự động dọn dẹp khi dừng server**: Khi anh nhấn `Ctrl + C` để dừng `runserver`, Django sẽ tự động gửi lệnh kết thúc và **đóng hoàn toàn 2 cửa sổ terminal Celery** đang chạy, giúp tránh rác tiến trình chạy ngầm.
 
 ---
 
-## ⏱️ 4. Cách Thay Đổi Lịch Trình Tự Động Chạy
+## ⏱️ 3. Cách Thay Đổi Lịch Trình Tự Động Chạy
 
 Khi anh muốn đổi giờ chạy tác vụ tự động, hãy mở file **[report2026/settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L164)** và điều chỉnh biến `CELERY_BEAT_SCHEDULE`:
 
@@ -78,7 +78,7 @@ CELERY_BEAT_SCHEDULE = {
 
 ---
 
-## 📊 5. Theo Dõi và Kiểm Tra Lịch Sử Import
+## 📊 4. Theo Dõi và Kiểm Tra Lịch Sử Import
 
 1. Anh truy cập vào trang quản trị Django Admin theo đường dẫn: `http://localhost:8089/admin/accounting/importlog/` (hoặc thông qua IP của máy chủ).
 2. Tại đây, bảng **Lịch sử Import dữ liệu** sẽ hiển thị rõ ràng:
