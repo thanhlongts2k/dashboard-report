@@ -16,43 +16,59 @@ Dự án **Report2026** là một hệ thống **Backend API (Application Progra
 *   **Ngôn ngữ**: Python 3.14 (chạy trong môi trường ảo ở thư mục `.venv`).
 *   **Framework Web**: **Django** & **Django REST Framework (DRF)**. Django giúp quản lý Database và Admin, còn DRF dùng để xây dựng các API.
 *   **Hệ quản trị cơ sở dữ liệu**: **PostgreSQL** (chạy ở cổng `5433`, tên database là `reportdb`).
-*   **Hệ thống hàng đợi & Tác vụ ngầm**: **Celery** phối hợp với một Message Broker (như Redis) để chạy các tác vụ import file Excel tự động vào ban đêm.
-*   **Thư viện xử lý Excel**: `django-import-export` kết hợp `pandas` và `tablib` để đọc/ghi file Excel cấu trúc lớn.
+*   **Hệ thống hàng đợi & Tác vụ ngầm**: **Celery** kết hợp với **Redis Broker** để chạy các tác vụ import file Excel tự động.
+*   **Thư viện xử lý Excel**: `django-import-export` kết hợp `tablib` để đọc/ghi file Excel cấu trúc lớn.
 
 ---
 
 ## 3. Cấu trúc thư mục & Ý nghĩa các file quan trọng
 
 Thư mục làm việc của bạn bao gồm:
-*   `.venv/`: Thư mục chứa môi trường Python và các thư viện đã cài đặt. Bạn không cần sửa gì trong này.
-*   `report2026/`: Thư mục mã nguồn chính của dự án.
-    *   `manage.py`: File script điều khiển của Django. Bạn dùng nó để chạy server, tạo database, tạo admin...
-    *   `db.sqlite3`: File database chạy thử (SQLite), tuy nhiên cấu hình thực tế đang kết nối PostgreSQL.
-    *   `report2026/` *(Thư mục cấu hình dự án)*:
-        *   [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py): Cấu hình chung của dự án (Kết nối database, cấu hình bảo mật CORS/CSRF, danh sách các thư viện được cài đặt, lịch chạy tác vụ tự động Celery).
-        *   [urls.py](file:///d:/Sources/dashboard-report/report2026/urls.py): File định tuyến (Routing) chính, điều hướng các request từ trình duyệt tới ứng dụng.
-    *   `accounting/` *(Ứng dụng xử lý kế toán - Nơi chứa toàn bộ logic nghiệp vụ)*:
-        *   [models.py](file:///d:/Sources/dashboard-report/accounting/models.py): **Nơi định nghĩa cấu trúc cơ sở dữ liệu (Database Schema)**. Mỗi class trong này tương đương với một bảng trong DB (như Khách hàng, Sản phẩm, Tồn kho, Chỉ số hiệu suất...).
-        *   [views.py](file:///d:/Sources/dashboard-report/accounting/views.py): **Nơi nhận request và trả về response**. Chứa logic xử lý đăng nhập và các API cung cấp dữ liệu báo cáo.
-        *   [serializers.py](file:///d:/Sources/dashboard-report/accounting/serializers.py): Bộ chuyển đổi dữ liệu. Nó chuyển đổi các đối tượng Database phức tạp thành định dạng JSON (và ngược lại) để Frontend dễ đọc.
-        *   [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py): **Tác vụ ngầm**. Chứa code tự động quét thư mục để import dữ liệu từ file Excel và code công thức tính toán chỉ số hiệu suất tài chính.
-        *   [resources.py](file:///d:/Sources/dashboard-report/accounting/resources.py): Định nghĩa quy tắc mapping (ánh xạ) giữa các cột trong file Excel vào các cột tương ứng trong Database để phục vụ việc import.
-        *   [urls.py](file:///d:/Sources/dashboard-report/accounting/urls.py): Định tuyến riêng cho các API của app `accounting`.
+*   `.venv/`: Thư mục chứa môi trường Python và các thư viện đã cài đặt.
+*   `report2026/` *(Thư mục cấu hình dự án)*:
+    *   [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py): Cấu hình chung của dự án (Kết nối database, cấu hình bảo mật CORS/CSRF, danh sách các thư viện được cài đặt, lịch chạy tác vụ tự động Celery).
+    *   [urls.py](file:///d:/Sources/dashboard-report/report2026/urls.py): File định tuyến (Routing) chính, điều hướng các request từ trình duyệt tới ứng dụng.
+    *   [celery.py](file:///d:/Sources/dashboard-report/report2026/celery.py): File cấu hình khởi tạo Celery.
+*   `accounting/` *(Ứng dụng xử lý kế toán - Nơi chứa toàn bộ logic nghiệp vụ)*:
+    *   [models.py](file:///d:/Sources/dashboard-report/accounting/models.py): **Nơi định nghĩa cấu trúc cơ sở dữ liệu (Database Schema)**. Chứa các model chính như Khách hàng, Sản phẩm, Tồn kho, Chỉ số hiệu suất BU, và bảng nhật ký `ImportLog`.
+    *   [views.py](file:///d:/Sources/dashboard-report/accounting/views.py): **Nơi nhận request và trả về response**. Chứa logic xử lý đăng nhập và các API cung cấp dữ liệu báo cáo.
+    *   [serializers.py](file:///d:/Sources/dashboard-report/accounting/serializers.py): Bộ chuyển đổi dữ liệu thành định dạng JSON (và ngược lại) để Frontend dễ đọc.
+    *   [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py): **Tác vụ ngầm**. Chứa code tự động quét thư mục để import dữ liệu từ file Excel và tính toán KPI hiệu suất tài chính.
+    *   [resources.py](file:///d:/Sources/dashboard-report/accounting/resources.py): Quy tắc mapping dữ liệu giữa cột trong file Excel và cột trong DB.
+    *   [urls.py](file:///d:/Sources/dashboard-report/accounting/urls.py): Định tuyến riêng cho các API của app `accounting`.
+*   [run_celery.bat](file:///d:/Sources/dashboard-report/run_celery.bat): File batch script khởi chạy thủ công Celery độc lập (khi cần chạy thử nghiệm/gọi từ shell).
 
 ---
 
 ## 4. Các luồng nghiệp vụ chính của dự án
 
 ### Luồng A: Tự động nạp dữ liệu từ file Excel (Auto Import)
-1. Hàng ngày vào lúc **01:00 AM** (giờ UTC, cấu hình Celery Beat trong `settings.py`), Celery Beat sẽ kích hoạt hàm `auto_import_excel_from_folder` trong [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py#L17).
-2. Hệ thống quét thư mục `media/auto_imports/` để tìm các file có tên dạng:
+
+```mermaid
+graph TD
+    A[Thư mục media/auto_imports/] -->|Đặt file Excel mẫu| B(Celery Beat quét chu kỳ)
+    B -->|Lên lịch tác vụ| C[Redis Broker]
+    C -->|Kích hoạt tác vụ| D[Celery Worker]
+    D -->|Bắt đầu chạy: start_time| E{Đọc và Import Excel}
+    E -->|Thành công| F[Lưu DB + Chuyển file vào success/ + end_time]
+    E -->|Thất bại| G[Rollback DB + end_time]
+    F --> H[Ghi nhận vào ImportLog]
+    G --> H[Ghi nhận vào ImportLog]
+    H --> I[Hiển thị trên Django Admin]
+```
+
+1. **Chu kỳ quét**: Hàng ngày vào lúc **06:00 AM** (giờ Việt Nam, tương ứng cấu hình `crontab(hour=6, minute=0)` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L164) và múi giờ `CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'`), Celery Beat tự động bắn tác vụ vào hàng chờ Redis.
+2. **Quét file**: Celery Worker nhận việc, quét thư mục `media/auto_imports/` để tìm các file có tên dạng:
     *   `BAN_HANG*.xlsx` (Bán hàng) -> Lưu vào `SalesTransaction`
     *   `MUA_HANG*.xlsx` (Mua hàng) -> Lưu vào `PurchaseDetail`
     *   `TON_KHO*.xlsx` (Tồn kho) -> Lưu vào `InventorySummary`
     *   `CONG_NO_NCC*.xlsx` (Công nợ nhà cung cấp) -> Lưu vào `SupplierDebt`
     *   `TUOI_NO_KH*.xlsx` (Tuổi nợ khách hàng) -> Lưu vào `ReceivablesAgeing`
     *   `SO_CHI_TIET*.xlsx` (Sổ chi tiết tài khoản ngân hàng/tiền mặt 111-112) -> Lưu vào `AccountDetail`
-3. Với mỗi file tìm thấy, hệ thống sẽ **xóa sạch dữ liệu cũ** của bảng đó trong DB rồi **nạp dữ liệu mới** vào. Nếu thành công, file Excel sẽ được di chuyển vào thư mục `success/`. Nếu có lỗi, giao dịch (transaction) sẽ được Rollback (hoàn tác) để tránh mất dữ liệu cũ.
+3. **An toàn dữ liệu**: Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). Hệ thống xóa sạch dữ liệu cũ rồi mới nạp dữ liệu mới. Nếu thành công, di chuyển file Excel vào thư mục `success/`. Nếu có bất kỳ lỗi nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh sai lệch dữ liệu.
+4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.
+
+---
 
 ### Luồng B: Tính toán chỉ số hiệu suất (KPI/Performance)
 Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `update_single_bu_performance` để tổng hợp số liệu cho từng đơn vị kinh doanh (BU) và cho Tổng công ty:
@@ -77,74 +93,101 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 > **Các bảng độc lập:**
 > Dữ liệu mua hàng (`PurchaseDetail`) và Công nợ nhà cung cấp (`SupplierDebt`) được tự động nạp từ Excel nhưng hiện tại **không tham gia** vào luồng tính toán hiệu suất BU.
 
+---
+
 ### Luồng C: Đồng bộ tồn kho kho hàng (Warehouse Inventory Sync)
-Bên cạnh tác vụ import Excel, hệ thống có hàm `sync_warehouse_inventory_data` trong [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py#L218) dùng để tổng hợp số liệu tồn kho từ bảng `InventorySummary` (đầu kỳ, nhập, xuất, cuối kỳ) rồi cập nhật trực tiếp vào từng kho trong bảng `Warehouse`.
+Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu tồn kho từ bảng `InventorySummary` (đầu kỳ, nhập, xuất, cuối kỳ) rồi cập nhật trực tiếp vào từng kho trong bảng `Warehouse`. 
 Nhà phát triển hoặc Admin có thể kích hoạt đồng bộ thủ công qua tính năng Action trong Django Admin của bảng `Warehouse`.
 
 ---
 
 ## 5. Hướng dẫn chạy và thao tác với dự án dành cho bạn
 
-Để bắt đầu làm việc trên máy tính này, bạn làm theo các bước sau trong terminal của VS Code:
+Để bắt đầu làm việc trên máy tính này, bạn làm theo các bước sau:
 
-### Bước 1: Kích hoạt Môi trường ảo (Virtual Environment)
-Môi trường ảo giúp tách biệt các thư viện của dự án này với các dự án khác trên máy.
-*   Nếu dùng **PowerShell** (mặc định của VS Code trên Windows):
-    ```powershell
-    .\.venv\Scripts\Activate.ps1
-    ```
-*   Nếu dùng **Command Prompt (cmd)**:
-    ```cmd
-    .\.venv\Scripts\activate.bat
-    ```
-*(Khi kích hoạt thành công, bạn sẽ thấy chữ `(.venv)` xuất hiện ở đầu dòng lệnh).*
+### Bước 1: Khởi động Redis Server
+Bật Redis Server (mặc định chạy tại port `6379`).
+> [!IMPORTANT]
+> **Khuyến nghị tương thích**: Redis chạy trên Windows thường là phiên bản cũ (v5.0.x). Do đó, thư viện kết nối Python trong môi trường ảo `.venv` bắt buộc phải sử dụng phiên bản `redis==4.6.0`. (Phiên bản `redis >= 5.x` sử dụng giao thức RESP3 sẽ gây lỗi `unknown command 'HELLO'`).
 
-### Bước 2: Chạy Server phát triển (Development Server)
-```bash
-cd report2026
-python manage.py runserver 0.0.0.0:8000
+### Bước 2: Chạy Server phát triển (Development Server) & Celery tự động
+Chạy máy chủ web Django thông thường trong môi trường ảo:
+```powershell
+py manage.py runserver
 ```
-*   Tham số `0.0.0.0:8000` giúp server mở cổng cho tất cả thiết bị khác truy cập (như điện thoại của bạn).
-*   Truy cập trang Admin của hệ thống tại: `http://127.0.0.1:8000/admin` (hoặc `http://<IP_máy_bạn>:8000/admin`).
 
-### Bước 3: Tạo tài khoản Admin mới (nếu chưa có hoặc quên mật khẩu)
-Nếu bạn cần vào trang Admin của Django mà đồng nghiệp cũ chưa bàn giao tài khoản:
-```bash
-python manage.py createsuperuser
-```
-*   Nhập username, email và password mong muốn. Sau đó dùng tài khoản này đăng nhập vào link `/admin`.
-
-### Bước 4: Đồng bộ cấu hình Database (Migrations)
-Môi trường ảo giúp cập nhật cấu trúc database phù hợp với file `models.py`:
-```bash
-# 1. Tạo file ghi nhận sự thay đổi cấu trúc
-python manage.py makemigrations
-
-# 2. Áp dụng thay đổi đó vào Database thật
-python manage.py migrate
-```
+> [!TIP]
+> **Tự động hóa hoàn toàn**: Chúng ta đã tích hợp mã nguồn quản lý trực tiếp vào [manage.py](file:///d:/Sources/dashboard-report/manage.py). Khi chạy lệnh `runserver` ở trên:
+> 1. Django sẽ **tự động khởi chạy Celery Worker và Beat** trong hai cửa sổ terminal độc lập hoàn toàn tự động.
+> 2. Cơ chế thông minh đảm bảo Celery chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server (không bị lặp lại do `auto-reloader`).
+> 3. **Tự động dọn dẹp khi dừng server**: Khi bạn nhấn `Ctrl + C` để dừng `runserver`, Django sẽ tự động gửi lệnh kết thúc và **đóng hoàn toàn 2 cửa sổ terminal Celery** đang chạy, tránh rác tiến trình chạy ngầm trên Windows.
 
 ---
 
-## 6. Mẹo nhỏ cho người mới tiếp cận Django & Danh sách API phục vụ Frontend
+## 6. API Endpoint phục vụ Frontend Dashboard
 
 ### Phân quyền & Bảo mật API (Authentication)
-*   Hệ thống đang cấu hình yêu cầu xác thực mặc định bằng **Knox Token** hoặc **Session** (trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L77)).
+*   Hệ thống yêu cầu xác thực bằng **Knox Token** hoặc **Session**.
 *   Giao thức gọi API (ngoại trừ `/api/login/`) bắt buộc phải đính kèm Header:
     `Authorization: Token <key_nhận_được_khi_login>`
 
-### Danh sách các API Endpoint phục vụ Frontend Dashboard:
-1.  **Đăng nhập hệ thống**:
-    *   `POST /api/login/`: Gửi `username` và `password` để nhận Token Knox và thông tin user.
-2.  **Lấy số liệu Hiệu suất BU theo Tháng (Dashboard chính)**:
-    *   `GET /api/bu-performance/`: Trả về số liệu kế hoạch và thực tế theo tháng kèm theo các trường KPI được tính toán tự động như `revenue_kpi`, `collection_kpi`, `inventory_vs_plan`.
-    *   *Các filter khả dụng*: `?month=6&year=2026&bu_id=X` (bu_id có thể là `null` để lấy Tổng công ty hoặc `all` để lấy toàn bộ).
-3.  **Lấy số liệu Hiệu suất BU theo Ngày (Vẽ biểu đồ)**:
-    *   `GET /api/performance/daily/`: Trả về dữ liệu doanh thu và thực thu phát sinh trong từng ngày của tháng.
-    *   *Các filter khả dụng*: `?bu_id=X&month=6&year=2026`.
-4.  **Kích hoạt tính toán lại dữ liệu**:
-    *   `POST /api/update-performance/`: Cho phép trigger tính toán và cập nhật lại chỉ số hiệu suất từ các bảng chi tiết. Body gửi dạng:
-        `{"bu_id": X, "month": 6, "year": 2026, "target_date": "2026-06-12"}`
-5.  **Các API danh mục chi tiết (DRF ViewSets)**:
-    *   `/api/branches/`, `/api/business-units/`, `/api/transactions/`, `/api/customers/`, `/api/suppliers/`, `/api/supplier-debts/`, `/api/account-details/`, `/api/receivables-ageing/`, `/api/purchase-details/`, `/api/inventory-summaries/`.
-    *   Các link này có giao diện Web API trực quan của DRF giúp bạn test dữ liệu trả về trực tiếp trên trình duyệt.
+### Danh sách các API Endpoint:
+
+#### 1. Đăng nhập hệ thống
+*   `POST /api/login/`:
+    *   **Body (JSON)**: `{"username": "...", "password": "..."}`
+    *   **Response (JSON)**: Trả về Token Knox, ngày hết hạn và thông tin cơ bản của user.
+
+#### 2. Đăng xuất hệ thống (Knox Auth)
+*   `POST /api/auth/logout/`: Hủy token hiện tại.
+*   `POST /api/auth/logoutall/`: Hủy toàn bộ token đã cấp cho user.
+
+#### 3. Lấy số liệu Hiệu suất BU theo Tháng (Dashboard chính)
+*   `GET /api/bu-performance/`: Trả về số liệu kế hoạch và thực tế theo tháng kèm theo các trường KPI được tính toán tự động như `revenue_kpi`, `collection_kpi`, `inventory_vs_plan`.
+*   **Query Parameters**:
+    *   `?month=6&year=2026`
+    *   `?bu_id=X`: Lọc theo BU (`null` hoặc bỏ trống để lấy Tổng công ty, `all` để lấy toàn bộ, hoặc ID cụ thể).
+    *   `?only_roots=true`: Chỉ lấy các BU cấp cao nhất (không có BU cha).
+
+#### 4. Lấy số liệu Hiệu suất BU theo Ngày (Vẽ biểu đồ)
+*   `GET /api/performance/daily/`: Trả về dữ liệu doanh thu và thực thu phát sinh trong từng ngày của tháng.
+*   **Query Parameters**:
+    *   `?bu_id=X` (Bỏ trống hoặc ID cụ thể)
+    *   `?month=6`
+    *   `?year=2026`
+
+#### 5. Lấy số liệu Báo cáo Thu nợ theo BU (Dashboard Thu Nợ)
+*   `GET /api/dashboard/collection-by-bu/`:
+    *   **Tác dụng**: Trả về 5 chỉ số thu nợ chi tiết theo từng đơn vị kinh doanh chính (`is_main=True`) cho một ngày cụ thể.
+    *   **Query Parameters (Bắt buộc)**: `?date=YYYY-MM-DD` (Ví dụ: `?date=2026-06-15`).
+    *   **Dữ liệu trả về**: Danh sách `rows` chi tiết của từng BU (dư nợ cần thu, nợ quá hạn, đã thu đến hạn, thu trong hạn + COD, tổng thu trong ngày) và tổng cộng `totals` của toàn bộ BU chính.
+
+#### 6. Kích hoạt tính toán lại dữ liệu (Manual Trigger)
+*   `POST /api/update-performance/`: Cho phép trigger tính toán và cập nhật lại chỉ số hiệu suất từ các bảng chi tiết.
+    *   **Body (JSON)**:
+        ```json
+        {
+          "bu_id": 1, // ID của BU (null nếu là Tổng công ty)
+          "month": 6,
+          "year": 2026,
+          "target_date": "2026-06-15" // Mốc ngày kết thúc tính toán
+        }
+        ```
+
+#### 7. Các API danh mục chi tiết (DRF ViewSets)
+Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh sách (`GET`), chi tiết (`GET [id]`), tạo (`POST`), sửa (`PUT`), xóa (`DELETE`) dữ liệu mẫu:
+*   `/api/branches/` (Chi nhánh)
+*   `/api/business-units/` (Đơn vị kinh doanh - BU):
+    *   *Bộ lọc*: `?is_main=true` (chỉ lấy BU chính) hoặc `?is_main=false`
+*   `/api/transactions/` (Chi tiết bán hàng)
+*   `/api/customers/` (Khách hàng)
+*   `/api/suppliers/` (Nhà cung cấp)
+*   `/api/supplier-groups/` (Nhóm nhà cung cấp)
+*   `/api/supplier-debts/` (Công nợ NCC)
+*   `/api/account-details/` (Sổ chi tiết tài khoản 111-112):
+    *   *Bộ lọc*: `?business_unit__code=...`
+*   `/api/receivables-ageing/` (Chi tiết tuổi nợ):
+    *   *Tìm kiếm*: `?search=mã_hoặc_tên_khách_hàng`
+*   `/api/purchase-details/` (Chi tiết mua hàng):
+    *   *Bộ lọc*: `?supplier__code=...&business_unit__code=...&warehouse__code=...`
+*   `/api/inventory-summaries/` (Tổng hợp tồn kho)
