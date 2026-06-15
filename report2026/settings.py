@@ -169,3 +169,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+# Đường dẫn khởi chạy Redis Server tự động
+REDIS_SERVER_PATH = r"d:\downloads\redis-x64-5.0.14.1\redis-server.exe"
+
+

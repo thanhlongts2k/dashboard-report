@@ -18,7 +18,25 @@ def main():
             try:
                 # Windows flag để tạo cửa sổ terminal độc lập mới
                 CREATE_NEW_CONSOLE = 0x00000010
+
+                # Lấy cấu hình Redis Server từ settings.py
+                try:
+                    from report2026.settings import REDIS_SERVER_PATH
+                except Exception:
+                    REDIS_SERVER_PATH = None
                 
+                # 1. Tự động khởi chạy Redis Server
+                if REDIS_SERVER_PATH and os.path.exists(REDIS_SERVER_PATH):
+                    print(f"🚀 Đang khởi động Redis Server tại {REDIS_SERVER_PATH}...")
+                    redis_p = subprocess.Popen(
+                        [REDIS_SERVER_PATH],
+                        creationflags=CREATE_NEW_CONSOLE
+                    )
+                    processes.append(redis_p)
+                elif REDIS_SERVER_PATH:
+                    print(f"⚠️ Cấu hình REDIS_SERVER_PATH không tồn tại trên đĩa: {REDIS_SERVER_PATH}")
+                
+                # 2. Khởi động Celery Worker
                 print("🚀 Đang khởi động Celery Worker...")
                 worker_p = subprocess.Popen(
                     ['.venv/Scripts/celery', '-A', 'report2026', 'worker', '--loglevel=info', '-P', 'solo'],
@@ -26,6 +44,7 @@ def main():
                 )
                 processes.append(worker_p)
                 
+                # 3. Khởi động Celery Beat
                 print("🚀 Đang khởi động Celery Beat...")
                 beat_p = subprocess.Popen(
                     ['.venv/Scripts/celery', '-A', 'report2026', 'beat', '--loglevel=info'],
@@ -34,7 +53,7 @@ def main():
                 processes.append(beat_p)
                 
                 def cleanup_celery():
-                    print("\n🛑 Đang tự động tắt các tiến trình Celery...")
+                    print("\n🛑 Đang tự động tắt các tiến trình Celery & Redis...")
                     for p in processes:
                         try:
                             p.terminate()
@@ -45,7 +64,7 @@ def main():
                                 p.kill()
                             except Exception:
                                 pass
-                    print("✅ Đã đóng toàn bộ terminal Celery.")
+                    print("✅ Đã đóng toàn bộ terminal Celery & Redis.")
                 
                 # Đăng ký dọn dẹp khi dừng django server (Ctrl+C hoặc tắt)
                 atexit.register(cleanup_celery)

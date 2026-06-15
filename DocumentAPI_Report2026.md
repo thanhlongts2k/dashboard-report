@@ -105,12 +105,18 @@ Nhà phát triển hoặc Admin có thể kích hoạt đồng bộ thủ công 
 
 Để bắt đầu làm việc trên máy tính này, bạn làm theo các bước sau:
 
-### Bước 1: Khởi động Redis Server
-Bật Redis Server (mặc định chạy tại port `6379`).
+### Bước 1: Cấu hình và Tự động khởi động Redis Server
+Hệ thống hỗ trợ tự động khởi chạy Redis Server cùng lúc với Django Web Server.
+1. Mở file [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L172) và cấu hình đường dẫn tới file chạy Redis trên máy của bạn:
+   ```python
+   REDIS_SERVER_PATH = r"d:\downloads\redis-x64-5.0.14.1\redis-server.exe"
+   ```
+2. Khi khởi chạy lệnh ở Bước 2, hệ thống sẽ tự động kiểm tra và bật cửa sổ Redis Server chạy song song mà bạn không cần mở thủ công.
+
 > [!IMPORTANT]
 > **Khuyến nghị tương thích**: Redis chạy trên Windows thường là phiên bản cũ (v5.0.x). Do đó, thư viện kết nối Python trong môi trường ảo `.venv` bắt buộc phải sử dụng phiên bản `redis==4.6.0`. (Phiên bản `redis >= 5.x` sử dụng giao thức RESP3 sẽ gây lỗi `unknown command 'HELLO'`).
 
-### Bước 2: Chạy Server phát triển (Development Server) & Celery tự động
+### Bước 2: Chạy Server phát triển (Development Server) & Celery + Redis tự động
 Chạy máy chủ web Django thông thường trong môi trường ảo:
 ```powershell
 py manage.py runserver
@@ -118,9 +124,9 @@ py manage.py runserver
 
 > [!TIP]
 > **Tự động hóa hoàn toàn**: Chúng ta đã tích hợp mã nguồn quản lý trực tiếp vào [manage.py](file:///d:/Sources/dashboard-report/manage.py). Khi chạy lệnh `runserver` ở trên:
-> 1. Django sẽ **tự động khởi chạy Celery Worker và Beat** trong hai cửa sổ terminal độc lập hoàn toàn tự động.
-> 2. Cơ chế thông minh đảm bảo Celery chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server (không bị lặp lại do `auto-reloader`).
-> 3. **Tự động dọn dẹp khi dừng server**: Khi bạn nhấn `Ctrl + C` để dừng `runserver`, Django sẽ tự động gửi lệnh kết thúc và **đóng hoàn toàn 2 cửa sổ terminal Celery** đang chạy, tránh rác tiến trình chạy ngầm trên Windows.
+> 1. Django sẽ **tự động khởi chạy Redis Server, Celery Worker và Celery Beat** trong các cửa sổ terminal độc lập hoàn toàn tự động.
+> 2. Cơ chế thông minh đảm bảo các dịch vụ chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server (không bị lặp lại do `auto-reloader`).
+> 3. **Tự động dọn dẹp khi dừng server**: Khi bạn nhấn `Ctrl + C` để dừng `runserver`, Django sẽ tự động gửi lệnh kết thúc và **đóng hoàn toàn tất cả các cửa sổ terminal Celery & Redis** đang chạy, tránh rác tiến trình chạy ngầm trên Windows.
 
 ---
 
