@@ -197,3 +197,70 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
 *   `/api/purchase-details/` (Chi tiết mua hàng):
     *   *Bộ lọc*: `?supplier__code=...&business_unit__code=...&warehouse__code=...`
 *   `/api/inventory-summaries/` (Tổng hợp tồn kho)
+
+---
+
+## 7. Lưu ý kỹ thuật chuyên sâu & Hướng phát triển tương lai (Dành cho Developer/Agent)
+
+Để hỗ trợ đắc lực cho các Agent/Developer tiếp quản và vận hành dự án, dưới đây là các phân tích chi tiết về mặt thiết kế kỹ thuật, rủi ro hiệu năng tiềm ẩn và phương án giải quyết tương ứng:
+
+### 7.1. Logic Doanh thu không khớp (Technical Debt)
+* **Bối cảnh**: Doanh thu lũy kế tháng (`rev_actual` trong `BUPerformance`) tính bằng `Sum('actual_sales')`, trong khi doanh thu ngày (`daily_rev` trong `BUPerformanceDaily`) tính bằng `Sum('sales_amount')`.
+* **Trạng thái**: Đây là **nợ kỹ thuật (Technical Debt)** đã được ghi nhận trong danh sách nâng cấp [target.md](file:///d:/Sources/dashboard-report/target.md#L8-L15) (mức độ Ưu tiên cao).
+* **Hướng xử lý**: Lập trình viên mới được phép đồng bộ lại công thức của 2 bảng này sau khi đã thống nhất với bộ phận nghiệp vụ/kế toán xem trường nào (`actual_sales` hay `sales_amount`) mới thực sự là nguồn dữ liệu chuẩn.
+
+### 7.2. Cảnh báo chủ động khi có lỗi (Error Handling & Alerts)
+* **Bối cảnh**: Khi có lỗi định dạng file Excel (thiếu cột, sai kiểu dữ liệu,...) hoặc lỗi runtime, hệ thống thực hiện rollback giao dịch và lưu bản ghi nhật ký với trạng thái `ERROR` vào bảng `ImportLog` trên Django Admin.
+* **Hạn chế**: Hiện tại dự án chưa tích hợp bất kỳ cơ chế cảnh báo chủ động nào (như Email, Slack hay Telegram).
+* **Hướng xử lý tương lai**: Tích hợp thêm gửi Webhook cảnh báo khẩn cấp trong khối xử lý ngoại lệ `except Exception as e:` của hàm `auto_import_excel_from_folder` trong [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py#L75-L83).
+
+### 7.3. Rủi ro khóa bảng khi dữ liệu phình to (Scalability & Table Lock)
+* **Bối cảnh**: Hiện tại, mỗi khi import Excel, hệ thống sẽ xóa sạch dữ liệu cũ (`objects.all().delete()`) rồi nạp lại dữ liệu mới trong khối `transaction.atomic()`.
+* **Rủi ro hiệu năng**: Khi bảng `SalesTransaction` hoặc `AccountDetail` lên tới hàng triệu dòng, việc này sẽ gây ra tình trạng **Exclusive Lock** trên cơ sở dữ liệu PostgreSQL trong thời gian dài, làm treo toàn bộ API đọc dữ liệu của Frontend.
+* **Hướng xử lý tương lai**: Khi quy mô dữ liệu tăng lên, cần nâng cấp quy trình import:
+  1. Chuyển sang cơ chế **Import tăng dần (Incremental/Upsert Load)** hoặc ghi đè theo từng phần (ví dụ: chỉ reload tháng hiện tại) thay vì xóa trắng toàn bộ bảng.
+  2. Sử dụng **Staging Table & Swap Table**: Nạp dữ liệu vào bảng tạm, sau đó thực hiện đổi tên bảng trong transaction (chỉ mất vài mili-giây, giảm thiểu thời gian khóa bảng).
+  3. Sử dụng `bulk_create` hoặc lệnh `COPY` của PostgreSQL thay vì import từng dòng qua ORM.
+  4. Đọc file Excel lớn theo từng chunk để tránh tràn bộ nhớ RAM của Server.
+
+### 7.4. Phạm vi xóa khi nạp Excel (Scope of Deletion)
+* **Bối cảnh**: Lệnh `objects.all().delete()` ở đầu luồng Import Excel sẽ **xóa sạch toàn bộ lịch sử dữ liệu của bảng đó từ trước đến nay**, chứ không chỉ xóa dữ liệu của tháng/kỳ đang import.
+* **Hệ quả & Điều kiện**: Hệ thống hiện tại đang ngầm giả định các file Excel nạp vào luôn là **file lũy kế từ trước đến nay** (hoặc tích lũy từ đầu năm). Nếu người dùng nạp file lẻ tách biệt theo tháng (ví dụ: chỉ chứa riêng tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa mất hoàn toàn.
+* **Hướng xử lý tương lai**: Cần chuyển đổi từ xóa trắng bảng sang **xóa theo điều kiện thời gian/kỳ kế toán** (ví dụ: chỉ xóa và ghi đè các bản ghi có cùng tháng/năm với file Excel đang nạp) để hỗ trợ import file rời theo tháng.
+
+### 7.5. Cấu trúc cây phân cấp của Business Unit (BU Hierarchy)
+* **Bối cảnh**: Bảng `BusinessUnit` sử dụng mối quan hệ đệ quy đơn giản thông qua khóa ngoại tự tham chiếu `parent = models.ForeignKey('self')`. Hệ thống **không** sử dụng các thư viện quản lý cây như `django-mptt` hay `django-treebeard`.
+* **Logic tổng hợp**: Trong hàm tính toán KPI `update_single_bu_performance`:
+  - Nếu `bu_id` là `None` hoặc BU đó không có cha (`parent_id is None`), hệ thống coi là `is_global = True` và tính tổng hợp cho toàn công ty (không lọc theo BU).
+  - Nếu `bu_id` cụ thể, hệ thống chỉ lọc chính xác các bản ghi của BU đó (không đệ quy gom cụm số liệu của các BU con).
+* **Hiệu năng**: Do không chạy đệ quy lặp qua các BU con khi tính toán cho BU cha, hệ thống hiện tại tránh được lỗi N+1 Query khét tiếng khi tính toán báo cáo. Tuy nhiên, việc gom cụm số liệu cấp phòng ban (sub-BU) lên BU cấp cao hơn hiện chưa được hỗ trợ tự động theo cây phân cấp.
+
+### 7.6. Cơ chế phân quyền xem báo cáo (Row-Level Security / Data Isolation)
+* **Hiện trạng**: Hệ thống hiện tại **chưa có cơ chế phân quyền theo cấp độ dữ liệu (Object-level permission/Row-level security)**. 
+* **Rủi ro bảo mật**: Bất kỳ User nào khi đã đăng nhập thành công (có Knox Token hợp lệ) đều có quyền gọi các API báo cáo như `/api/bu-performance/?bu_id=X` hoặc `/api/transactions/?business_unit__code=X` để xem số liệu tài chính của bất kỳ BU nào trong công ty mà không bị hạn chế.
+* **Cảnh báo cho Developer**: Đây là một **lỗ hổng bảo mật (Security Gap)** cần đặc biệt lưu ý. Khi triển khai các API ViewSet hoặc báo cáo mới cho HP Co., lập trình viên bắt buộc phải thiết kế thêm lớp phân quyền tùy biến (`permissions.BasePermission`) kiểm tra quyền sở hữu BU của tài khoản hiện tại (`request.user`) để tránh làm rò rỉ dữ liệu doanh thu nội bộ giữa các BU độc lập.
+
+### 7.7. Quy ước đặt tên file Excel (Pattern Matching) và Định dạng ngày tháng
+* **Bối cảnh**: Hệ thống sử dụng pattern `glob.glob("PREFIX*.xlsx")` (như `BAN_HANG*.xlsx`) chỉ để bóc tách và phân biệt loại dữ liệu cần import, sau đó sắp xếp theo ngày giờ tạo file trên ổ đĩa để tìm ra file mới nhất (`latest_file`).
+* **Trích xuất thời gian**: Hệ thống **không bóc tách** thông tin năm/tháng từ tên file (ví dụ: file tên `BAN_HANG_2026_06.xlsx` không giúp hệ thống tự biết đây là dữ liệu tháng 6).
+* **Nguồn gốc thời gian thực tế**: Toàn bộ thông tin thời gian (ngày hạch toán, ngày chứng từ...) được **đọc và parse trực tiếp từ dữ liệu các cột bên trong file Excel** trong quá trình import.
+* **Lưu ý cho Developer**: Nếu muốn sửa đổi hệ thống sang dạng xóa/ghi đè theo kỳ kế toán cụ thể (như mục 7.4), lập trình viên sẽ cần:
+  - Thiết lập quy ước đặt tên file Excel bắt buộc có chứa mốc thời gian để parse trong code (ví dụ bóc tách `2026_06` từ tên file), hoặc
+  - Đọc lướt qua dữ liệu của cột ngày tháng trong file trước để xác định kỳ kế toán rồi thực hiện xóa/ghi đè bản ghi trùng kỳ.
+
+### 7.8. Chiến lược xử lý khi trùng lặp file nạp (Idempotency)
+* **Bối cảnh**: Khi kế toán vô tình copy lại một file Excel trùng tên hoặc trùng nội dung đã import thành công trước đó vào thư mục `media/auto_imports/`.
+* **Cơ chế xử lý**: Hệ thống hoạt động theo **Kịch bản A (Idempotent - An toàn)**:
+  1. Khi chạy, code import sẽ thực thi xóa sạch dữ liệu cũ (`objects.all().delete()`) của bảng tương ứng trước.
+  2. Nạp lại toàn bộ dữ liệu mới từ file Excel vào DB.
+  3. Di chuyển file Excel vào thư mục `success/` (nếu file đã tồn tại trong `success/`, code sẽ ghi đè đè lên file cũ).
+* **Kết quả**: Dữ liệu trong database được đảm bảo nhất quán và không sinh ra dữ liệu rác hay trùng lặp bản ghi, tuy nhiên tiến trình ghi đè (Wipe and Reload) vẫn xảy ra bình thường.
+
+### 7.9. Cơ chế xử lý của API Tính toán lại dữ liệu (Manual Trigger Sync)
+* **Hiện trạng**: API `POST /api/update-performance/` hiện tại đang được xử lý ở chế độ **Đồng bộ (Synchronous)**. 
+* **Logic hoạt động**: Khi gọi API này, luồng HTTP Request sẽ bị chặn (block) để gọi trực tiếp hàm xử lý `update_single_bu_performance()` và chỉ trả về response khi toàn bộ quá trình tính toán KPI cho BU hoàn tất.
+* **Rủi ro hiệu năng**: Khi các bảng dữ liệu gốc (`SalesTransaction`, `AccountDetail`...) phình to lên hàng triệu dòng, việc tính toán đồng bộ trên request này sẽ mất nhiều thời gian, dẫn đến lỗi **HTTP 504 Gateway Timeout** từ phía Web Server (như Nginx/Apache) trước khi kịp trả phản hồi về cho Frontend.
+* **Hướng xử lý tương lai**: Cần chuyển đổi cơ chế gọi hàm trực tiếp sang chạy ngầm thông qua hàng chờ Celery bằng cách dùng phương thức `.delay()` (Ví dụ: `update_single_bu_performance.delay(bu_id, month, year, target_date_str)`). Khi đó, API sẽ lập tức trả về phản hồi `{"status": "processing", "task_id": "..."}` để Frontend hiển thị trạng thái chờ và poll kết quả sau.
+
+
+
