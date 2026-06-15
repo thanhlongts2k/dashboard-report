@@ -46,9 +46,10 @@
 * **Đề xuất**: Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các trường khoá ngoại như `customer`, `product`, `business_unit` ở các ViewSet tương ứng.
 * **Nơi xử lý**: [views.py](file:///d:/Sources/dashboard-report/accounting/views.py) (Tương tự cách đã tối ưu cho `PurchaseDetailViewSet`).
 
-### [ ] Xây dựng bảng Log Import dữ liệu
+### [x] Xây dựng bảng Log Import dữ liệu
+* **Trạng thái**: Đã hoàn thành.
 * **Vấn đề**: Hiện tại khi import Excel lỗi hoặc thành công, hệ thống chỉ di chuyển file vào thư mục `success/` hoặc ghi log ở terminal. Lập trình viên khó theo dõi lịch sử import lỗi do dòng dữ liệu nào từ xa.
-* **Đề xuất**: 
-  * Tạo một model `ImportLog` lưu trữ thời gian import, tên file, trạng thái (Thành công/Lỗi) và mô tả lỗi cụ thể nếu có.
-  * Hiển thị bảng này lên Django Admin để người vận hành hệ thống dễ dàng kiểm soát.
+* **Giải pháp đã triển khai**: 
+  - Tạo model `ImportLog` lưu trữ tên file, trạng thái (`SUCCESS`/`ERROR`), mô tả chi tiết và thời gian bắt đầu thực thi (`start_time`), thời gian thực thi hoàn thành (`end_time`).
+  - Đăng ký và hiển thị bảng này trên Django Admin với bộ lọc và tìm kiếm trực quan.
 * **Nơi xử lý**: Hàm `auto_import_excel_from_folder` trong [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py#L17).

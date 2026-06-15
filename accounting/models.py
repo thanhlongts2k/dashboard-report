@@ -373,3 +373,25 @@ class BUPerformanceDaily(models.Model):
         verbose_name = "Hiệu suất BU theo ngày"
         unique_together = ('performance_month', 'date')
         ordering = ['-date']
+
+
+class ImportLog(models.Model):
+    STATUS_CHOICES = (
+        ('SUCCESS', 'Thành công'),
+        ('ERROR', 'Lỗi'),
+    )
+    file_name = models.CharField(max_length=255, verbose_name="Tên file / Tiến trình")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name="Trạng thái")
+    message = models.TextField(verbose_name="Nội dung tóm tắt")
+    start_time = models.DateTimeField(verbose_name="Thời gian bắt đầu", null=True, blank=True)
+    end_time = models.DateTimeField(verbose_name="Thời gian hoàn thành", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian tạo")
+
+    class Meta:
+        verbose_name = "Lịch sử Import"
+        verbose_name_plural = "Lịch sử Import dữ liệu"
+        ordering = ['-start_time', '-created_at']
+
+    def __str__(self):
+        start_str = self.start_time.strftime('%Y-%m-%d %H:%M:%S') if self.start_time else 'N/A'
+        return f"{self.file_name} - {self.status} - {start_str}"

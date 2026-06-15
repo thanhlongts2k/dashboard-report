@@ -3,7 +3,8 @@ from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget, DateWidget, DecimalWidget, BooleanWidget
 from .models import (
     Branch, PurchaseDetail, Warehouse, Customer, Employee, 
-    Product, BusinessUnit, SalesTransaction, MaterialGroup, AccountDetail
+    Product, BusinessUnit, SalesTransaction, MaterialGroup, AccountDetail,
+    CustomerGroup
 )
 from .models import Supplier, SupplierDebt, SupplierGroup, ReceivablesAgeing, InventorySummary
 
@@ -668,3 +669,57 @@ class PurchaseDetailResource(resources.ModelResource):
         row['credit_account'] = str(row.get('TK Có') or '').strip()
 
         return row
+
+
+class CustomerResource(resources.ModelResource):
+    group = fields.Field(
+        attribute='group',
+        column_name='Mã nhóm khách hàng',
+        widget=ForeignKeyWidget(CustomerGroup, 'code')
+    )
+    business_unit = fields.Field(
+        attribute='business_unit',
+        column_name='Mã thống kê',
+        widget=ForeignKeyWidget(BusinessUnit, 'code')
+    )
+    
+    code = fields.Field(attribute='code', column_name='Mã khách hàng')
+    name = fields.Field(attribute='name', column_name='Tên khách hàng')
+    address = fields.Field(attribute='address', column_name='Địa điểm giao hàng')
+    has_revenue = fields.Field(
+        attribute='has_revenue',
+        column_name='Có ghi nhận doanh thu',
+        widget=BooleanWidget(),
+        default=True
+    )
+
+    class Meta:
+        model = Customer
+        import_id_fields = ['code']  # Dùng mã làm khóa định danh để cập nhật dữ liệu nếu trùng
+        fields = ('code', 'name', 'group', 'address', 'business_unit', 'has_revenue')
+        skip_unchanged = True
+        report_skipped = True
+
+    def before_import_row(self, row, **kwargs):
+        # 1. Tự động tạo nhóm khách hàng nếu chưa có
+        g_code = str(row.get('Mã nhóm khách hàng') or '').strip()
+        g_name = str(row.get('Tên nhóm khách hàng') or '').strip()
+        if g_code and g_code != 'None' and g_code != '':
+            CustomerGroup.objects.get_or_create(
+                code=g_code,
+                defaults={'name': g_name if g_name else g_code}
+            )
+
+        # 2. Tự động tạo BusinessUnit nếu chưa có
+        bu_code = str(row.get('Mã thống kê') or '').strip()
+        bu_name = str(row.get('Tên thống kê') or '').strip()
+        if bu_code and bu_code != 'None' and bu_code != '':
+            BusinessUnit.objects.get_or_create(
+                code=bu_code,
+                defaults={'name': bu_name if bu_name else bu_code}
+            )
+
+        # 3. Làm sạch giá trị text
+        for key in ['Mã khách hàng', 'Tên khách hàng', 'Địa điểm giao hàng']:
+            if row.get(key) and isinstance(row[key], str):
+                row[key] = row[key].strip()

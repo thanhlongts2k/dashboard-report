@@ -2,7 +2,7 @@ import os
 import glob
 from celery import shared_task
 from django.db.models import Sum, Q
-from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse
+from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog
 from datetime import datetime, timedelta
 import calendar
 from .resources import (
@@ -11,6 +11,7 @@ from .resources import (
 )
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from tablib import Dataset
 
 @shared_task
@@ -39,6 +40,7 @@ def auto_import_excel_from_folder():
 
         # Lấy file mới nhất nếu có nhiều file cùng tiền tố
         latest_file = max(files, key=os.path.getctime)
+        start_time = timezone.now()
         
         try:
             with transaction.atomic():
@@ -55,13 +57,37 @@ def auto_import_excel_from_folder():
                 if not result.has_errors():
                     # BƯỚC C: DI CHUYỂN FILE VÀO THƯ MỤC SUCCESS
                     move_to_processed(latest_file, 'success')
-                    report.append(f"✅ {prefix}: Đã xóa cũ & Import mới {len(dataset)} dòng.")
+                    msg = f"✅ {prefix}: Đã xóa cũ & Import mới {len(dataset)} dòng."
+                    report.append(msg)
+                    ImportLog.objects.create(
+                        file_name=os.path.basename(latest_file),
+                        status='SUCCESS',
+                        message=msg,
+                        start_time=start_time,
+                        end_time=timezone.now()
+                    )
                 else:
-                    report.append(f"❌ {prefix}: Lỗi dữ liệu file.")
+                    msg = f"❌ {prefix}: Lỗi dữ liệu file."
+                    report.append(msg)
+                    ImportLog.objects.create(
+                        file_name=os.path.basename(latest_file),
+                        status='ERROR',
+                        message=msg,
+                        start_time=start_time,
+                        end_time=timezone.now()
+                    )
                     # Transaction sẽ rollback, dữ liệu cũ không bị mất nếu import lỗi
 
         except Exception as e:
-            report.append(f"⚠️ {prefix}: Lỗi hệ thống {str(e)}")
+            msg = f"⚠️ {prefix}: Lỗi hệ thống {str(e)}"
+            report.append(msg)
+            ImportLog.objects.create(
+                file_name=os.path.basename(latest_file) if 'latest_file' in locals() else prefix,
+                status='ERROR',
+                message=msg,
+                start_time=start_time if 'start_time' in locals() else timezone.now(),
+                end_time=timezone.now()
+            )
 
     # BƯỚC D: SAU KHI IMPORT XONG, TÍNH TOÁN LẠI KPI CHO TOÀN BỘ BU
     # Cập nhật cho Tổng công ty

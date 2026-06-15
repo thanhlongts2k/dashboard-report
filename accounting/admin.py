@@ -3,9 +3,13 @@ from import_export.admin import ImportExportModelAdmin
 from .models import (
     BUPerformance, BUPerformanceDaily, Branch, PurchaseDetail, Warehouse, Customer, Employee, 
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
-    AccountDetail, ReceivablesAgeing, InventorySummary
+    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog
 )
-from .resources import PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource
+from .resources import (
+    PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
+    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource,
+    CustomerResource
+)
 from .tasks import update_single_bu_performance, sync_warehouse_inventory_data
 from django.contrib import admin, messages
 from datetime import datetime
@@ -58,6 +62,7 @@ class SalesTransactionAdmin(ImportExportModelAdmin):
 # Đăng ký các bảng danh mục còn lại một cách nhanh chóng
 @admin.register(Customer)
 class CustomerAdmin(ImportExportModelAdmin):
+    resource_class = CustomerResource
     list_display = ('code', 'name')
     search_fields = ('code', 'name')
 
@@ -227,3 +232,11 @@ class PurchaseDetailAdmin(ImportExportModelAdmin):
             'fields': (('quantity', 'unit_price'), ('purchase_value', 'vat_value', 'total_value'), ('debit_account', 'credit_account'))
         }),
     )
+
+
+@admin.register(ImportLog)
+class ImportLogAdmin(admin.ModelAdmin):
+    list_display = ('start_time', 'end_time', 'file_name', 'status', 'message')
+    list_filter = ('status', 'start_time', 'end_time')
+    search_fields = ('file_name', 'message')
+    readonly_fields = ('start_time', 'end_time', 'created_at', 'file_name', 'status', 'message')

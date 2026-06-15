@@ -304,6 +304,7 @@ class DashboardCollectionByBUAPIView(APIView):
             )
             receivable_total = rec['total'] or 0
             commitment_overdue = rec['overdue'] or 0
+            
             # 2. Đã thu (đến hạn) — theo pattern tasks.py dùng due_total từ ReceivablesAgeing
             collected_due = rec['due_now'] or 0
 

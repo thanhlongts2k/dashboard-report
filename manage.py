@@ -7,6 +7,18 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    
+    # Tự động chạy run_celery.bat khi khởi động runserver
+    if len(sys.argv) > 1 and sys.argv[1] == 'runserver':
+        if os.environ.get('RUN_MAIN') != 'true':
+            import subprocess
+            try:
+                # Gọi file .bat khởi chạy Celery Worker & Beat
+                subprocess.Popen(['run_celery.bat'], shell=True)
+                print("🚀 Đang tự động kích hoạt Celery Worker & Beat qua run_celery.bat...")
+            except Exception as e:
+                print(f"⚠️ Không thể tự động khởi chạy run_celery.bat: {e}")
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

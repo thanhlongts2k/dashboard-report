@@ -57,9 +57,12 @@ INSTALLED_APPS = [
     'rest_framework',
     'knox',
     'corsheaders',
-    'django_celery_beat'
+    'django_celery_beat',
+    'django_celery_results',
 ]
 
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
 
 IMPORT_EXPORT_USE_TRANSACTIONS = True
 
@@ -149,6 +152,8 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Cấu hình múi giờ riêng cho Celery (để Celery Beat nhận diện đúng giờ Việt Nam)
+CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -160,7 +165,7 @@ STATIC_URL = 'static/'
 CELERY_BEAT_SCHEDULE = {
     'auto_import_excel_daily': {
         'task': 'accounting.tasks.auto_import_excel_from_folder',
-        'schedule': crontab(hour=1, minute=0),
+        'schedule': crontab(hour=14, minute=10),
     },
 }
 
