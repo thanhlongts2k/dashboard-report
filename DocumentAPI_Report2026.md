@@ -64,6 +64,7 @@ graph TD
 
 1. **Chu kỳ quét**: Hàng ngày vào lúc **06:00 AM** (giờ Việt Nam, tương ứng cấu hình `crontab(hour=6, minute=0)` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L164) và múi giờ `CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'`), Celery Beat tự động bắn tác vụ vào hàng chờ Redis.
 2. **Quét file**: Celery Worker nhận việc, quét thư mục `media/auto_imports/` để tìm các file có tên dạng:
+    *   `KHACH_HANG*.xlsx` (Khách hàng) -> Lưu vào `Customer` (Bảng danh mục khách hàng)
     *   `BAN_HANG*.xlsx` (Bán hàng) -> Lưu vào `SalesTransaction`
     *   `MUA_HANG*.xlsx` (Mua hàng) -> Lưu vào `PurchaseDetail`
     *   `TON_KHO*.xlsx` (Tồn kho) -> Lưu vào `InventorySummary`
@@ -71,9 +72,11 @@ graph TD
     *   `TUOI_NO_KH*.xlsx` (Tuổi nợ khách hàng) -> Lưu vào `ReceivablesAgeing`
     *   `SO_CHI_TIET*.xlsx` (Sổ chi tiết tài khoản ngân hàng/tiền mặt 111-112) -> Lưu vào `AccountDetail`
 3. **An toàn dữ liệu & Phạm vi xóa (Scope of Deletion)**: 
-    Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). Hệ thống thực hiện lệnh xóa sạch toàn bộ dữ liệu hiện tại của bảng tương ứng trước khi nạp (`objects.all().delete()`). 
+    Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). 
+    - Đối với hầu hết các file giao dịch, hệ thống thực hiện lệnh xóa sạch toàn bộ dữ liệu hiện tại của bảng tương ứng trước khi nạp (`objects.all().delete()`). 
+    - **Ngoại lệ an toàn cho danh mục Khách hàng (`KHACH_HANG`)**: Hệ thống **không** thực hiện xóa sạch bảng `Customer` (được cấu hình flag `skip_delete: True` trong code). Do bảng `Customer` có liên kết khóa ngoại với các bảng giao dịch bán hàng (`SalesTransaction`) và tuổi nợ (`ReceivablesAgeing`) bằng thuộc tính `on_delete=models.CASCADE`, việc xóa sạch bảng `Customer` sẽ kéo theo việc tự động xóa sạch toàn bộ dữ liệu giao dịch liên quan. Thay vào đó, tiến trình import Khách hàng hoạt động ở cơ chế **Upsert (Cập nhật hoặc Thêm mới)** dựa trên mã khách hàng (`code`).
     > [!WARNING]
-    > **Thiết kế mặc định (Wipe and Reload):** Vì hệ thống thực thi `objects.all().delete()`, dữ liệu file nạp được ngầm định phải là **file lũy kế (cumulative)** từ đầu kỳ/đầu năm đến nay. Nếu người dùng nạp file lẻ theo tháng (ví dụ chỉ chứa dữ liệu tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa sạch khỏi cơ sở dữ liệu.
+    > **Thiết kế mặc định (Wipe and Reload):** Vì hệ thống thực thi `objects.all().delete()` đối với các bảng giao dịch, dữ liệu file nạp được ngầm định phải là **file lũy kế (cumulative)** từ đầu kỳ/đầu năm đến nay. Nếu người dùng nạp file lẻ theo tháng (ví dụ chỉ chứa dữ liệu tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa sạch khỏi cơ sở dữ liệu.
     - Nếu import thành công, file Excel được di chuyển vào thư mục `success/`.
     - Nếu có bất kỳ lỗi cấu trúc/lỗi kiểu dữ liệu nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh mất/sai lệch dữ liệu cũ.
 4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.

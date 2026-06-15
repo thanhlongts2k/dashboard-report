@@ -2,12 +2,12 @@ import os
 import glob
 from celery import shared_task
 from django.db.models import Sum, Q
-from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog
+from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer
 from datetime import datetime, timedelta
 import calendar
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
-    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource
+    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource, CustomerResource
 )
 from django.conf import settings
 from django.db import transaction
@@ -21,6 +21,7 @@ def auto_import_excel_from_folder():
     
     # 2. Mapping giữa Tiền tố File - Model - Resource
     IMPORT_MAP = {
+        'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True},
         'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
         'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
         'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource()},
@@ -44,8 +45,9 @@ def auto_import_excel_from_folder():
         
         try:
             with transaction.atomic():
-                # BƯỚC A: XÓA SẠCH DỮ LIỆU CŨ CỦA MODEL NÀY
-                config['model'].objects.all().delete()
+                # BƯỚC A: XÓA SẠCH DỮ LIỆU CŨ CỦA MODEL NÀY (nếu không có skip_delete)
+                if not config.get('skip_delete', False):
+                    config['model'].objects.all().delete()
                 
                 # BƯỚC B: ĐỌC VÀ IMPORT DỮ LIỆU MỚI
                 dataset = Dataset()
