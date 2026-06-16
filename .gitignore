@@ -21,3 +21,5 @@ celerybeat-schedule*
 # Redis persistence files
 dump.rdb
 
+# .env file
+.env

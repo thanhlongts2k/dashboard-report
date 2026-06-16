@@ -160,6 +160,19 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 Để bắt đầu làm việc trên máy tính này, bạn làm theo các bước sau:
 
+### Bước 0: Khởi tạo file cấu hình môi trường `.env`
+Hệ thống sử dụng thư viện `django-environ` để bảo mật và tách cấu hình cơ sở dữ liệu khỏi mã nguồn.
+1. Tạo một tệp tin tên `.env` ở thư mục gốc của dự án (cùng cấp với thư mục `report2026/` và tệp `manage.py`).
+2. Nhập các thông tin kết nối database tương ứng của máy bạn:
+   ```env
+   DB_NAME=reportdb
+   DB_USER=postgres
+   DB_PASSWORD=your_password
+   DB_HOST=localhost
+   DB_PORT=5433
+   ```
+*(Lưu ý: Tệp `.env` đã được tự động thêm vào `.gitignore` để tránh đẩy thông tin nhạy cảm lên Git).*
+
 ### Bước 1: Cấu hình và Tự động khởi động Redis Server
 Hệ thống hỗ trợ tự động khởi chạy Redis Server cùng lúc với Django Web Server.
 1. Mở file [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L172) và cấu hình đường dẫn tới file chạy Redis trên máy của bạn:
