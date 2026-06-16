@@ -250,6 +250,18 @@ class ImportLogAdmin(admin.ModelAdmin):
     search_fields = ('file_name', 'message')
     readonly_fields = ('start_time', 'end_time', 'created_at', 'file_name', 'status', 'message')
 
+    def has_delete_permission(self, request, obj=None):
+        # Không cho phép bất kỳ ai xóa log
+        return False
+
+    def has_add_permission(self, request):
+        # Không cho phép thêm mới
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Không cho phép sửa đổi
+        return False
+
     @admin.display(description="Nội dung chi tiết")
     def short_message(self, obj):
         if obj.message and len(obj.message) > 150:
