@@ -6,7 +6,13 @@ class Command(BaseCommand):
     help = 'Tạo nhanh một tài khoản admin mặc định cho dự án Report2026'
 
     def handle(self, *args, **options):
-        username = 'long'
+        import sys
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except (AttributeError, IOError):
+            pass
+
+        username = 'admin'
         email = 'admin@haophuong.com'
         password = '123'
 
