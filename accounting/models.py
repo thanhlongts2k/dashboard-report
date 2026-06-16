@@ -42,7 +42,7 @@ class CustomerGroup(models.Model):
 class Customer(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã khách hàng")
     name = models.CharField(max_length=255, verbose_name="Tên khách hàng")
-    group = models.ForeignKey(CustomerGroup, on_delete=models.SET_NULL, null=True, blank=True)
+    group = models.ForeignKey(CustomerGroup, on_delete=models.PROTECT, null=True, blank=True)
     address = models.TextField(verbose_name="Địa điểm giao hàng")
     business_unit = models.ForeignKey(
         "BusinessUnit", 

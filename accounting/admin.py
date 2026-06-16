@@ -68,8 +68,12 @@ class CustomerGroupAdmin(admin.ModelAdmin):
 @admin.register(Customer)
 class CustomerAdmin(ImportExportModelAdmin):
     resource_class = CustomerResource
-    list_display = ('code', 'name')
-    search_fields = ('code', 'name')
+    list_display = ('code', 'name', 'group_name')
+    search_fields = ('code', 'name', 'group__name')
+
+    @admin.display(description="Nhóm khách hàng", ordering="group__name")
+    def group_name(self, obj):
+        return obj.group.name if obj.group else "-"
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
