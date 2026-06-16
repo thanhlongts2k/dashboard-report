@@ -114,9 +114,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reportdb',
         'USER': 'postgres',
-        'PASSWORD': '285495659',
+        'PASSWORD': '18052000',
         'HOST': 'localhost',
-        'PORT': '5433',
+        'PORT': '5432',
     }
 }
 

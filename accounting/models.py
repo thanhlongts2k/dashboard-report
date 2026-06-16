@@ -67,9 +67,11 @@ class Customer(models.Model):
 class Employee(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhân viên")
     name = models.CharField(max_length=255, verbose_name="Tên nhân viên")
+    age = models.CharField(default=0, verbose_name="Tuổi")
+    gender = models.CharField(default=0, verbose_name="Giới tính")
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.code})"
     
 class MaterialGroup(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhóm VTHH")
@@ -175,6 +177,9 @@ class SupplierDebt(models.Model):
     class Meta:
         verbose_name = "Công nợ NCC"
         verbose_name_plural = "Bảng công nợ nhà cung cấp"
+
+    def __str__(self):
+        return f"{self.supplier}"
 
 
 class AccountDetail(models.Model):
