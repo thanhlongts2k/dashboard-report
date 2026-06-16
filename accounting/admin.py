@@ -251,3 +251,31 @@ class ImportLogAdmin(admin.ModelAdmin):
         if obj.message and len(obj.message) > 150:
             return obj.message[:150] + "..."
         return obj.message or ""
+
+
+# Custom hiển thị cho TaskResult (Celery Results)
+from django_celery_results.models import TaskResult
+from django_celery_results.admin import TaskResultAdmin
+
+try:
+    admin.site.unregister(TaskResult)
+except admin.sites.NotRegistered:
+    pass
+
+@admin.register(TaskResult)
+class CustomTaskResultAdmin(TaskResultAdmin):
+    list_display = ('task_id', 'task_name', 'date_done', 'status', 'short_result')
+
+    @admin.display(description="Kết quả / Log trả về")
+    def short_result(self, obj):
+        result_str = obj.result or ""
+        import json
+        try:
+            decoded = json.loads(result_str)
+            if isinstance(decoded, str):
+                result_str = decoded
+        except Exception:
+            pass
+        if len(result_str) > 100:
+            return result_str[:100] + "..."
+        return result_str

@@ -250,7 +250,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
         # Tăng lên 1 ngày
         current_date += timedelta(days=1)
     
-    bu_name = "TỔNG CÔNG TY" if is_global else f"BU ID {bu_id}"
+    bu_name = "TỔNG CÔNG TY" if is_global else f"Business Unit {bu_id}"
     return f"Updated {bu_name}: Month Rev={rev_actual} | All days up to {target_date} updated"
 
 

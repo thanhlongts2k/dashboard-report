@@ -349,5 +349,9 @@ Dưới đây là phần trả lời chi tiết cho các câu hỏi thường g�
   - **Tự động chạy `update_single_bu_performance()`**: Có. Ngay khi luồng import file kết thúc thành công trong tác vụ `auto_import_excel_from_folder`, hệ thống sẽ tự động gửi các tác vụ Celery ngầm (`.delay()`) để tính toán lại KPI cho Tổng công ty và cho toàn bộ các BU lẻ trong hệ thống.
   - **KHÔNG tự động chạy `sync_warehouse_inventory_data()`**: Tác vụ đồng bộ dữ liệu tồn kho từ `InventorySummary` vào `Warehouse` không được gọi tự động. Tiến trình này bắt buộc phải được **kích hoạt thủ công** bởi Admin/Developer thông qua nút Action trong danh sách `Warehouse` của Django Admin (hoặc cấu hình lên lịch riêng trong Celery Beat).
 
+### Q6: Tại sao kết quả (Result Data) của Celery Task trong bảng "Task results" lại hiển thị các ký tự mã thoát Unicode (ví dụ: \u1ed4...) và cách khắc phục?
+* **Trả lời**: Mặc định Celery tuần tự hóa (serialize) kết quả trả về của hàm dưới dạng chuỗi JSON bằng `json.dumps(..., ensure_ascii=True)` để đảm bảo an toàn truyền tin, chuyển các ký tự có dấu thành mã thoát. 
+  - **Cách khắc phục**: Để hiển thị đẹp, hệ thống đã cấu hình lớp `CustomTaskResultAdmin` trong [admin.py](file:///d:/Sources/dashboard-report/accounting/admin.py) tự động giải mã JSON (`json.loads`) trước khi render trên bảng danh sách của Django Admin. Nhờ đó, người dùng vẫn nhìn thấy tiếng Việt có dấu chuẩn một cách tự động mà không cần can thiệp vào tầng ghi dữ liệu.
+
 
 
