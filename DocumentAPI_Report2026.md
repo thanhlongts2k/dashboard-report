@@ -41,6 +41,7 @@ Thư mục làm việc của bạn bao gồm:
     *   [resources.py](file:///d:/Sources/dashboard-report/accounting/resources.py): Quy tắc mapping dữ liệu giữa cột trong file Excel và cột trong DB.
     *   [urls.py](file:///d:/Sources/dashboard-report/accounting/urls.py): Định tuyến riêng cho các API của app `accounting`.
 *   [run_celery.bat](file:///d:/Sources/dashboard-report/run_celery.bat): File batch script khởi chạy thủ công Celery độc lập (khi cần chạy thử nghiệm/gọi từ shell).
+*   [requirements.txt](file:///d:/Sources/dashboard-report/requirements.txt): Tệp chứa danh sách các thư viện Python phụ thuộc cần thiết cho dự án.
 
 ---
 
@@ -172,6 +173,14 @@ Hệ thống sử dụng thư viện `django-environ` để bảo mật và tác
    DB_PORT=5433
    ```
 *(Lưu ý: Tệp `.env` đã được tự động thêm vào `.gitignore` để tránh đẩy thông tin nhạy cảm lên Git).*
+
+### Bước 0.5: Cài đặt các thư viện Python cần thiết
+Trước khi khởi chạy hệ thống lần đầu, bạn cần cài đặt toàn bộ các thư viện được định nghĩa sẵn trong dự án:
+1. Đảm bảo môi trường ảo (Virtual Environment) đã được kích hoạt.
+2. Chạy lệnh cài đặt:
+   ```powershell
+   pip install -r requirements.txt
+   ```
 
 ### Bước 1: Cấu hình và Tự động khởi động Redis Server
 Hệ thống hỗ trợ tự động khởi chạy Redis Server cùng lúc với Django Web Server.
