@@ -57,8 +57,11 @@ def auto_import_excel_from_folder():
 
     report = []
 
+    msgFileNotFound = []
+
     for prefix, files in prefix_to_files.items():
         if not files:
+            msgFileNotFound.append(prefix)
             continue
 
         config = IMPORT_MAP[prefix]
@@ -123,6 +126,16 @@ def auto_import_excel_from_folder():
                 status='ERROR',
                 message=msg,
                 start_time=start_time if 'start_time' in locals() else timezone.now(),
+                end_time=timezone.now()
+            )
+    if len(msgFileNotFound) > 0:
+            files_list = '\n'.join([f'- {prefix}' for prefix in msgFileNotFound])
+            msg = f"Đã thực hiện import theo chu kỳ\nKhông tìm thấy file:\n{files_list}"
+            ImportLog.objects.create(
+                file_name="N/A",
+                status='NOTFOUND',
+                message=msg,
+                start_time=timezone.now(),
                 end_time=timezone.now()
             )
 

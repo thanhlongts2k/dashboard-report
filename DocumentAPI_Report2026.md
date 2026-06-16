@@ -80,7 +80,8 @@ graph TD
     > **Thiết kế mặc định (Wipe and Reload):** Vì hệ thống thực thi `objects.all().delete()` đối với các bảng giao dịch, dữ liệu file nạp được ngầm định phải là **file lũy kế (cumulative)** từ đầu kỳ/đầu năm đến nay. Nếu người dùng nạp file lẻ theo tháng (ví dụ chỉ chứa dữ liệu tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa sạch khỏi cơ sở dữ liệu.
     - Nếu import thành công, file Excel được di chuyển vào thư mục `success/`.
     - Nếu có bất kỳ lỗi cấu trúc/lỗi kiểu dữ liệu nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh mất/sai lệch dữ liệu cũ.
-4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.
+4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`/`NOTFOUND`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.
+    - **Trạng thái `NOTFOUND` (Cảnh báo thiếu file)**: Nếu trong chu kỳ quét tự động mà có bất kỳ tệp tin nào được định nghĩa trong `IMPORT_MAP` bị thiếu (không tìm thấy trên ổ đĩa), hệ thống sẽ tạo một bản ghi log tổng hợp với trạng thái `NOTFOUND` liệt kê chi tiết các tiền tố tệp bị thiếu dưới dạng danh sách gạch đầu dòng trực quan.
 5. **Cơ chế kích hoạt tính toán tự động (Orchestration Flow)**:
     - Ngay khi tiến trình import hoàn tất thành công, Celery Worker sẽ **tự động kích hoạt** việc tính toán lại KPI cho Tổng công ty và từng BU bằng cách xếp hàng các tác vụ ngầm:
       - `update_single_bu_performance.delay(None)` (Cho Tổng công ty).
