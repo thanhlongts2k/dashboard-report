@@ -34,6 +34,10 @@ class CustomerGroup(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name = "Nhóm khách hàng"
+        verbose_name_plural = "Danh mục nhóm khách hàng"
     
 class Customer(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã khách hàng")
@@ -55,6 +59,10 @@ class Customer(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    class Meta:
+        verbose_name = "Khách hàng"
+        verbose_name_plural = "Danh mục khách hàng"
     
 class Employee(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhân viên")

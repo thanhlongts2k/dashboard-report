@@ -3,7 +3,7 @@ from import_export.admin import ImportExportModelAdmin
 from .models import (
     BUPerformance, BUPerformanceDaily, Branch, PurchaseDetail, Warehouse, Customer, Employee, 
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
-    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog
+    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup
 )
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
@@ -60,6 +60,11 @@ class SalesTransactionAdmin(ImportExportModelAdmin):
     )
 
 # Đăng ký các bảng danh mục còn lại một cách nhanh chóng
+@admin.register(CustomerGroup)
+class CustomerGroupAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name')
+    search_fields = ('code', 'name')
+
 @admin.register(Customer)
 class CustomerAdmin(ImportExportModelAdmin):
     resource_class = CustomerResource

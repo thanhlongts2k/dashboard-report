@@ -17,3 +17,7 @@ template/
 
 # Celery Beat schedule database files
 celerybeat-schedule*
+
+# Redis persistence files
+dump.rdb
+
