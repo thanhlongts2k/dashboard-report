@@ -45,8 +45,10 @@ def auto_import_excel_from_folder():
         
         try:
             with transaction.atomic():
+                deleted_count = 0
                 # BƯỚC A: XÓA SẠCH DỮ LIỆU CŨ CỦA MODEL NÀY (nếu không có skip_delete)
                 if not config.get('skip_delete', False):
+                    deleted_count = config['model'].objects.count()
                     config['model'].objects.all().delete()
                 
                 # BƯỚC B: ĐỌC VÀ IMPORT DỮ LIỆU MỚI
@@ -59,7 +61,7 @@ def auto_import_excel_from_folder():
                 if not result.has_errors():
                     # BƯỚC C: DI CHUYỂN FILE VÀO THƯ MỤC SUCCESS
                     move_to_processed(latest_file, 'success')
-                    msg = f"✅ {prefix}: Đã xóa cũ & Import mới {len(dataset)} dòng."
+                    msg = f"Đã xóa {deleted_count} dòng cũ & Import mới {len(dataset)} dòng."
                     report.append(msg)
                     ImportLog.objects.create(
                         file_name=os.path.basename(latest_file),
@@ -79,7 +81,7 @@ def auto_import_excel_from_folder():
                                 error_details.append(f"Dòng {row_num}: {str(error.error)}")
                     
                     err_msg = "\n".join(error_details)
-                    msg = f"❌ {prefix}: Lỗi dữ liệu file.\nChi tiết lỗi:\n{err_msg}"
+                    msg = f"Lỗi dữ liệu file.\nChi tiết lỗi:\n{err_msg}"
                     report.append(msg)
                     ImportLog.objects.create(
                         file_name=os.path.basename(latest_file),

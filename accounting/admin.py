@@ -236,7 +236,7 @@ class PurchaseDetailAdmin(ImportExportModelAdmin):
 
 @admin.register(ImportLog)
 class ImportLogAdmin(admin.ModelAdmin):
-    list_display = ('start_time', 'end_time', 'file_name', 'status', 'short_message')
+    list_display = ('id', 'start_time', 'end_time', 'file_name', 'status', 'short_message')
     list_filter = ('status', 'start_time', 'end_time')
     search_fields = ('file_name', 'message')
     readonly_fields = ('start_time', 'end_time', 'created_at', 'file_name', 'status', 'message')

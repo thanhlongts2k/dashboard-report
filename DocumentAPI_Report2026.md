@@ -62,7 +62,7 @@ graph TD
     I --> J[Tự động kích hoạt tính KPI]
 ```
 
-1. **Chu kỳ quét**: Hàng ngày vào lúc **06:00 AM** (giờ Việt Nam, tương ứng cấu hình `crontab(hour=6, minute=0)` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L164) và múi giờ `CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'`), Celery Beat tự động bắn tác vụ vào hàng chờ Redis.
+1. **Chu kỳ quét**: Hàng ngày vào lúc **07:00 AM** (giờ Việt Nam, tương ứng cấu hình `crontab(hour=7, minute=0)` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L165) và múi giờ `CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'`), Celery Beat tự động bắn tác vụ vào hàng chờ Redis.
 2. **Quét file**: Celery Worker nhận việc, quét thư mục `media/auto_imports/` để tìm các file có tên dạng:
     *   `KHACH_HANG*.xlsx` (Khách hàng) -> Lưu vào `Customer` (Bảng danh mục khách hàng)
     *   `BAN_HANG*.xlsx` (Bán hàng) -> Lưu vào `SalesTransaction`

@@ -146,7 +146,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
 USE_I18N = True
 
@@ -165,7 +165,7 @@ STATIC_URL = 'static/'
 CELERY_BEAT_SCHEDULE = {
     'auto_import_excel_daily': {
         'task': 'accounting.tasks.auto_import_excel_from_folder',
-        'schedule': crontab(hour=8, minute=2),
+        'schedule': crontab(hour=7, minute=0),
     },
 }
 

@@ -377,8 +377,8 @@ class BUPerformanceDaily(models.Model):
 
 class ImportLog(models.Model):
     STATUS_CHOICES = (
-        ('SUCCESS', 'Thành công'),
-        ('ERROR', 'Lỗi'),
+        ('SUCCESS', '✅'),
+        ('ERROR', '❌'),
     )
     file_name = models.CharField(max_length=255, verbose_name="Tên file / Tiến trình")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name="Trạng thái")
