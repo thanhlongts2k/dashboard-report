@@ -22,23 +22,46 @@ def auto_import_excel_from_folder():
     # 2. Mapping giữa Tiền tố File - Model - Resource
     IMPORT_MAP = {
         'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True},
+
+        # Cùng loại SalesTransaction
+        'So_chi_tiet_ban_hang': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
         'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
+        
+        # Cùng loại PurchaseDetail
+        'So_chi_tiet_mua_hang': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
         'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
+        
         'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource()},
         'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource()},
         'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
         'SO_CHI_TIET': {'model': AccountDetail, 'resource': AccountDetailResource()},
     }
 
+    # Quét tất cả các file excel trong thư mục auto_imports
+    all_files = []
+    if os.path.exists(BASE_IMPORT_PATH):
+        for f in os.listdir(BASE_IMPORT_PATH):
+            if f.lower().endswith('.xlsx') and not f.startswith('~$'):
+                all_files.append(os.path.join(BASE_IMPORT_PATH, f))
+
+    # Gom nhóm các file theo tiền tố phù hợp nhất (lấy prefix dài nhất khớp)
+    prefix_to_files = {p: [] for p in IMPORT_MAP.keys()}
+    sorted_prefixes = sorted(IMPORT_MAP.keys(), key=len, reverse=True)
+
+    for filepath in all_files:
+        filename = os.path.basename(filepath)
+        for prefix in sorted_prefixes:
+            if filename.lower().startswith(prefix.lower()):
+                prefix_to_files[prefix].append(filepath)
+                break
+
     report = []
 
-    for prefix, config in IMPORT_MAP.items():
-        pattern = os.path.join(BASE_IMPORT_PATH, f"{prefix}*.xlsx")
-        files = glob.glob(pattern)
-
+    for prefix, files in prefix_to_files.items():
         if not files:
             continue
 
+        config = IMPORT_MAP[prefix]
         # Lấy file mới nhất nếu có nhiều file cùng tiền tố
         latest_file = max(files, key=os.path.getctime)
         start_time = timezone.now()
@@ -93,7 +116,7 @@ def auto_import_excel_from_folder():
                     # Transaction sẽ rollback, dữ liệu cũ không bị mất nếu import lỗi
 
         except Exception as e:
-            msg = f"⚠️ {prefix}: Lỗi hệ thống {str(e)}"
+            msg = f"⚠️ Lỗi hệ thống {str(e)}"
             report.append(msg)
             ImportLog.objects.create(
                 file_name=os.path.basename(latest_file) if 'latest_file' in locals() else prefix,
