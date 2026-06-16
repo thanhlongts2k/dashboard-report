@@ -406,5 +406,7 @@ class ImportLog(models.Model):
         ordering = ['-start_time', '-created_at']
 
     def __str__(self):
-        start_str = self.start_time.strftime('%Y-%m-%d %H:%M:%S') if self.start_time else 'N/A'
+        from django.utils import timezone
+        local_time = timezone.localtime(self.start_time) if self.start_time else None
+        start_str = local_time.strftime('%Y-%m-%d %H:%M:%S') if local_time else 'N/A'
         return f"{self.file_name} - {self.status} - {start_str}"

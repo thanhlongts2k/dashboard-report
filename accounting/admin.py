@@ -251,7 +251,7 @@ class ImportLogAdmin(admin.ModelAdmin):
     readonly_fields = ('start_time', 'end_time', 'created_at', 'file_name', 'status', 'message')
 
     def has_delete_permission(self, request, obj=None):
-        # Không cho phép bất kỳ ai xóa log
+        # Không cho phép xóa log
         return False
 
     def has_add_permission(self, request):
