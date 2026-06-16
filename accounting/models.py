@@ -382,7 +382,7 @@ class ImportLog(models.Model):
     )
     file_name = models.CharField(max_length=255, verbose_name="Tên file / Tiến trình")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name="Trạng thái")
-    message = models.TextField(verbose_name="Nội dung tóm tắt")
+    message = models.TextField(verbose_name="Nội dung chi tiết")
     start_time = models.DateTimeField(verbose_name="Thời gian bắt đầu", null=True, blank=True)
     end_time = models.DateTimeField(verbose_name="Thời gian hoàn thành", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian tạo")

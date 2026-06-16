@@ -236,7 +236,13 @@ class PurchaseDetailAdmin(ImportExportModelAdmin):
 
 @admin.register(ImportLog)
 class ImportLogAdmin(admin.ModelAdmin):
-    list_display = ('start_time', 'end_time', 'file_name', 'status', 'message')
+    list_display = ('start_time', 'end_time', 'file_name', 'status', 'short_message')
     list_filter = ('status', 'start_time', 'end_time')
     search_fields = ('file_name', 'message')
     readonly_fields = ('start_time', 'end_time', 'created_at', 'file_name', 'status', 'message')
+
+    @admin.display(description="Nội dung chi tiết")
+    def short_message(self, obj):
+        if obj.message and len(obj.message) > 150:
+            return obj.message[:150] + "..."
+        return obj.message or ""

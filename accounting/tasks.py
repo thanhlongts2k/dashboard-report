@@ -69,7 +69,17 @@ def auto_import_excel_from_folder():
                         end_time=timezone.now()
                     )
                 else:
-                    msg = f"❌ {prefix}: Lỗi dữ liệu file."
+                    error_details = []
+                    if result.base_errors:
+                        for error in result.base_errors:
+                            error_details.append(f"Lỗi chung: {str(error.error)}")
+                    if result.row_errors():
+                        for row_num, errors in result.row_errors():
+                            for error in errors:
+                                error_details.append(f"Dòng {row_num}: {str(error.error)}")
+                    
+                    err_msg = "\n".join(error_details)
+                    msg = f"❌ {prefix}: Lỗi dữ liệu file.\nChi tiết lỗi:\n{err_msg}"
                     report.append(msg)
                     ImportLog.objects.create(
                         file_name=os.path.basename(latest_file),
