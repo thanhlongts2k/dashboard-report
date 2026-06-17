@@ -71,3 +71,29 @@ class ScheduleDescriptionTests(TestCase):
         self.assertEqual(parse_cron_desc('0 7 1,15 * *'), 'Tùy chỉnh (Lúc 07:00 vào ngày 01, 15 hàng tháng)')
         self.assertEqual(parse_cron_desc('30 22 1-5 12 *'), 'Tùy chỉnh (Lúc 22:30 vào từ ngày 01 đến ngày 05 của tháng 12)')
 
+
+class MisaAutomationTests(TestCase):
+    def test_misa_settings_load(self):
+        from django.conf import settings
+        self.assertIsNotNone(settings.MISA_AMIS_LOGIN_URL)
+        self.assertIsNotNone(settings.MISA_REPORTS)
+        self.assertIn('BAN_HANG', settings.MISA_REPORTS)
+        self.assertIn('MUA_HANG', settings.MISA_REPORTS)
+        self.assertIn('TON_KHO', settings.MISA_REPORTS)
+
+    def test_download_misa_reports_fails_without_credentials(self):
+        from django.conf import settings
+        from django.test import override_settings
+        from accounting.tasks import download_misa_reports_task
+        from accounting.models import ImportLog
+
+        with override_settings(MISA_EMAIL='', MISA_PASSWORD=''):
+            # This should create an ERROR log in ImportLog because credentials are empty
+            result = download_misa_reports_task()
+            self.assertIn("ERROR", result)
+                
+            # Verify ImportLog was created with status 'ERROR'
+            misa_logs = ImportLog.objects.filter(file_name="MISA_Playwright_Automation")
+            self.assertTrue(misa_logs.exists())
+            self.assertEqual(misa_logs.first().status, 'ERROR')
+

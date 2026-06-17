@@ -173,12 +173,30 @@ schedule_val, IMPORT_SCHEDULE_DESC = get_import_schedule(env)
 
 CELERY_BEAT_SCHEDULE = {
     'auto_import_excel_daily': {
-        'task': 'accounting.tasks.auto_import_excel_from_folder',
+        'task': 'accounting.tasks.misa_pipeline_master',
         'schedule': schedule_val,
     },
 }
 
 # Đường dẫn khởi chạy Redis Server tự động
 REDIS_SERVER_PATH = r"d:\downloads\redis-x64-5.0.14.1\redis-server.exe"
+
+# Cấu hình tự động tải báo cáo từ MISA AMIS
+MISA_AMIS_LOGIN_URL = env('MISA_AMIS_LOGIN_URL', default='https://act.amis.vn/')
+MISA_EMAIL = env('MISA_EMAIL', default='')
+MISA_PASSWORD = env('MISA_PASSWORD', default='')
+MISA_HEADLESS = env.bool('MISA_HEADLESS', default=True)
+MISA_BROWSER_CHANNEL = env('MISA_BROWSER_CHANNEL', default='chrome')
+MISA_EXPORT_SELECTOR = env('MISA_EXPORT_SELECTOR', default="button:has-text('Xuất khẩu')")
+MISA_BROWSER_STATE_PATH = os.path.join(BASE_DIR, 'media', env('MISA_BROWSER_STATE_FILENAME', default='misa_session.json'))
+
+MISA_REPORTS = {
+    'BAN_HANG': env('MISA_URL_BAN_HANG', default=''),
+    'MUA_HANG': env('MISA_URL_MUA_HANG', default=''),
+    'TON_KHO': env('MISA_URL_TON_KHO', default=''),
+    'CONG_NO_NCC': env('MISA_URL_CONG_NO_NCC', default=''),
+    'TUOI_NO_KH': env('MISA_URL_TUOI_NO_KH', default=''),
+    'SO_CHI_TIET': env('MISA_URL_SO_CHI_TIET', default=''),
+}
 
 

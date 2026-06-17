@@ -185,10 +185,24 @@ Hệ thống sử dụng thư viện `django-environ` để bảo mật và tác
    
    # Ngày trong tháng (1-31, áp dụng khi IMPORT_SCHEDULE_TYPE=monthly)
    IMPORT_SCHEDULE_DAY_OF_MONTH=1
-   
-   # Cron tùy chỉnh (áp dụng khi IMPORT_SCHEDULE_TYPE=custom)
-   # minute hour day_of_month month day_of_week
-   IMPORT_SCHEDULE_CRON=0 7 * * *
+      # Cron tùy chỉnh (áp dụng khi IMPORT_SCHEDULE_TYPE=custom)
+    # minute hour day_of_month month day_of_week
+    IMPORT_SCHEDULE_CRON=0 7 * * *
+
+    # 3. Cấu hình tự động tải báo cáo từ MISA AMIS (Sử dụng Playwright)
+    MISA_AMIS_LOGIN_URL=https://act.amis.vn/
+    MISA_EMAIL=your_misa_email@example.com
+    MISA_PASSWORD=your_misa_password
+    MISA_HEADLESS=True
+    MISA_EXPORT_SELECTOR="button:has-text('Xuất khẩu')"
+    
+    # URL của các báo cáo MISA cụ thể cần tải tự động
+    MISA_URL_BAN_HANG=https://act.amis.vn/report/sales-detail
+    MISA_URL_MUA_HANG=https://act.amis.vn/report/purchase-detail
+    MISA_URL_TON_KHO=https://act.amis.vn/report/inventory-summary
+    MISA_URL_CONG_NO_NCC=https://act.amis.vn/report/supplier-debt
+    MISA_URL_TUOI_NO_KH=
+    MISA_URL_SO_CHI_TIET=
    ```
 *(Lưu ý: Tệp `.env` đã được tự động thêm vào `.gitignore` để tránh đẩy thông tin nhạy cảm lên Git).*
 
@@ -198,6 +212,14 @@ Trước khi khởi chạy hệ thống lần đầu, bạn cần cài đặt to
 2. Chạy lệnh cài đặt:
    ```powershell
    pip install -r requirements.txt
+   ```
+
+### Bước 0.6: Cài đặt Driver trình duyệt cho Playwright (Bắt buộc cho tác vụ MISA)
+Tác vụ tự động hóa MISA sử dụng Playwright để điều khiển Chromium. Bạn cần tải về driver trình duyệt:
+1. Đảm bảo môi trường ảo đã được kích hoạt.
+2. Chạy lệnh:
+   ```powershell
+   playwright install chromium
    ```
 
 ### Bước 1: Cấu hình và Tự động khởi động Redis Server

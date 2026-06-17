@@ -1,0 +1,892 @@
+import os
+import asyncio
+import logging
+from datetime import datetime
+from django.conf import settings
+from celery import shared_task
+from django.utils import timezone
+from .models import ImportLog
+
+# Configure logger to output to stdout for debug clarity when run from shell
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+# Clear existing handlers if any to avoid duplicate logs
+logger.handlers.clear()
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+logger.propagate = False
+
+async def login_to_misa(page, context, email, password):
+    logger.info(f"Navigating to MISA login page: {settings.MISA_AMIS_LOGIN_URL}")
+    await page.goto(settings.MISA_AMIS_LOGIN_URL)
+    await page.wait_for_load_state("load")
+    
+    # Fill Email
+    email_selectors = [
+        "input.ap-lg-input[placeholder='Số điện thoại/email']",
+        "input[placeholder*='email']",
+        "input[type='email']",
+        "input[name='username']",
+        "#username",
+        "#email"
+    ]
+    email_filled = False
+    for sel in email_selectors:
+        try:
+            if await page.locator(sel).is_visible(timeout=3000):
+                await page.locator(sel).fill(email)
+                email_filled = True
+                logger.info(f"Filled email using selector: {sel}")
+                break
+        except Exception:
+            continue
+    if not email_filled:
+        raise Exception("Could not find or fill MISA email input field.")
+        
+    # Fill Password
+    pwd_selectors = [
+        "input.ap-lg-input[placeholder='Mật khẩu']",
+        "input[placeholder*='khẩu']",
+        "input[type='password']",
+        "input[name='password']",
+        "#password"
+    ]
+    pwd_filled = False
+    for sel in pwd_selectors:
+        try:
+            if await page.locator(sel).is_visible(timeout=3000):
+                await page.locator(sel).fill(password)
+                pwd_filled = True
+                logger.info(f"Filled password using selector: {sel}")
+                break
+        except Exception:
+            continue
+    if not pwd_filled:
+        raise Exception("Could not find or fill MISA password input field.")
+        
+    # Click Submit
+    submit_selectors = [
+        "button.login-form-btn",
+        "button[type='submit']",
+        "button#submitBtn",
+        "button:has-text('Đăng nhập')",
+        "#submitBtn"
+    ]
+    submit_clicked = False
+    for sel in submit_selectors:
+        try:
+            if await page.locator(sel).is_visible(timeout=3000):
+                await page.locator(sel).click()
+                submit_clicked = True
+                logger.info(f"Clicked submit using selector: {sel}")
+                break
+        except Exception:
+            continue
+    if not submit_clicked:
+        raise Exception("Could not find or click MISA submit button.")
+        
+    # Check if OTP verification is requested
+    otp_selector = "input[name='otp']"
+    try:
+        # Wait up to 7 seconds for the OTP input to appear
+        await page.locator(otp_selector).wait_for(state="visible", timeout=7000)
+        
+        # If it appears, prompt the user or raise an error if running headless
+        logger.warning("WARNING: MISA AMIS requires OTP verification!")
+        if not settings.MISA_HEADLESS:
+            print("\n" + "="*80)
+            print("WARNING: MISA AMIS REQUIRES OTP VERIFICATION!")
+            print("Vui long nhap ma OTP gui toi email cua ban vao trinh duyet dang mo tren man hinh.")
+            print("Tich chon 'Khong hoi lai tren thiet bi nay' va bam 'Tiep tuc' de dang nhap.")
+            print("He thong dang tu dong cho toi da 3 phut de ban hoan thanh...")
+            print("="*80 + "\n")
+            
+            # Wait for OTP input to disappear after user enters code and clicks Continue
+            await page.locator(otp_selector).wait_for(state="hidden", timeout=180000)
+            logger.info("OTP verification completed by user (OTP input is now hidden).")
+        else:
+            raise Exception("MISA AMIS requires OTP verification. Please run once in headed mode (MISA_HEADLESS=False) to verify the device.")
+    except Exception as e:
+        # Check if the exception is due to wait_for timing out (meaning no OTP requested, or user didn't enter it)
+        if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+            # If the OTP input is still visible, it means the user timed out entering it
+            try:
+                is_visible = await page.locator(otp_selector).is_visible()
+            except Exception:
+                is_visible = False
+                
+            if is_visible:
+                raise Exception("Timeout waiting for user to enter OTP verification code.")
+            else:
+                logger.info("No OTP verification screen detected. Proceeding...")
+        else:
+            raise e
+
+    try:
+        await page.wait_for_load_state("load", timeout=15000)
+    except Exception:
+        pass
+    
+    # Save browser session state
+    os.makedirs(os.path.dirname(settings.MISA_BROWSER_STATE_PATH), exist_ok=True)
+    await context.storage_state(path=settings.MISA_BROWSER_STATE_PATH)
+    logger.info(f"Saved MISA browser session state to {settings.MISA_BROWSER_STATE_PATH}")
+
+
+async def find_locator_in_any_frame(page, selectors, timeout=3000):
+    """
+    Finds a locator from a list of selectors in any frame on the page.
+    Returns the locator and the frame it was found in, or (None, None).
+    """
+    if isinstance(selectors, str):
+        selectors = [selectors]
+        
+    # Generate variants with :visible filter first to prioritize visible elements
+    all_variants = []
+    for sel in selectors:
+        if ":visible" not in sel and not sel.startswith("xpath=") and not sel.startswith("//"):
+            all_variants.append(f"{sel}:visible")
+        all_variants.append(sel)
+        
+    # First check: search with short timeout
+    for sel in all_variants:
+        try:
+            loc = page.locator(sel)
+            count = await loc.count()
+            for i in range(count):
+                el = loc.nth(i)
+                if await el.is_visible(timeout=200):
+                    return el, page
+        except Exception:
+            pass
+            
+        for frame in page.frames:
+            if frame == page.main_frame:
+                continue
+            try:
+                loc = frame.locator(sel)
+                count = await loc.count()
+                for i in range(count):
+                    el = loc.nth(i)
+                    if await el.is_visible(timeout=200):
+                        return el, frame
+            except Exception:
+                continue
+                
+    # If not found, run close_misa_popups to clear blockers, and try again with full timeout
+    logger.info("Element not found initially. Checking and closing blockers...")
+    await close_misa_popups(page)
+    await asyncio.sleep(0.5)
+    
+    # Try again with full timeout
+    for sel in all_variants:
+        try:
+            loc = page.locator(sel)
+            count = await loc.count()
+            for i in range(count):
+                el = loc.nth(i)
+                if await el.is_visible(timeout=timeout):
+                    return el, page
+        except Exception:
+            pass
+            
+        for frame in page.frames:
+            if frame == page.main_frame:
+                continue
+            try:
+                loc = frame.locator(sel)
+                count = await loc.count()
+                for i in range(count):
+                    el = loc.nth(i)
+                    if await el.is_visible(timeout=timeout):
+                        return el, frame
+            except Exception:
+                continue
+                
+    return None, None
+
+
+async def close_misa_popups(page):
+    logger.info("Hiding MISA ad/welcome popup overlays via JS...")
+    
+    # Force hide ONLY ad/getting started overlays via JS in all frames
+    for frame in page.frames:
+        try:
+            await frame.evaluate("""() => {
+                // Hide wrapper blocks and popups that contain ad/welcome texts
+                const elements = document.querySelectorAll('.ms-popup--wrapper, .ms-popup, .popup-start-use, .popup-survey, .ms-component.con-ms-popup');
+                elements.forEach(el => {
+                    const text = (el.textContent || '').normalize('NFC');
+                    if (text.includes('Chào') || text.includes('Thông tư 99') || text.includes('bắt đầu sử dụng') || text.includes('phần mềm AMIS') || text.includes('TT99') || text.includes('TT 99')) {
+                        el.style.display = 'none';
+                        el.style.opacity = '0';
+                        el.style.pointerEvents = 'none';
+                    }
+                });
+                
+                // Hide ad backdrop overlays
+                const backdrops = document.querySelectorAll('.ms-popup-box-background, .ms-popup--background');
+                backdrops.forEach(el => {
+                    el.style.display = 'none';
+                    el.style.opacity = '0';
+                    el.style.pointerEvents = 'none';
+                });
+            }""")
+        except Exception:
+            pass
+            
+    logger.info("Force-hid potential ad overlays/backgrounds via JS in all frames.")
+    return True
+
+
+async def download_report_from_url(page, report_url, export_selector, output_path):
+    logger.info(f"Navigating to report URL: {report_url}")
+    try:
+        await page.goto(report_url, timeout=30000, wait_until="load")
+    except Exception as e:
+        logger.warning(f"Navigation to report URL timed out or failed: {str(e)}")
+        
+    try:
+        await page.wait_for_load_state("domcontentloaded", timeout=10000)
+    except Exception:
+        pass
+    
+    # Wait to check if MISA auto-redirects us to the home screen
+    logger.info("Waiting 5s to check for SPA routing redirect...")
+    await asyncio.sleep(5)
+    
+    # Debug logging and screenshot
+    logger.info(f"Current Page URL: {page.url}")
+    title = ""
+    try:
+        title = await page.title()
+        logger.info(f"Current Page Title: {title}")
+    except Exception as e:
+        logger.warning(f"Could not get page title: {str(e)}")
+        
+    # Check if we got redirected to the home/dashboard screen
+    if "home" in page.url or "dashboard" in page.url or "Tong quan" in title or "T\u1ed5ng quan" in title:
+        logger.info("Auto-redirected to home page. Hiding popups on home page and returning to report URL...")
+        await close_misa_popups(page)
+        await asyncio.sleep(1)
+        
+        logger.info(f"Re-navigating to report URL: {report_url}")
+        try:
+            await page.goto(report_url, timeout=30000, wait_until="load")
+        except Exception as e:
+            logger.warning(f"Re-navigation to report URL timed out or failed: {str(e)}")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+        except Exception:
+            pass
+        await asyncio.sleep(3)
+        logger.info(f"New Page URL: {page.url}")
+        
+    # Print the frames structure
+    try:
+        logger.info(f"Number of frames: {len(page.frames)}")
+        for idx, f in enumerate(page.frames):
+            logger.info(f"Frame {idx}: name='{f.name}', url='{f.url}'")
+    except Exception as e:
+        logger.warning(f"Failed to list frames: {str(e)}")
+        
+    try:
+        debug_dir = os.path.join(settings.BASE_DIR, 'media', 'debug')
+        os.makedirs(debug_dir, exist_ok=True)
+        screenshot_path = os.path.join(debug_dir, "navigated.png")
+        await page.screenshot(path=screenshot_path)
+        logger.info(f"Saved navigation debug screenshot to: {screenshot_path}")
+    except Exception as e:
+        logger.warning(f"Failed to capture debug screenshot: {str(e)}")
+    
+    # Check if we got redirected to login page
+    if "login" in page.url or "sso" in page.url or "id.misa.vn" in page.url or "amisapp.misa.vn/login" in page.url:
+        logger.warning("Redirected to login page. Session might be expired.")
+        return False
+        
+    try:
+        # Wait for page elements to appear in any frame
+        logger.info("Waiting for initial page elements to appear...")
+        await asyncio.sleep(3)
+        
+        # Step 1: Close welcome popup
+        await close_misa_popups(page)
+        await asyncio.sleep(1)
+        
+        try:
+            debug_dir = os.path.join(settings.BASE_DIR, 'media', 'debug')
+            screenshot_path = os.path.join(debug_dir, "after_popups.png")
+            await page.screenshot(path=screenshot_path)
+            logger.info(f"Saved after_popups debug screenshot to: {screenshot_path}")
+        except Exception as e:
+            logger.warning(f"Failed to capture after_popups screenshot: {str(e)}")
+        
+        # Step 2: Click "Chọn tham số" button
+        param_btn_selectors = [
+            "button:has-text('Chọn tham số')",
+            ".btn:has-text('Chọn tham số')",
+            "div.ms-button:has-text('Chọn tham số')",
+            "span:has-text('Chọn tham số')",
+            ".dx-button-content:has-text('Chọn tham số')"
+        ]
+        param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
+        if not param_btn:
+            for f in page.frames:
+                try:
+                    locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
+                    if await locator.is_visible(timeout=1000):
+                        param_btn = locator
+                        frame = f
+                        break
+                except Exception:
+                    continue
+                    
+        if param_btn:
+            logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
+            await param_btn.click(force=True)
+        else:
+            logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
+        await asyncio.sleep(1)
+        
+        # Step 3: Check "Bao gồm số liệu chi nhánh phụ thuộc" checkbox
+        dep_checkbox_selectors = [
+            "text='Bao gồm số liệu chi nhánh phụ thuộc'",
+            "label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
+            "span:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
+            "div:has-text('Bao gồm số liệu chi nhánh phụ thuộc')"
+        ]
+        dep_checkbox, frame = await find_locator_in_any_frame(page, dep_checkbox_selectors, timeout=3000)
+        if dep_checkbox:
+            is_already_checked = False
+            try:
+                parent = frame.locator("xpath=//node()[contains(text(), 'Bao gồm số liệu chi nhánh phụ thuộc')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
+                if await parent.count() > 0:
+                    parent_class = await parent.get_attribute("class")
+                    if parent_class and ("checked" in parent_class or "active" in parent_class):
+                        is_already_checked = True
+            except Exception:
+                pass
+                
+            if not is_already_checked:
+                logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
+                await dep_checkbox.click(force=True)
+            else:
+                logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
+        else:
+            logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' checkbox.")
+        await asyncio.sleep(0.5)
+        
+        # Step 4: Choose "Kỳ báo cáo" -> "Năm nay"
+        ky_baocao_selectors = [
+            "xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
+            "xpath=//div[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
+            "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+            "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+            ".ms-combo input[placeholder*='Kỳ báo cáo']",
+            "input[placeholder*='Kỳ báo cáo']"
+        ]
+        ky_input, frame = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
+        if not ky_input:
+            for f in page.frames:
+                try:
+                    label_locator = f.locator("text='Kỳ báo cáo'").first
+                    if await label_locator.is_visible(timeout=1000):
+                        ky_input = f.locator("xpath=//node()[contains(text(), 'Kỳ báo cáo')]/following::input[1]").first
+                        frame = f
+                        break
+                except Exception:
+                    continue
+                    
+        if ky_input:
+            logger.info("Clicking 'Ky bao cao' combobox to open options...")
+            await ky_input.click(force=True)
+            await asyncio.sleep(0.3)
+            
+            # Click the combobox arrow button specifically to ensure the dropdown opens
+            try:
+                arrow = frame.locator("xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//*[contains(@class, 'arrow') or contains(@class, 'icon') or contains(@class, 'button')]").first
+                if await arrow.is_visible(timeout=1000):
+                    logger.info("Clicking combobox arrow icon...")
+                    await arrow.click(force=True)
+                    await asyncio.sleep(0.5)
+            except Exception as e:
+                logger.debug(f"Failed to click combo arrow: {str(e)}")
+            
+            nam_nay_selectors = [
+                "text='Năm nay'",
+                ".dx-list-item-content:has-text('Năm nay')",
+                ".ms-combo-item:has-text('Năm nay')",
+                "div[role='option']:has-text('Năm nay')",
+                "li:has-text('Năm nay')",
+                "xpath=//div[contains(@class, 'dx-item-content') and text()='Năm nay']"
+            ]
+            nam_nay_item, option_frame = await find_locator_in_any_frame(page, nam_nay_selectors, timeout=3000)
+            if nam_nay_item:
+                logger.info("Selecting 'Nam nay' from dropdown list...")
+                await nam_nay_item.click(force=True)
+            else:
+                logger.warning("Could not find 'Nam nay' option in dropdown list. Trying keyboard search...")
+                try:
+                    await ky_input.click(click_count=3)
+                    await page.keyboard.press("Backspace")
+                    await asyncio.sleep(0.2)
+                    await ky_input.type("Năm nay")
+                    await asyncio.sleep(0.5)
+                    await page.keyboard.press("ArrowDown")
+                    await asyncio.sleep(0.2)
+                    await page.keyboard.press("Enter")
+                    logger.info("Typed 'Năm nay' and pressed Enter.")
+                except Exception as e:
+                    logger.error(f"Failed to fill 'Nam nay': {str(e)}")
+        else:
+            logger.warning("Could not find 'Ky bao cao' input combobox.")
+        await asyncio.sleep(0.5)
+        
+        # Step 5: Check "Chọn tất cả"
+        select_all_selectors = [
+            "text='Chọn tất cả'",
+            "label:has-text('Chọn tất cả')",
+            "span:has-text('Chọn tất cả')",
+            "div:has-text('Chọn tất cả')",
+            ".ms-checkbox:has-text('Chọn tất cả')"
+        ]
+        select_all_btn, frame = await find_locator_in_any_frame(page, select_all_selectors, timeout=3000)
+        if select_all_btn:
+            is_already_checked = False
+            try:
+                parent = frame.locator("xpath=//node()[contains(text(), 'Chọn tất cả')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
+                if await parent.count() > 0:
+                    parent_class = await parent.get_attribute("class")
+                    if parent_class and ("checked" in parent_class or "active" in parent_class):
+                        is_already_checked = True
+            except Exception:
+                pass
+                
+            if not is_already_checked:
+                logger.info("Clicking 'Chon tat ca' checkbox...")
+                await select_all_btn.click(force=True)
+            else:
+                logger.info("'Chon tat ca' is already checked.")
+        else:
+            logger.warning("Could not find 'Chon tat ca' checkbox.")
+        await asyncio.sleep(0.5)
+        
+        # Step 6: Click "Xem báo cáo"
+        view_report_selectors = [
+            "button:has-text('Xem báo cáo')",
+            ".btn:has-text('Xem báo cáo')",
+            "div.ms-button:has-text('Xem báo cáo')",
+            "span:has-text('Xem báo cáo')",
+            "button:has-text('Đồng ý')",
+            ".dx-button-content:has-text('Xem báo cáo')"
+        ]
+        view_report_btn, frame = await find_locator_in_any_frame(page, view_report_selectors, timeout=3000)
+        if view_report_btn:
+            logger.info("Clicking 'Xem bao cao' button...")
+            await view_report_btn.click(force=True)
+        else:
+            raise Exception("Could not find 'Xem bao cao' button.")
+            
+        # Wait 10 seconds as requested
+        logger.info("Waiting 10s for the report to load...")
+        await asyncio.sleep(10)
+        
+        # Step 7: Click the Excel icon dropdown button
+        excel_btn_selectors = [
+            ".mi-export__excel-bold",
+            ".mi-excel",
+            ".mi-icon-excel",
+            ".mi-export",
+            "[title*='Xuất Excel']",
+            "[title*='Xuất khẩu']",
+            ".icon-excel",
+            ".btn-excel",
+            ".dx-button-content .mi-excel",
+            "i.mi-excel",
+            "span.mi-excel"
+        ]
+        
+        if export_selector:
+            excel_btn_selectors.insert(0, export_selector)
+            
+        # Open download manager to clear old files before exporting
+        logger.info("Opening download manager to clear old history...")
+        download_manager_selectors = [
+            "div.ms-download",
+            "div.icon-feature-download",
+            ".ms-download",
+            ".icon-feature-download",
+            ".mi-download",
+            ".mi-cloud-download",
+            ".mi-download-list",
+            "i[class*='download']",
+            "span[class*='download']",
+            "xpath=//div[contains(@class, 'footer')]//div[contains(@class, 'download')]"
+        ]
+        manager_btn, manager_frame = await find_locator_in_any_frame(page, download_manager_selectors, timeout=4000)
+        if manager_btn:
+            await manager_btn.click(force=True)
+            await asyncio.sleep(2.0)
+            
+            # Click "Xóa hết lịch sử tải tệp" if visible
+            clear_btn_selectors = [
+                "text='Xóa hết lịch sử tải tệp'",
+                ".clear-all",
+                ".clear-all--text",
+                "div:has-text('Xóa hết lịch sử tải tệp')"
+            ]
+            clear_btn, clear_frame = await find_locator_in_any_frame(page, clear_btn_selectors, timeout=2000)
+            if clear_btn:
+                logger.info("Clicking 'Xóa hết lịch sử tải tệp' to clear old downloads...")
+                await clear_btn.click(force=True)
+                await asyncio.sleep(1.5)
+                
+                # Handle confirmation popup dialog "Có" button
+                confirm_btn_selectors = [
+                    "button:has-text('Có')",
+                    ".ms-button:has-text('Có')",
+                    ".dx-button-content:has-text('Có')",
+                    "text='Có'",
+                    "span:has-text('Có')",
+                    ".popup-confirm button:has-text('Có')"
+                ]
+                confirm_btn, confirm_frame = await find_locator_in_any_frame(page, confirm_btn_selectors, timeout=3000)
+                if confirm_btn:
+                    logger.info("Clicking 'Có' on deletion confirmation popup...")
+                    await confirm_btn.click(force=True)
+                    await asyncio.sleep(1.5)
+                else:
+                    logger.warning("Could not find confirmation 'Có' button.")
+                
+            # Close download manager panel
+            logger.info("Closing download manager panel...")
+            await manager_btn.click(force=True)
+            await asyncio.sleep(1.0)
+            
+        excel_btn, frame = await find_locator_in_any_frame(page, excel_btn_selectors, timeout=5000)
+        if not excel_btn:
+            raise Exception("Could not find the Excel icon dropdown button on the report page.")
+            
+        logger.info("Clicking the Excel icon dropdown button...")
+        await excel_btn.click(force=True)
+        await asyncio.sleep(2.5)
+        
+        # Step 8: Click the "Xuất Excel (dạng dữ liệu)" option if it exists
+        dropdown_selectors = [
+            "text='Xuất Excel (dạng dữ liệu)'",
+            "span:has-text('Xuất Excel (dạng dữ liệu)')",
+            "div:has-text('Xuất Excel (dạng dữ liệu)')",
+            ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
+            "text='Xuất Excel'"
+        ]
+        dropdown_item, dropdown_frame = await find_locator_in_any_frame(page, dropdown_selectors, timeout=3000)
+        if dropdown_item:
+            logger.info("Clicking 'Xuat Excel (dang du lieu)' option...")
+            await dropdown_item.click(force=True)
+            await asyncio.sleep(2.5)
+        else:
+            logger.info("Dropdown 'Xuất Excel (dạng dữ liệu)' option not found or not visible. Checking for options dialog directly...")
+
+        # Also handle "Tùy chọn" popup dialog if it appears (either after clicking Excel, or after clicking the dropdown option)
+        agree_btn_selectors = [
+            "button:has-text('Đồng ý')",
+            ".btn:has-text('Đồng ý')",
+            ".ms-button:has-text('Đồng ý')",
+            "span:has-text('Đồng ý')",
+            ".dx-button-content:has-text('Đồng ý')",
+            "text='Đồng ý'"
+        ]
+        agree_btn, agree_frame = await find_locator_in_any_frame(page, agree_btn_selectors, timeout=8000)
+        if agree_btn:
+            logger.info("Found 'Đồng ý' button (Options dialog). Clicking it to start export...")
+            await agree_btn.click(force=True)
+            await asyncio.sleep(2.0)
+        else:
+            logger.info("No 'Đồng ý' button found. Proceeding to wait for download...")
+            
+        # Step 9 & 10: Wait for 50 seconds first for background generation, then open download panel
+        logger.info("Waiting 50 seconds for MISA to generate the report in the background...")
+        await asyncio.sleep(50)
+        
+        download_manager_selectors = [
+            "div.ms-download",
+            "div.icon-feature-download",
+            ".ms-download",
+            ".icon-feature-download",
+            ".mi-download",
+            ".mi-cloud-download",
+            ".mi-download-list",
+            "i[class*='download']",
+            "span[class*='download']",
+            "xpath=//div[contains(@class, 'footer')]//div[contains(@class, 'download')]"
+        ]
+        
+        # Check if download panel is already visible (indicator check)
+        panel_open = False
+        try:
+            for panel_indicator in ["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]:
+                indicator = page.locator(f"text='{panel_indicator}'").first
+                if await indicator.is_visible(timeout=500):
+                    panel_open = True
+                    logger.info(f"Download manager panel is already open (indicator: '{panel_indicator}').")
+                    break
+        except Exception:
+            pass
+            
+        if not panel_open:
+            logger.info("Opening download manager panel...")
+            manager_btn, manager_frame = await find_locator_in_any_frame(page, download_manager_selectors, timeout=4000)
+            if manager_btn:
+                await manager_btn.click(force=True)
+                await asyncio.sleep(2.0)
+            else:
+                logger.warning("Could not find download manager button. Checking if 'Tải tệp' is visible anyway.")
+                
+        # Wait up to an additional 40 seconds (checking every 2 seconds) for the "Tải tệp" button to appear inside the panel
+        download_btn_selectors = [
+            "text='Tải tệp'",
+            "span:has-text('Tải tệp')",
+            "div:has-text('Tải tệp')",
+            "a:has-text('Tải tệp')",
+            "button:has-text('Tải tệp')",
+            "text='Tải xuống'",
+            "span:has-text('Tải xuống')",
+            "div:has-text('Tải xuống')",
+            "a:has-text('Tải xuống')",
+            "button:has-text('Tải xuống')",
+            "text='Tải về'",
+            "span:has-text('Tải về')",
+            "div:has-text('Tải về')",
+            "a:has-text('Tải về')",
+            "button:has-text('Tải về')",
+            ".ms-toast-download button",
+            ".popup-download button:has-text('Tải tệp')",
+            "xpath=//*[contains(text(), 'Tải tệp')]",
+            "xpath=//*[contains(text(), 'Tải xuống')]",
+            "xpath=//*[contains(text(), 'Tải về')]"
+        ]
+        
+        download_btn = None
+        frame = None
+        
+        logger.info("Looking for the 'Tải tệp' button in the download panel...")
+        for attempt in range(20):
+            # Capture debug screenshot periodically
+            if attempt % 3 == 0:
+                try:
+                    debug_dir = os.path.join(settings.BASE_DIR, 'media', 'debug')
+                    screenshot_path = os.path.join(debug_dir, f"download_panel_check_{attempt}.png")
+                    await page.screenshot(path=screenshot_path)
+                    logger.info(f"Saved download check screenshot to: {screenshot_path}")
+                except Exception as se:
+                    logger.warning(f"Failed to capture loop screenshot: {str(se)}")
+                    
+            download_btn, frame = await find_locator_in_any_frame(page, download_btn_selectors, timeout=1000)
+            if download_btn:
+                logger.info(f"Found 'Tải tệp' button in panel after {attempt * 2} seconds of searching.")
+                break
+            await asyncio.sleep(2)
+            
+        if not download_btn:
+            # Last resort check in any frame by exact text
+            for f in page.frames:
+                try:
+                    locator = f.locator("text='Tải tệp'").first
+                    if await locator.is_visible(timeout=1000):
+                        download_btn = locator
+                        frame = f
+                        break
+                except Exception:
+                    continue
+                    
+        if not download_btn:
+            raise Exception("Could not find the 'Tải tệp' button to download the report after waiting.")
+            
+        logger.info("Clicking the 'Tải tệp' button and waiting for Playwright download event...")
+        async with page.expect_download(timeout=45000) as download_info:
+            await download_btn.click(force=True)
+            
+        download = await download_info.value
+        await download.save_as(output_path)
+        logger.info(f"Successfully downloaded and saved report to: {output_path}")
+        
+        # Close the download panel to clean up UI
+        try:
+            manager_btn, manager_frame = await find_locator_in_any_frame(page, download_manager_selectors, timeout=2000)
+            if manager_btn:
+                logger.info("Closing download manager panel...")
+                await manager_btn.click(force=True)
+                await asyncio.sleep(1.0)
+        except Exception as ce:
+            logger.warning(f"Failed to close download manager panel: {str(ce)}")
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error in download_report_from_url: {str(e)}")
+        try:
+            debug_dir = os.path.join(settings.BASE_DIR, 'media', 'debug')
+            screenshot_path = os.path.join(debug_dir, "error.png")
+            await page.screenshot(path=screenshot_path)
+            logger.info(f"Saved error debug screenshot to: {screenshot_path}")
+        except Exception as se:
+            logger.warning(f"Failed to capture error screenshot: {str(se)}")
+        raise e
+
+
+async def run_misa_automation():
+    from playwright.async_api import async_playwright
+    
+    email = settings.MISA_EMAIL
+    password = settings.MISA_PASSWORD
+    
+    if not email or not password:
+        logger.error("MISA_EMAIL or MISA_PASSWORD is not configured in settings/env.")
+        return "ERROR: Credentials not configured."
+        
+    auto_imports_dir = os.path.join(settings.BASE_DIR, 'media', 'auto_imports')
+    os.makedirs(auto_imports_dir, exist_ok=True)
+    
+    async with async_playwright() as p:
+        channel = getattr(settings, 'MISA_BROWSER_CHANNEL', 'chrome')
+        launch_kwargs = {
+            "headless": settings.MISA_HEADLESS,
+        }
+        if channel:
+            launch_kwargs["channel"] = channel
+            
+        logger.info(f"Launching browser with options: {launch_kwargs}")
+        browser = await p.chromium.launch(**launch_kwargs)
+        
+        # Check if browser state file exists
+        if os.path.exists(settings.MISA_BROWSER_STATE_PATH):
+            logger.info("Loading existing browser session state...")
+            context = await browser.new_context(
+                storage_state=settings.MISA_BROWSER_STATE_PATH,
+                viewport={"width": 1280, "height": 800}
+            )
+        else:
+            logger.info("No existing session state found. Starting fresh context...")
+            context = await browser.new_context(viewport={"width": 1280, "height": 800})
+            
+        page = await context.new_page()
+        
+        # Test navigation to verify if we are logged in
+        test_url = None
+        for prefix, url in settings.MISA_REPORTS.items():
+            if url:
+                test_url = url
+                break
+                
+        logged_in = False
+        if test_url:
+            try:
+                logger.info(f"Navigating to test URL to verify login: {test_url}")
+                await page.goto(test_url, timeout=20000, wait_until="load")
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=5000)
+                except Exception:
+                    pass
+                
+                current_url = page.url
+                if "login" not in current_url and "sso" not in current_url and "id.misa.vn" not in current_url:
+                    logged_in = True
+                    logger.info(f"Already logged in via restored session. Current URL: {current_url}")
+            except Exception as e:
+                logger.warning(f"Failed verification navigation: {str(e)}")
+                # Check current URL even if timed out
+                current_url = page.url
+                if "login" not in current_url and "sso" not in current_url and "id.misa.vn" not in current_url:
+                    logged_in = True
+                    logger.info(f"Navigation timed out but URL looks logged in: {current_url}")
+                
+        if not logged_in:
+            logger.info("Proceeding to log in to MISA AMIS...")
+            await login_to_misa(page, context, email, password)
+            
+        # Download each configured report
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        downloaded_count = 0
+        failed_count = 0
+        
+        for prefix, url in settings.MISA_REPORTS.items():
+            if not url:
+                continue
+                
+            filename = f"{prefix}_{timestamp}.xlsx"
+            output_path = os.path.join(auto_imports_dir, filename)
+            
+            try:
+                # Try downloading
+                success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path)
+                if not success:
+                    # Retry once after logging in again
+                    logger.info("Retrying download after re-logging in...")
+                    await login_to_misa(page, context, email, password)
+                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path)
+                    
+                if success:
+                    downloaded_count += 1
+                else:
+                    failed_count += 1
+                    logger.error(f"Failed to download report for prefix {prefix}")
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
+                
+        await browser.close()
+        return f"SUCCESS: Downloaded {downloaded_count} reports. Failed {failed_count} reports."
+
+
+@shared_task(name="accounting.tasks.download_misa_reports")
+def download_misa_reports_task():
+    logger.info("Starting MISA report download task...")
+    start_time = timezone.now()
+    
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+    try:
+        result_msg = loop.run_until_complete(run_misa_automation())
+        logger.info(f"MISA automation run finished: {result_msg}")
+        
+        ImportLog.objects.create(
+            file_name="MISA_Playwright_Automation",
+            status='SUCCESS' if "SUCCESS" in result_msg else 'ERROR',
+            message=result_msg,
+            start_time=start_time,
+            end_time=timezone.now()
+        )
+        return result_msg
+    except Exception as e:
+        err_msg = f"MISA Playwright Automation Failed: {str(e)}"
+        logger.error(err_msg)
+        ImportLog.objects.create(
+            file_name="MISA_Playwright_Automation",
+            status='ERROR',
+            message=err_msg,
+            start_time=start_time,
+            end_time=timezone.now()
+        )
+        raise e
+
+
+@shared_task(name="accounting.tasks.misa_pipeline_master")
+def misa_pipeline_master():
+    logger.info("Starting MISA Pipeline Master Task...")
+    
+    # Run the download task synchronously in this Celery worker
+    download_result = download_misa_reports_task()
+    logger.info(f"Download task finished with result: {download_result}")
+    
+    # Import the excel files from folder
+    from .tasks import auto_import_excel_from_folder
+    import_result = auto_import_excel_from_folder()
+    logger.info(f"Import task finished with result: {import_result}")
+    
+    return f"MISA Pipeline completed. Download: {download_result}. Import: {import_result}"
