@@ -81,7 +81,7 @@ Dữ liệu của các bảng này được làm sạch và import tự động 
 | **`TON_KHO`** | [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models.py#L242) | Báo cáo nhập - xuất - tồn (số lượng & giá trị đầu kỳ, trong kỳ, cuối kỳ) cho từng cặp Sản phẩm - Kho hàng. |
 | **`CONG_NO_NCC`**| [SupplierDebt](file:///d:/Sources/dashboard-report/accounting/models.py#L150) | Theo dõi dư nợ và phát sinh công nợ đối với từng Nhà cung cấp. |
 | **`TUOI_NO_KH`** | [ReceivablesAgeing](file:///d:/Sources/dashboard-report/accounting/models.py#L209) | Phân tích chi tiết tuổi nợ của Khách hàng (trước hạn / quá hạn theo các mốc 7, 14, 30, 60, 90, 120 ngày). |
-| **`SO_CHI_TIET`** | [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L172) | Sổ chi tiết các tài khoản tiền mặt và ngân hàng (111, 112) đối ứng với tài khoản phải thu (131) nhằm xác định số tiền thực tế thu được từ khách hàng. |
+| **`TAI_KHOAN_CT`** | [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L172) | Sổ chi tiết các tài khoản tiền mặt và ngân hàng (111, 112) đối ứng với tài khoản phải thu (131) nhằm xác định số tiền thực tế thu được từ khách hàng. |
 
 ---
 

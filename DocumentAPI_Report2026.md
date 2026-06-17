@@ -71,7 +71,7 @@ graph TD
     *   `TON_KHO*.xlsx` (Tồn kho) -> Lưu vào `InventorySummary`
     *   `CONG_NO_NCC*.xlsx` (Công nợ nhà cung cấp) -> Lưu vào `SupplierDebt`
     *   `TUOI_NO_KH*.xlsx` (Tuổi nợ khách hàng) -> Lưu vào `ReceivablesAgeing`
-    *   `SO_CHI_TIET*.xlsx` (Sổ chi tiết các tài khoản 111, 112, 341) -> Lưu vào `AccountDetail`
+    *   `TAI_KHOAN_CT*.xlsx` (Sổ chi tiết các tài khoản 111, 112, 341) -> Lưu vào `AccountDetail`
 3. **An toàn dữ liệu & Phạm vi xóa (Scope of Deletion)**: 
     Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). 
     - Đối với hầu hết các file giao dịch, hệ thống thực hiện lệnh xóa sạch toàn bộ dữ liệu hiện tại của bảng tương ứng trước khi nạp (`objects.all().delete()`). 
@@ -202,7 +202,7 @@ Hệ thống sử dụng thư viện `django-environ` để bảo mật và tác
     MISA_URL_TON_KHO=https://act.amis.vn/report/inventory-summary
     MISA_URL_CONG_NO_NCC=https://act.amis.vn/report/supplier-debt
     MISA_URL_TUOI_NO_KH=
-    MISA_URL_SO_CHI_TIET=
+    MISA_URL_TAI_KHOAN_CT=
    ```
 *(Lưu ý: Tệp `.env` đã được tự động thêm vào `.gitignore` để tránh đẩy thông tin nhạy cảm lên Git).*
 

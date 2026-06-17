@@ -1,5 +1,6 @@
 import os
 import glob
+import logging
 from celery import shared_task
 from django.db.models import Sum, Q
 from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer
@@ -14,6 +15,8 @@ from django.db import transaction
 from django.utils import timezone
 from tablib import Dataset
 from .misa_tasks import download_misa_reports_task, misa_pipeline_master
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def auto_import_excel_from_folder():
@@ -35,7 +38,7 @@ def auto_import_excel_from_folder():
         'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource()},
         'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource()},
         'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
-        'SO_CHI_TIET_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource()},
+        'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource()},
     }
 
     # Quét tất cả các file excel trong thư mục auto_imports
@@ -59,7 +62,6 @@ def auto_import_excel_from_folder():
     report = []
 
     msgFileNotFound = []
-
     for prefix, files in prefix_to_files.items():
         if not files:
             msgFileNotFound.append(prefix)
@@ -69,6 +71,8 @@ def auto_import_excel_from_folder():
         # Lấy file mới nhất nếu có nhiều file cùng tiền tố
         latest_file = max(files, key=os.path.getctime)
         start_time = timezone.now()
+        
+        logger.info(f"[{prefix}] Bắt đầu import từ file: {os.path.basename(latest_file)}")
         
         try:
             with transaction.atomic():
@@ -118,6 +122,8 @@ def auto_import_excel_from_folder():
                         end_time=timezone.now()
                     )
                     # Transaction sẽ rollback, dữ liệu cũ không bị mất nếu import lỗi
+            
+            logger.info(f"[{prefix}] Hoàn tất import. Đã ghi log.")
 
         except Exception as e:
             msg = f"⚠️ Lỗi hệ thống {str(e)}"
@@ -129,6 +135,7 @@ def auto_import_excel_from_folder():
                 start_time=start_time if 'start_time' in locals() else timezone.now(),
                 end_time=timezone.now()
             )
+
     if len(msgFileNotFound) > 0:
         files_list = '\n'.join([f'- {prefix}' for prefix in msgFileNotFound])
         schedule_desc = getattr(settings, 'IMPORT_SCHEDULE_DESC', 'N/A')

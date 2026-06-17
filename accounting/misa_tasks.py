@@ -615,9 +615,9 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             logger.warning("Could not find 'Ky bao cao' input combobox.")
         await asyncio.sleep(0.5)
         
-        # Step 5: Chọn tất cả (default) hoặc chọn Bậc + tài khoản cụ thể (SO_CHI_TIET_TAI_KHOAN)
-        if prefix == 'SO_CHI_TIET_TAI_KHOAN':
-            logger.info("[SO_CHI_TIET_TAI_KHOAN] Running custom account selection: Bac 1 + accounts 111, 112, 341")
+        # Step 5: Chọn tất cả (default) hoặc chọn Bậc + tài khoản cụ thể (TAI_KHOAN_CT)
+        if prefix == 'TAI_KHOAN_CT':
+            logger.info("[TAI_KHOAN_CT] Running custom account selection: Bac 1 + accounts 111, 112, 341")
             await select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341'])
         else:
             select_all_selectors = [

@@ -196,7 +196,7 @@ MISA_REPORTS = {
     'TON_KHO': env('MISA_URL_TON_KHO', default=''),
     'CONG_NO_NCC': env('MISA_URL_CONG_NO_NCC', default=''),
     'TUOI_NO_KH': env('MISA_URL_TUOI_NO_KH', default=''),
-    'SO_CHI_TIET_TAI_KHOAN': env('MISA_URL_SO_CHI_TIET_TAI_KHOAN', default=''),
+    'TAI_KHOAN_CT': env('MISA_URL_TAI_KHOAN_CT', default=''),
 }
 
 
