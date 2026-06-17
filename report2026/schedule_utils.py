@@ -105,3 +105,60 @@ def parse_cron_desc(cron_str):
     if desc:
         desc = desc[0].upper() + desc[1:]
     return f"Tùy chỉnh ({desc})"
+
+
+def get_import_schedule(env):
+    from celery.schedules import crontab
+    
+    IMPORT_SCHEDULE_TYPE = env('IMPORT_SCHEDULE_TYPE', default='daily').lower()
+    hour_str = env('IMPORT_SCHEDULE_HOUR', default='7')
+    minute_str = env('IMPORT_SCHEDULE_MINUTE', default='0')
+
+    try:
+        formatted_time = f"{int(hour_str):02d}:{int(minute_str):02d}"
+    except (ValueError, TypeError):
+        formatted_time = f"{hour_str.zfill(2)}:{minute_str.zfill(2)}"
+
+    if IMPORT_SCHEDULE_TYPE == 'daily':
+        schedule_val = crontab(
+            hour=hour_str,
+            minute=minute_str
+        )
+        IMPORT_SCHEDULE_DESC = f"Hàng ngày lúc {formatted_time}"
+    elif IMPORT_SCHEDULE_TYPE == 'weekly':
+        day_of_week = env('IMPORT_SCHEDULE_DAY_OF_WEEK', default='1')
+        schedule_val = crontab(
+            hour=hour_str,
+            minute=minute_str,
+            day_of_week=day_of_week
+        )
+        dow_desc = parse_days_of_week_desc(day_of_week)
+        IMPORT_SCHEDULE_DESC = f"Hàng tuần ({dow_desc}) lúc {formatted_time}"
+    elif IMPORT_SCHEDULE_TYPE == 'monthly':
+        day_of_month = env('IMPORT_SCHEDULE_DAY_OF_MONTH', default='1')
+        schedule_val = crontab(
+            hour=hour_str,
+            minute=minute_str,
+            day_of_month=day_of_month
+        )
+        dom_desc = parse_days_of_month_desc(day_of_month)
+        IMPORT_SCHEDULE_DESC = f"Hàng tháng ({dom_desc}) lúc {formatted_time}"
+    elif IMPORT_SCHEDULE_TYPE == 'custom':
+        cron_str = env('IMPORT_SCHEDULE_CRON', default='0 7 * * *')
+        parts = cron_str.split()
+        if len(parts) == 5:
+            schedule_val = crontab(
+                minute=parts[0],
+                hour=parts[1],
+                day_of_month=parts[2],
+                month_of_year=parts[3],
+                day_of_week=parts[4]
+            )
+        else:
+            schedule_val = crontab(hour=7, minute=0)
+        IMPORT_SCHEDULE_DESC = parse_cron_desc(cron_str)
+    else:
+        schedule_val = crontab(hour=7, minute=0)
+        IMPORT_SCHEDULE_DESC = "Hàng ngày lúc 07:00 (Mặc định)"
+
+    return schedule_val, IMPORT_SCHEDULE_DESC
