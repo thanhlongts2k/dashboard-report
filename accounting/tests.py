@@ -42,3 +42,32 @@ class CustomerGroupProtectionTests(TestCase):
         )
         self.assertEqual(model_admin.group_name(customer_no_group), "-")
 
+
+class ScheduleDescriptionTests(TestCase):
+    def test_settings_has_schedule_desc(self):
+        from django.conf import settings
+        desc = getattr(settings, 'IMPORT_SCHEDULE_DESC', None)
+        self.assertIsNotNone(desc)
+        self.assertTrue(isinstance(desc, str))
+        self.assertTrue(len(desc) > 0)
+
+    def test_parse_days_of_week_desc(self):
+        from report2026.schedule_utils import parse_days_of_week_desc
+        self.assertEqual(parse_days_of_week_desc('1'), 'Thứ Hai')
+        self.assertEqual(parse_days_of_week_desc('1,3,5'), 'Thứ Hai, Thứ Tư, Thứ Sáu')
+        self.assertEqual(parse_days_of_week_desc('1-5'), 'từ Thứ Hai đến Thứ Sáu')
+        self.assertEqual(parse_days_of_week_desc('*'), 'tất cả các ngày')
+
+    def test_parse_days_of_month_desc(self):
+        from report2026.schedule_utils import parse_days_of_month_desc
+        self.assertEqual(parse_days_of_month_desc('1'), 'ngày 01')
+        self.assertEqual(parse_days_of_month_desc('1,15'), 'ngày 01, 15')
+        self.assertEqual(parse_days_of_month_desc('1-10'), 'từ ngày 01 đến ngày 10')
+        self.assertEqual(parse_days_of_month_desc('*'), 'mọi ngày')
+
+    def test_parse_cron_desc(self):
+        from report2026.schedule_utils import parse_cron_desc
+        self.assertEqual(parse_cron_desc('57 8 * * 1,3,5'), 'Tùy chỉnh (Lúc 08:57 vào các ngày Thứ Hai, Thứ Tư, Thứ Sáu)')
+        self.assertEqual(parse_cron_desc('0 7 1,15 * *'), 'Tùy chỉnh (Lúc 07:00 vào ngày 01, 15 hàng tháng)')
+        self.assertEqual(parse_cron_desc('30 22 1-5 12 *'), 'Tùy chỉnh (Lúc 22:30 vào từ ngày 01 đến ngày 05 của tháng 12)')
+

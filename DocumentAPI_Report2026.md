@@ -165,13 +165,30 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 ### Bước 0: Khởi tạo file cấu hình môi trường `.env`
 Hệ thống sử dụng thư viện `django-environ` để bảo mật và tách cấu hình cơ sở dữ liệu khỏi mã nguồn.
 1. Tạo một tệp tin tên `.env` ở thư mục gốc của dự án (cùng cấp với thư mục `report2026/` và tệp `manage.py`).
-2. Nhập các thông tin kết nối database tương ứng của máy bạn:
+2. Nhập các thông tin kết nối database tương ứng của máy bạn và cấu hình chu kỳ chạy Celery Beat nếu cần:
    ```env
+   # 1. Cấu hình cơ sở dữ liệu
    DB_NAME=reportdb
    DB_USER=postgres
    DB_PASSWORD=your_password
    DB_HOST=localhost
    DB_PORT=5433
+
+   # 2. Cấu hình chu kỳ tự động chạy nạp Excel của Celery Beat
+   # Hỗ trợ các kiểu: daily (mặc định), weekly, monthly, custom (cron tùy chọn)
+   IMPORT_SCHEDULE_TYPE=daily
+   IMPORT_SCHEDULE_HOUR=7
+   IMPORT_SCHEDULE_MINUTE=0
+   
+   # Thứ trong tuần (0-6 tương ứng CN-T7, áp dụng khi IMPORT_SCHEDULE_TYPE=weekly)
+   IMPORT_SCHEDULE_DAY_OF_WEEK=1
+   
+   # Ngày trong tháng (1-31, áp dụng khi IMPORT_SCHEDULE_TYPE=monthly)
+   IMPORT_SCHEDULE_DAY_OF_MONTH=1
+   
+   # Cron tùy chỉnh (áp dụng khi IMPORT_SCHEDULE_TYPE=custom)
+   # minute hour day_of_month month day_of_week
+   IMPORT_SCHEDULE_CRON=0 7 * * *
    ```
 *(Lưu ý: Tệp `.env` đã được tự động thêm vào `.gitignore` để tránh đẩy thông tin nhạy cảm lên Git).*
 

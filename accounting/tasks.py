@@ -129,15 +129,16 @@ def auto_import_excel_from_folder():
                 end_time=timezone.now()
             )
     if len(msgFileNotFound) > 0:
-            files_list = '\n'.join([f'- {prefix}' for prefix in msgFileNotFound])
-            msg = f"Đã thực hiện import theo chu kỳ\nKhông tìm thấy file:\n{files_list}"
-            ImportLog.objects.create(
-                file_name="N/A",
-                status='NOTFOUND',
-                message=msg,
-                start_time=timezone.now(),
-                end_time=timezone.now()
-            )
+        files_list = '\n'.join([f'- {prefix}' for prefix in msgFileNotFound])
+        schedule_desc = getattr(settings, 'IMPORT_SCHEDULE_DESC', 'N/A')
+        msg = f"Đã thực hiện import theo chu kỳ: {schedule_desc}\nKhông tìm thấy file:\n{files_list}"
+        ImportLog.objects.create(
+            file_name="N/A",
+            status='NOTFOUND',
+            message=msg,
+            start_time=timezone.now(),
+            end_time=timezone.now()
+        )
 
     # BƯỚC D: SAU KHI IMPORT XONG, TÍNH TOÁN LẠI KPI CHO TOÀN BỘ BU
     # Cập nhật cho Tổng công ty
