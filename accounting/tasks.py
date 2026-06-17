@@ -35,7 +35,7 @@ def auto_import_excel_from_folder():
         'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource()},
         'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource()},
         'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
-        'SO_CHI_TIET': {'model': AccountDetail, 'resource': AccountDetailResource()},
+        'SO_CHI_TIET_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource()},
     }
 
     # Quét tất cả các file excel trong thư mục auto_imports
