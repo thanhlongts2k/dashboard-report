@@ -426,6 +426,27 @@ Dưới đây là phần trả lời chi tiết cho các câu hỏi thường g�
   - `gender` (Giới tính - kiểu CharField, mặc định là 0).
   - Đồng thời, định dạng chuỗi đại diện hiển thị của nhân viên (`__str__`) được cập nhật từ chỉ hiển thị tên thành hiển thị cả tên và mã nhân viên dưới dạng `f"{self.name} ({self.code})"` giúp người quản trị dễ dàng phân biệt trên giao diện Django Admin.
 
+---
 
+## 9. Tổng Hợp Tiến Độ Dự Án (Project Status Tracker)
 
+Mục này được cập nhật thường xuyên để giúp đội ngũ nắm bắt được các nhiệm vụ đã hoàn thành và các phần việc nợ kỹ thuật (Technical Debt) / tính năng còn dang dở cần phát triển tiếp.
 
+### ✅ Những điểm ĐÃ LÀM ĐƯỢC (Completed)
+1. **Tối ưu hóa logic Import an toàn**: 
+   - Đã khắc phục triệt để lỗi sập luồng nạp do thư viện `import_export` gặp dữ liệu khoảng trắng (trailing space) hoặc mã đối tượng bị trống (Bằng cách tự động gán `None` trong `before_import_row`).
+   - Đảm bảo cơ chế Rollback an toàn trong `transaction.atomic()` khi có dòng dữ liệu hỏng.
+2. **Nâng cấp Bot MISA Automation**:
+   - Báo cáo Tuổi nợ KH: Đã loại bỏ thao tác điền *Kỳ báo cáo* giúp script tương thích với UI mới.
+   - Báo cáo Sổ chi tiết: Tự động mở dropdown chọn *Bậc 1* và tick chính xác các tài khoản `111, 112, 341`.
+3. **Cơ chế Giám sát & Báo lỗi**:
+   - MISA Automation: Bổ sung luồng chụp ảnh màn hình lưu file `MISA_Error_*.png` và báo lỗi Traceback ra console nếu gặp sự cố giao diện MISA thay đổi.
+   - Import Database: Xây dựng bảng model `ImportLog` trên Django Admin lưu trữ lịch sử nạp (trạng thái `SUCCESS`/`ERROR`, thời gian chạy, báo lỗi chi tiết đến từng dòng dữ liệu hỏng).
+
+### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)
+1. **Tối ưu hóa hiệu năng Import (Exclusive Lock bảng)**: (Ưu tiên Cao) File sổ chi tiết hiện tại đã hơn 7.000 dòng, luồng Wipe & Reload `objects.all().delete()` gây khóa bảng trong 1-2 phút. Cần chuyển sang cơ chế **Swap Table** hoặc **Xóa theo kỳ kế toán**.
+2. **Đồng bộ hóa công thức tính Doanh thu**: (Ưu tiên Cao) Doanh thu tháng đang tính bằng `actual_sales` trong khi Doanh thu ngày tính bằng `sales_amount`, dẫn đến vênh số liệu. Cần làm rõ nghiệp vụ và đồng bộ lại.
+3. **Bổ sung tính toán các chỉ số thực tế bị thiếu**: (Ưu tiên Cao) Các trường Nợ ngân hàng, Chi phí vận hành, Tiền cuối kỳ đang mang giá trị `0`. Cần trích xuất từ các tài khoản (ví dụ 341, 641, 642, 111, 112) trong Sổ chi tiết để tổng hợp.
+4. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
+5. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
+6. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
