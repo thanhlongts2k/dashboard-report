@@ -215,8 +215,8 @@ class AccountDetail(models.Model):
     )
 
     class Meta:
-        verbose_name = "Sổ chi tiết tài khoản 111-112"
-        verbose_name_plural = "Sổ chi tiết các tài khoản 111-112"
+        verbose_name = "Sổ chi tiết các tài khoản 111, 112, 341"
+        verbose_name_plural = "Sổ chi tiết các tài khoản 111, 112, 341"
 
 
 class ReceivablesAgeing(models.Model):

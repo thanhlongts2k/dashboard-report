@@ -242,7 +242,174 @@ async def close_misa_popups(page):
     return True
 
 
-async def download_report_from_url(page, report_url, export_selector, output_path):
+async def select_accounts_for_so_chi_tiet(page, accounts):
+    """
+    Thay thế bước 'Chọn tất cả' cho báo cáo Sổ Chi Tiết Các Tài Khoản:
+    1. Chọn Bậc = 1 (combobox góc trên phải của bảng chọn tài khoản)
+    2. Dùng textbox 'Nhập từ khóa tìm kiếm' để lọc và click chọn từng tài khoản (111, 112, 341)
+    
+    Dựa trên screenshot thực tế của MISA GLAccountLedger:
+    - Combobox Bậc: không có label kế bên, nằm ở góc trên phải bảng tài khoản
+    - Textbox tìm kiếm: placeholder = 'Nhập từ khóa tìm kiếm'
+    - Chọn tài khoản: click vào ô số tài khoản trong bảng (khớp chính xác)
+    """
+    # Chọn Bậc = 1
+    # Combobox Bậc nằm ở góc phải, thường có class ms-combo hoặc dx-selectbox
+    bac_selectors = [
+        "xpath=//div[contains(@class,'ms-search-account')]//div[contains(@class,'ms-combo')]//input",
+        "xpath=//span[normalize-space(text())='Bậc']/following::div[contains(@class,'ms-combo')][1]//input",
+        "xpath=//th[normalize-space(text())='Bậc']/preceding::input[contains(@class,'dx-texteditor-input')][1]",
+        "xpath=//div[contains(@class,'ms-combo') and not(ancestor::*[contains(@class,'ms-date')])][last()]//input",
+        ".ms-search-account .ms-combo input",
+        # Selector dự phòng: input cuối cùng trong vùng tham số (trước bảng tài khoản)
+        "xpath=(//div[contains(@class,'param') or contains(@class,'filter')]//input[@type='text'])[last()]",
+    ]
+    bac_input, bac_frame = await find_locator_in_any_frame(page, bac_selectors, timeout=3000)
+    if bac_input:
+        logger.info("Clicking 'Bac' combobox to open options...")
+        await bac_input.click(force=True)
+        await asyncio.sleep(0.5)
+        
+        # Tìm option "1" trong dropdown (chọn chính xác bậc 1, không phải 10, 11...)
+        # Tìm option "1" trong dropdown (chọn chính xác bậc 1, không phải 10, 11...)
+        bac1_selectors = [
+            "xpath=//div[contains(@class,'dx-dropdowneditor-overlay')]//div[contains(@class,'dx-item-content') and normalize-space(.)='1']",
+            "xpath=//div[contains(@class,'dx-item-content') and normalize-space(text())='1']",
+            "xpath=//li[contains(@class,'dx-list-item')][normalize-space(.)='1']",
+            "xpath=//*[contains(@class,'ms-combo-item') or contains(@class,'ms-select-item')][normalize-space(text())='1']",
+            "xpath=//div[contains(@class,'ms-dropdown')]//*[normalize-space(text())='1']"
+        ]
+        bac1_item, _ = await find_locator_in_any_frame(page, bac1_selectors, timeout=2000)
+        if bac1_item:
+            logger.info("Selecting 'Bac 1'...")
+            await bac1_item.click(force=True)
+        else:
+            logger.warning("Could not find 'Bac 1' option. Trying keyboard input...")
+            try:
+                # Combobox này readonly nên không dùng fill/type được, chỉ dùng phím điều hướng
+                await bac_input.click(force=True)
+                await asyncio.sleep(0.5)
+                # MISA Bac thường là: "Tất cả", "1", "2", "3"...
+                # Nhấn Home để về "Tất cả", rồi ArrowDown để xuống "1"
+                await page.keyboard.press("Home")
+                await asyncio.sleep(0.2)
+                await page.keyboard.press("ArrowDown")
+                await asyncio.sleep(0.2)
+                await page.keyboard.press("Enter")
+                logger.info("Used keyboard ArrowDown to select Bac 1 and pressed Enter.")
+            except Exception as e:
+                logger.error(f"Failed to select Bac 1: {str(e)}")
+        await asyncio.sleep(0.5)
+    else:
+        logger.warning("Could not find 'Bac' combobox. Skipping.")
+    
+    # Textbox tìm kiếm: placeholder = 'Nhập từ khóa tìm kiếm' (xác nhận từ screenshot thực tế)
+    account_search_selectors = [
+        "input[placeholder='Nhập từ khóa tìm kiếm']",
+        "xpath=//input[@placeholder='Nhập từ khóa tìm kiếm']",
+        "input[placeholder*='từ khóa']",
+        "input[placeholder*='tìm kiếm']",
+        ".ms-input-search input",
+    ]
+    
+    for account_code in accounts:
+        logger.info(f"Searching and selecting account: {account_code}")
+        
+        acc_input, acc_frame = await find_locator_in_any_frame(page, account_search_selectors, timeout=3000)
+        if not acc_input:
+            logger.warning(f"Could not find account search textbox for {account_code}. Skipping.")
+            continue
+        
+        # Xóa nội dung cũ, nhập mã tài khoản và chờ bảng lọc kết quả
+        try:
+            # Click và dùng phím xóa thay vì fill("") vì có thể textbox có custom clear
+            await acc_input.click(force=True)
+            await asyncio.sleep(0.2)
+            await acc_input.fill("")
+            await acc_input.type(account_code)
+            await asyncio.sleep(1.5)  # Tăng thời gian chờ bảng filter hiển thị kết quả
+            logger.info(f"Typed account code '{account_code}' in search box.")
+        except Exception as e:
+            logger.error(f"Failed to type account {account_code}: {str(e)}")
+            continue
+        
+        # Click vào CHECKBOX của ô Số tài khoản khớp CHÍNH XÁC
+        clicked = False
+        try:
+            # Chạy script JS để quét toàn bộ DOM, tìm mọi loại table row
+            js_script = f"""
+            (() => {{
+                const rows = document.querySelectorAll('tr, [role="row"], .dx-data-row, .dx-row, .ms-tr');
+                if (rows.length === 0) return false;
+                
+                // Thử tìm chính xác theo text
+                for (const row of rows) {{
+                    const cells = row.querySelectorAll('td, th, [role="cell"], .dx-cell, .ms-td');
+                    let hasMatch = false;
+                    for (const cell of cells) {{
+                        if (cell.textContent.trim() === '{account_code}') {{
+                            hasMatch = true;
+                            break;
+                        }}
+                    }}
+                    if (hasMatch) {{
+                        const cb = row.querySelector('input[type="checkbox"], .dx-checkbox, .ms-checkbox, .checkbox, [role="checkbox"]');
+                        if (cb) {{ cb.click(); return true; }}
+                        if (cells.length > 0) {{ cells[0].click(); return true; }}
+                    }}
+                }}
+                
+                // Nếu là bảng grid tài khoản thì search 3 số + Bậc 1 sẽ ra 1 dòng duy nhất -> Click dòng đầu tiên
+                // Bỏ qua dòng header (thường là row đầu tiên của thead), lấy dòng data đầu tiên
+                let dataRow = rows[0];
+                if (rows.length > 1 && (rows[0].closest('thead') || rows[0].querySelector('th'))) {{
+                    dataRow = rows[1];
+                }}
+                const cb = dataRow.querySelector('input[type="checkbox"], .dx-checkbox, .ms-checkbox, .checkbox, [role="checkbox"]');
+                if (cb) {{ cb.click(); return true; }}
+                
+                const cells = dataRow.querySelectorAll('td, [role="cell"], .dx-cell, .ms-td');
+                if (cells.length > 0) {{ cells[0].click(); return true; }}
+                
+                return false;
+            }})()
+            """
+            # Chạy JS trên page chính và TẤT CẢ các iframe
+            frames_to_check = [page] + page.frames
+            for f in frames_to_check:
+                try:
+                    if await f.evaluate(js_script):
+                        clicked = True
+                        break
+                except:
+                    pass
+            
+            if clicked:
+                logger.info(f"Successfully clicked checkbox for {account_code} via JS.")
+        except Exception as e:
+            logger.error(f"JS fallback for {account_code} failed: {str(e)}")
+
+        if not clicked:
+            logger.warning(f"Could not click via JS for {account_code}, trying XPath locators fallback to first row...")
+            first_row_selectors = [
+                "xpath=(//tr[contains(@class,'dx-row')]//div[contains(@class,'dx-checkbox')])[1]",
+                "xpath=(//div[contains(@class,'dx-data-row')]//div[contains(@class,'dx-checkbox')])[1]",
+                ".dx-checkbox:visible"
+            ]
+            first_row_cb, _ = await find_locator_in_any_frame(page, first_row_selectors, timeout=1500)
+            if first_row_cb:
+                await first_row_cb.click(force=True)
+                logger.info(f"Clicked first row checkbox as fallback for account {account_code}.")
+            else:
+                logger.warning(f"Could not find any checkbox for {account_code}. Skipping to next.")
+        
+        await asyncio.sleep(0.5)
+    
+    logger.info(f"Finished selecting accounts: {accounts}")
+
+
+
+async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None):
     logger.info(f"Navigating to report URL: {report_url}")
     try:
         await page.goto(report_url, timeout=30000, wait_until="load")
@@ -380,6 +547,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         await asyncio.sleep(0.5)
         
         # Step 4: Choose "Kỳ báo cáo" -> "Năm nay"
+        skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
         ky_baocao_selectors = [
             "xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
             "xpath=//div[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
@@ -400,7 +568,9 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception:
                     continue
                     
-        if ky_input:
+        if skip_ky_bao_cao:
+            logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as requested.")
+        elif ky_input:
             logger.info("Clicking 'Ky bao cao' combobox to open options...")
             await ky_input.click(force=True)
             await asyncio.sleep(0.3)
@@ -445,33 +615,37 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             logger.warning("Could not find 'Ky bao cao' input combobox.")
         await asyncio.sleep(0.5)
         
-        # Step 5: Check "Chọn tất cả"
-        select_all_selectors = [
-            "text='Chọn tất cả'",
-            "label:has-text('Chọn tất cả')",
-            "span:has-text('Chọn tất cả')",
-            "div:has-text('Chọn tất cả')",
-            ".ms-checkbox:has-text('Chọn tất cả')"
-        ]
-        select_all_btn, frame = await find_locator_in_any_frame(page, select_all_selectors, timeout=3000)
-        if select_all_btn:
-            is_already_checked = False
-            try:
-                parent = frame.locator("xpath=//node()[contains(text(), 'Chọn tất cả')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
-                if await parent.count() > 0:
-                    parent_class = await parent.get_attribute("class")
-                    if parent_class and ("checked" in parent_class or "active" in parent_class):
-                        is_already_checked = True
-            except Exception:
-                pass
-                
-            if not is_already_checked:
-                logger.info("Clicking 'Chon tat ca' checkbox...")
-                await select_all_btn.click(force=True)
-            else:
-                logger.info("'Chon tat ca' is already checked.")
+        # Step 5: Chọn tất cả (default) hoặc chọn Bậc + tài khoản cụ thể (SO_CHI_TIET_TAI_KHOAN)
+        if prefix == 'SO_CHI_TIET_TAI_KHOAN':
+            logger.info("[SO_CHI_TIET_TAI_KHOAN] Running custom account selection: Bac 1 + accounts 111, 112, 341")
+            await select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341'])
         else:
-            logger.warning("Could not find 'Chon tat ca' checkbox.")
+            select_all_selectors = [
+                "text='Chọn tất cả'",
+                "label:has-text('Chọn tất cả')",
+                "span:has-text('Chọn tất cả')",
+                "div:has-text('Chọn tất cả')",
+                ".ms-checkbox:has-text('Chọn tất cả')"
+            ]
+            select_all_btn, frame = await find_locator_in_any_frame(page, select_all_selectors, timeout=3000)
+            if select_all_btn:
+                is_already_checked = False
+                try:
+                    parent = frame.locator("xpath=//node()[contains(text(), 'Chọn tất cả')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
+                    if await parent.count() > 0:
+                        parent_class = await parent.get_attribute("class")
+                        if parent_class and ("checked" in parent_class or "active" in parent_class):
+                            is_already_checked = True
+                except Exception:
+                    pass
+                    
+                if not is_already_checked:
+                    logger.info("Clicking 'Chon tat ca' checkbox...")
+                    await select_all_btn.click(force=True)
+                else:
+                    logger.info("'Chon tat ca' is already checked.")
+            else:
+                logger.warning("Could not find 'Chon tat ca' checkbox.")
         await asyncio.sleep(0.5)
         
         # Step 6: Click "Xem báo cáo"
@@ -819,13 +993,13 @@ async def run_misa_automation():
             output_path = os.path.join(auto_imports_dir, filename)
             
             try:
-                # Try downloading
-                success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path)
+                # Try downloading (pass prefix for report-specific custom logic)
+                success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix)
                 if not success:
                     # Retry once after logging in again
                     logger.info("Retrying download after re-logging in...")
                     await login_to_misa(page, context, email, password)
-                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path)
+                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix)
                     
                 if success:
                     downloaded_count += 1

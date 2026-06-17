@@ -308,23 +308,32 @@ class AccountDetailResource(resources.ModelResource):
         cust_code = str(row.get('Mã đối tượng') or '').strip()
         cust_name = str(row.get('Tên đối tượng') or '').strip()
 
-        if cust_code and cust_code not in ['', 'None']:
+        if cust_code and cust_code not in ['', 'None', 'nan']:
             Customer.objects.get_or_create(
                 code=cust_code,
                 defaults={'name': cust_name if cust_name else 'N/A'}
             )
+            row['Mã đối tượng'] = cust_code
+        else:
+            row['Mã đối tượng'] = None
 
         row['Tài khoản'] = row.get('Tài khoản')
         row['TK đối ứng'] = row.get('TK đối ứng')
         
-        if bu_code and bu_code != 'None' and bu_code != '':
+        if bu_code and bu_code not in ['None', '', 'nan']:
             BusinessUnit.objects.get_or_create(
                 code=bu_code, 
                 defaults={'name': str(row.get('Tên thống kê') or 'N/A')}
             )
+            row['Mã thống kê'] = bu_code
+        else:
+            row['Mã thống kê'] = None
             
-        if branch_name and branch_name != 'None' and branch_name != '':
+        if branch_name and branch_name not in ['None', '', 'nan']:
             Branch.objects.get_or_create(name=branch_name)
+            row['Chi nhánh'] = branch_name
+        else:
+            row['Chi nhánh'] = None
 
 
 class ReceivablesAgeingResource(resources.ModelResource):
@@ -379,10 +388,17 @@ class ReceivablesAgeingResource(resources.ModelResource):
         # Tự động tạo danh mục Customer/Branch
         cust_code = str(row.get('Mã khách hàng') or '').strip()
         br_name = str(row.get('Chi nhánh') or '').strip()
-        if cust_code and cust_code != 'None':
+        if cust_code and cust_code not in ['', 'None', 'nan']:
             Customer.objects.get_or_create(code=cust_code, defaults={'name': row.get('Tên khách hàng') or 'N/A'})
-        if br_name and br_name != 'None':
+            row['Mã khách hàng'] = cust_code
+        else:
+            row['Mã khách hàng'] = None
+            
+        if br_name and br_name not in ['', 'None', 'nan']:
             Branch.objects.get_or_create(name=br_name)
+            row['Chi nhánh'] = br_name
+        else:
+            row['Chi nhánh'] = None
 
 class InventorySummaryResource(resources.ModelResource):
     warehouse = fields.Field(

@@ -25,11 +25,11 @@ def auto_import_excel_from_folder():
         'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True},
 
         # Cùng loại SalesTransaction
-        'So_chi_tiet_ban_hang': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
+        # 'So_chi_tiet_ban_hang': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
         'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
         
         # Cùng loại PurchaseDetail
-        'So_chi_tiet_mua_hang': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
+        # 'So_chi_tiet_mua_hang': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
         'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
         
         'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource()},
