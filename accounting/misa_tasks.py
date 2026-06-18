@@ -210,17 +210,36 @@ async def find_locator_in_any_frame(page, selectors, timeout=3000):
 
 
 async def close_misa_popups(page):
-    logger.info("Hiding MISA ad/welcome popup overlays via JS...")
+    logger.info("Handling MISA popups/overlays...")
     
-    # Force hide ONLY ad/getting started overlays via JS in all frames
+    # Click "Nhắc lại sau" button if it exists
+    nhac_lai_selectors = [
+        "text='Nhắc lại sau'",
+        "button:has-text('Nhắc lại sau')",
+        "span:has-text('Nhắc lại sau')",
+        "div:has-text('Nhắc lại sau')"
+    ]
+    for frame in page.frames:
+        for selector in nhac_lai_selectors:
+            try:
+                locator = frame.locator(selector).first
+                if await locator.is_visible(timeout=1000):
+                    logger.info("Found 'Nhắc lại sau' popup button. Clicking it...")
+                    await locator.click(force=True)
+                    await asyncio.sleep(1.0)
+            except Exception:
+                pass
+
+    logger.info("Hiding MISA ad/welcome popup overlays via JS...")
+    # Force hide ONLY ad/getting started/expiration overlays via JS in all frames
     for frame in page.frames:
         try:
             await frame.evaluate("""() => {
-                // Hide wrapper blocks and popups that contain ad/welcome texts
+                // Hide wrapper blocks and popups that contain ad/welcome/expiration texts
                 const elements = document.querySelectorAll('.ms-popup--wrapper, .ms-popup, .popup-start-use, .popup-survey, .ms-component.con-ms-popup');
                 elements.forEach(el => {
                     const text = (el.textContent || '').normalize('NFC');
-                    if (text.includes('Chào') || text.includes('Thông tư 99') || text.includes('bắt đầu sử dụng') || text.includes('phần mềm AMIS') || text.includes('TT99') || text.includes('TT 99')) {
+                    if (text.includes('Chào') || text.includes('Thông tư 99') || text.includes('bắt đầu sử dụng') || text.includes('phần mềm AMIS') || text.includes('TT99') || text.includes('TT 99') || text.includes('Sắp hết hạn phần mềm')) {
                         el.style.display = 'none';
                         el.style.opacity = '0';
                         el.style.pointerEvents = 'none';
@@ -238,7 +257,7 @@ async def close_misa_popups(page):
         except Exception:
             pass
             
-    logger.info("Force-hid potential ad overlays/backgrounds via JS in all frames.")
+    logger.info("Force-hid potential ad/expiration overlays/backgrounds via JS in all frames.")
     return True
 
 
@@ -984,6 +1003,7 @@ async def run_misa_automation():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         downloaded_count = 0
         failed_count = 0
+        failed_details = []
         
         for prefix, url in settings.MISA_REPORTS.items():
             if not url:
@@ -1006,12 +1026,18 @@ async def run_misa_automation():
                 else:
                     failed_count += 1
                     logger.error(f"Failed to download report for prefix {prefix}")
+                    failed_details.append(f"{prefix}: Failed to download/login expired")
             except Exception as e:
                 failed_count += 1
                 logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
+                failed_details.append(f"{prefix}: {str(e)}")
                 
         await browser.close()
-        return f"SUCCESS: Downloaded {downloaded_count} reports. Failed {failed_count} reports."
+        
+        result_msg = f"SUCCESS: Downloaded {downloaded_count} reports. Failed {failed_count} reports."
+        if failed_count > 0 and failed_details:
+            result_msg += " Errors: " + "; ".join(failed_details)
+        return result_msg
 
 
 @shared_task(name="accounting.tasks.download_misa_reports")

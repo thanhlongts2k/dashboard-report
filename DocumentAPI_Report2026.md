@@ -82,6 +82,7 @@ graph TD
     - Nếu có bất kỳ lỗi cấu trúc/lỗi kiểu dữ liệu nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh mất/sai lệch dữ liệu cũ.
 4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`/`NOTFOUND`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.
     - **Trạng thái `NOTFOUND` (Cảnh báo thiếu file)**: Nếu trong chu kỳ quét tự động mà có bất kỳ tệp tin nào được định nghĩa trong `IMPORT_MAP` bị thiếu (không tìm thấy trên ổ đĩa), hệ thống sẽ tạo một bản ghi log tổng hợp với trạng thái `NOTFOUND` liệt kê chi tiết các tiền tố tệp bị thiếu dưới dạng danh sách gạch đầu dòng trực quan.
+    - **Chi tiết lỗi tải MISA**: Đối với tiến trình tự động tải báo cáo từ MISA, nếu có một hoặc nhiều báo cáo gặp lỗi tải, thông báo kết quả `message` của log `MISA_Playwright_Automation` sẽ đính kèm chi tiết cụ thể các tệp tải lỗi ở cuối chuỗi dưới dạng: `Errors: <Prefix_Báo_Cáo>: <Chi tiết lỗi>` để dễ dàng theo dõi.
 5. **Cơ chế kích hoạt tính toán tự động (Orchestration Flow)**:
     - Ngay khi tiến trình import hoàn tất thành công, Celery Worker sẽ **tự động kích hoạt** việc tính toán lại KPI cho Tổng công ty và từng BU bằng cách xếp hàng các tác vụ ngầm:
       - `update_single_bu_performance.delay(None)` (Cho Tổng công ty).
@@ -244,6 +245,30 @@ py manage.py runserver
 > 1. Django sẽ **tự động khởi chạy Redis Server, Celery Worker và Celery Beat** trong các cửa sổ terminal độc lập hoàn toàn tự động.
 > 2. Cơ chế thông minh đảm bảo các dịch vụ chỉ mở đúng 1 bản duy nhất mỗi lần khởi chạy server (không bị lặp lại do `auto-reloader`).
 > 3. **Tự động dọn dẹp khi dừng server**: Khi bạn nhấn `Ctrl + C` để dừng `runserver`, Django sẽ tự động gửi lệnh kết thúc và **đóng hoàn toàn tất cả các cửa sổ terminal Celery & Redis** đang chạy, tránh rác tiến trình chạy ngầm trên Windows.
+
+### Bước 3: Các Script hỗ trợ chạy thủ công và Test (Helper & Test Scripts)
+Để thuận tiện cho việc debug và test nhanh các tiến trình mà không cần phụ thuộc vào Celery Beat, hệ thống cung cấp 2 file script ở thư mục gốc:
+
+1. **[test_download_ban_hang.py](file:///d:/Sources/dashboard-report/test_download_ban_hang.py)**:
+   - *Tác dụng*: Chạy tải thử nghiệm báo cáo Bán hàng (`BAN_HANG`) từ MISA.
+   - *Đặc điểm*: Khởi chạy Playwright bằng trình duyệt **ở chế độ có giao diện (`headless=False`)** để lập trình viên có thể trực tiếp quan sát các bước tự động tương tác và xử lý tắt popup (như popup nhắc hết hạn, popup khảo sát, v.v.).
+   - *Cách chạy*:
+     ```powershell
+     .venv\Scripts\python.exe test_download_ban_hang.py
+     ```
+
+2. **[import_specific_file.py](file:///d:/Sources/dashboard-report/import_specific_file.py)**:
+   - *Tác dụng*: Import thủ công một file Excel bất kỳ trong thư mục `media/auto_imports/`.
+   - *Đặc điểm*: Tự động định danh loại dữ liệu dựa trên tiền tố file, xóa sạch dữ liệu cũ và nạp dữ liệu mới trong một Database Transaction (an toàn tuyệt đối, lỗi sẽ tự rollback), tự động ghi nhật ký vào `ImportLog` trên Django Admin, di chuyển file thành công vào thư mục `success/` và đồng thời tự động kích hoạt tính toán lại KPI cho các BU.
+   - *Cách chạy*:
+     - Xem danh sách các file đang chờ import:
+       ```powershell
+       .venv\Scripts\python.exe import_specific_file.py
+       ```
+     - Chạy import một file cụ thể:
+       ```powershell
+       .venv\Scripts\python.exe import_specific_file.py <tên_file.xlsx>
+       ```
 
 ---
 
@@ -439,8 +464,9 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 2. **Nâng cấp Bot MISA Automation**:
    - Báo cáo Tuổi nợ KH: Đã loại bỏ thao tác điền *Kỳ báo cáo* giúp script tương thích với UI mới.
    - Báo cáo Sổ chi tiết: Tự động mở dropdown chọn *Bậc 1* và tick chính xác các tài khoản `111, 112, 341`.
+   - Popup Hệ thống: Xử lý tự động đóng popup cảnh báo "Sắp hết hạn phần mềm" bằng cách click chọn "Nhắc lại sau" và thêm bộ lọc CSS/JS ẩn đi.
 3. **Cơ chế Giám sát & Báo lỗi**:
-   - MISA Automation: Bổ sung luồng chụp ảnh màn hình lưu file `MISA_Error_*.png` và báo lỗi Traceback ra console nếu gặp sự cố giao diện MISA thay đổi.
+   - MISA Automation: Bổ sung luồng chụp ảnh màn hình lưu file `MISA_Error_*.png` và báo lỗi Traceback ra console nếu gặp sự cố giao diện MISA thay đổi. Bổ sung ghi nhận chi tiết lỗi và tên tệp gặp sự cố tải ở cuối thông báo trạng thái `ImportLog` khi tải qua Playwright.
    - Import Database: Xây dựng bảng model `ImportLog` trên Django Admin lưu trữ lịch sử nạp (trạng thái `SUCCESS`/`ERROR`, thời gian chạy, báo lỗi chi tiết đến từng dòng dữ liệu hỏng).
 
 ### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)
