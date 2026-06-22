@@ -25,9 +25,9 @@ class Command(BaseCommand):
                 password=password
             )
             self.stdout.write(
-                self.style.SUCCESS(f' Chúc mừng bạn! Đã tạo thành công tài khoản: {username}')
+                self.style.SUCCESS(f' Chúc mừng bạn! Đã tạo thành công tài khoản: [{username}]')
             )
         else:
             self.stdout.write(
-                self.style.WARNING(f'⚠️ Tài khoản {username} đã tồn tại trong hệ thống rồi nhé!')
+                self.style.WARNING(f'⚠️ Tài khoản [{username}] đã tồn tại trong hệ thống rồi ạ!')
             )
