@@ -127,8 +127,8 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
     - Lọc từ bảng `ReceivablesAgeing`.
     - **Dư nợ cần thu** (`receivable_total`): Tính bằng tổng cột `total_debt`.
     - **Nợ quá hạn** (`receivable_overdue`): Tính bằng tổng cột `overdue_total`.
-    - **Đã thu (đến hạn)** (`collection_due_actual`): Tính bằng tổng cột `due_total` (trên giao diện model tương ứng với cột `due_now`).
-    - **Thu trong hạn + COD** (`collection_in_term_cod`): Tính bằng công thức `receivable_total - receivable_overdue` (Tổng nợ trừ Nợ quá hạn).
+    - **Đã thu (đến hạn)** (`collection_due_actual`): Tính từ phát sinh thực thu trong bảng `AccountDetail` đối ứng khách hàng có nợ quá hạn.
+    - **Thu trong hạn + COD** (`collection_in_term_cod`): Tính bằng công thức `Tổng thực thu trong ngày - Đã thu đến hạn`.
 *   **Tồn kho KPI**: 
     - **Đường đi dữ liệu**: 
       `InventorySummary` -> `Warehouse` -> `BusinessUnit` (thông qua `warehouse__business_unit_id=bu_id`).
@@ -372,9 +372,9 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
 
 ### 7.5. Cấu trúc cây phân cấp của Business Unit (BU Hierarchy)
 * **Bối cảnh**: Bảng `BusinessUnit` sử dụng mối quan hệ đệ quy đơn giản thông qua khóa ngoại tự tham chiếu `parent = models.ForeignKey('self')`. Hệ thống **không** sử dụng các thư viện quản lý cây như `django-mptt` hay `django-treebeard`.
-* **Logic tổng hợp**: Trong hàm tính toán KPI `update_single_bu_performance`:
+* **Logic tổng hợp**: Trong hàm tính toán KPI `update_single_bu_performance` và API:
   - Nếu `bu_id` là `None` hoặc BU đó không có cha (`parent_id is None`), hệ thống coi là `is_global = True` và tính tổng hợp cho toàn công ty (không lọc theo BU).
-  - Nếu `bu_id` cụ thể, hệ thống chỉ lọc chính xác các bản ghi của BU đó (không đệ quy gom cụm số liệu của các BU con).
+  - Nếu `bu_id` cụ thể, hệ thống **có hỗ trợ đệ quy** thông qua việc gọi hàm `bu.get_all_descendant_ids()` để thu thập danh sách ID của toàn bộ BU con/cháu, và áp dụng bộ lọc `__in=bu_ids`.
 * **Hiệu năng**: Do không chạy đệ quy lặp qua các BU con khi tính toán cho BU cha, hệ thống hiện tại tránh được lỗi N+1 Query khét tiếng khi tính toán báo cáo. Tuy nhiên, việc gom cụm số liệu cấp phòng ban (sub-BU) lên BU cấp cao hơn hiện chưa được hỗ trợ tự động theo cây phân cấp.
 
 ### 7.6. Cơ chế phân quyền xem báo cáo (Row-Level Security / Data Isolation)

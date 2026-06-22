@@ -58,8 +58,8 @@ Lớp API View [DashboardCollectionByBUAPIView](file:///d:/Sources/dashboard-rep
 | **`receivable_total`** | Dư nợ cần thu (snapshot hiện tại của `ReceivablesAgeing`). | `Sum('total_debt')` từ bảng `ReceivablesAgeing` lọc theo BU. | **Khớp nghiệp vụ.** Đây là tổng số dư nợ chưa thu hiện tại của các khách hàng thuộc BU. |
 | **`commitment_overdue`** | Cam kết (quá hạn) — dùng tạm `overdue_total`. | `Sum('overdue_total')` từ bảng `ReceivablesAgeing` lọc theo BU. | **Khớp nghiệp vụ.** (Tạm thời dùng số nợ quá hạn do chưa có bảng theo dõi cam kết trả nợ riêng). |
 | **`total_collected`** | Tổng thu trong ngày. | Tính từ phát sinh Nợ - Có (`debit_amount - credit_amount`) của các tài khoản tiền/ngân hàng (`111`, `112`) đối ứng phải thu khách hàng (`1311`, `1312`) trong ngày từ bảng [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L185). | **Khớp nghiệp vụ.** Phản ánh đúng dòng tiền thực thu trong ngày của BU. |
-| **`collected_due`** | Đã thu (đến hạn) — phát sinh trên khách hàng có nợ quá hạn. | Lấy `Sum('due_total')` từ bảng snapshot dư nợ [ReceivablesAgeing](file:///d:/Sources/dashboard-report/accounting/models.py#L222). | **Sai lệch bản chất.**<br>- `due_total` trong bảng `ReceivablesAgeing` là **Tổng nợ trước hạn** (số dư nợ chưa thanh toán và chưa đến hạn).<br>- Lấy dư nợ chưa đến hạn đại diện cho "số tiền đã thu được" là không chính xác. |
-| **`collected_in_term_cod`**| Thu trong hạn + COD = Tổng thu - Đã thu đến hạn. | Tính bằng công thức:<br>`total_collected - collected_due` | **Sai lệch toán học.**<br>- Do `collected_due` bị lấy sai ở trên, công thức trở thành: `Tiền thực thu trong ngày (dòng tiền) - Dư nợ chưa đến hạn tích lũy (số dư tài khoản)`. Phép tính này không có ý nghĩa kế toán và dễ dẫn đến số liệu bị **âm**. |
+| **`collected_due`** | Đã thu (đến hạn) — phát sinh trên khách hàng có nợ quá hạn. | Lấy `Sum('due_total')` từ bảng snapshot dư nợ [ReceivablesAgeing](file:///d:/Sources/dashboard-report/accounting/models.py#L222). | **[ĐÃ GIẢI QUYẾT / FIXED]**<br>Code đã được sửa thành lọc đối ứng tiền thu trực tiếp từ `AccountDetail` thay vì dùng bảng Ageing. |
+| **`collected_in_term_cod`**| Thu trong hạn + COD = Tổng thu - Đã thu đến hạn. | Tính bằng công thức:<br>`total_collected - collected_due` | **[ĐÃ GIẢI QUYẾT / FIXED]**<br>Đã sửa theo công thức chính xác là `Tổng thực thu (dòng tiền) - Đã thu đến hạn`. |
 
 ### B. So sánh với logic MTD (Tháng) trong `tasks.py`
 Sự bất nhất này bắt nguồn từ việc copy pattern tính toán lũy kế tháng trong [tasks.py:L237-L246](file:///d:/Sources/dashboard-report/accounting/tasks.py#L237-L246) sang view API:
@@ -72,9 +72,9 @@ Sự bất nhất này bắt nguồn từ việc copy pattern tính toán lũy k
 
 ### C. Sự bất nhất trong xử lý phân cấp Đơn vị kinh doanh (BU Hierarchy)
 * **Bối cảnh cấu trúc phân cấp (BU Hierarchy):** Bảng [BusinessUnit](file:///d:/Sources/dashboard-report/accounting/models.py#L94) sử dụng mối quan hệ tự tham chiếu (Self-reference) qua khóa ngoại `parent` để mô tả mô hình cây (BU cha - BU con). Theo tài liệu thiết kế hệ thống, cấu trúc này nhằm phục vụ việc **cộng dồn KPI từ dưới lên** (Bottom-up rollup).
-* **Vấn đề thực tế trong code (Chưa hỗ trợ cộng dồn đệ quy):**
-  * **Trong Celery Task `update_single_bu_performance`:** Khi tính toán KPI cho một BU cụ thể (`is_global = False`), hệ thống chỉ thực hiện lọc trực tiếp theo đúng ID của BU đó: `business_unit_id=bu_id` (hoặc `warehouse__business_unit_id=bu_id`, `customer__business_unit_id=bu_id`). Hệ thống hoàn toàn không đệ quy tìm kiếm các BU con thuộc BU hiện tại để cộng dồn số liệu lên BU cha.
-  * **Trong `DashboardCollectionByBUAPIView`:** API thực hiện lọc các BU chính (`is_main=True`) làm danh sách các dòng báo cáo. Tương tự như trên, các phép tính chỉ lọc chính xác `customer__business_unit=bu` và `business_unit=bu`, dẫn đến việc các giao dịch hay công nợ của khách hàng được quản lý bởi các BU con của BU chính đó sẽ bị bỏ sót hoàn toàn.
+* **Vấn đề thực tế trong code (ĐÃ GIẢI QUYẾT / FIXED):**
+  * **Trong Celery Task `update_single_bu_performance`:** Hệ thống đã được cập nhật logic đệ quy gọi hàm `bu.get_all_descendant_ids()` để lấy các BU con.
+  * **Trong `DashboardCollectionByBUAPIView`:** Đã cập nhật áp dụng mảng danh sách các BU con thay vì lọc chính xác bằng id cứng, đảm bảo gom số liệu chuẩn xác.
 
 ### D. Đề xuất Hướng sửa đổi
 Để hệ thống tính toán chính xác theo đúng ý nghĩa nghiệp vụ:
