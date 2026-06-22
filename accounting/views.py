@@ -294,24 +294,35 @@ class DashboardCollectionByBUAPIView(APIView):
                 bu_qs = BusinessUnit.objects.filter(parent__isnull=False)
 
         for bu in bu_qs.order_by('code'):
+            bu_ids = bu.get_all_descendant_ids()
+
             # 1. Dư nợ & Cam kết — đi qua Customer.business_unit (giống tasks.py)
             rec = ReceivablesAgeing.objects.filter(
-                customer__business_unit=bu
+                customer__business_unit_id__in=bu_ids
             ).aggregate(
                 total=Sum('total_debt'),
                 overdue=Sum('overdue_total'),
-                due_now=Sum('due_total'),
             )
             receivable_total = rec['total'] or 0
             commitment_overdue = rec['overdue'] or 0
             
-            # 2. Đã thu (đến hạn) — theo pattern tasks.py dùng due_total từ ReceivablesAgeing
-            collected_due = rec['due_now'] or 0
+            # 2. Đã thu (đến hạn) — thực thu từ các khách hàng có nợ quá hạn
+            overdue_customers = ReceivablesAgeing.objects.filter(
+                customer__business_unit_id__in=bu_ids,
+                overdue_total__gt=0
+            ).values_list('customer_id', flat=True)
 
-            # 3. Tổng thu trong ngày — qua AccountDetail.business_unit (đã có sẵn từ import)
+            collected_due_qs = AccountDetail.objects.filter(
+                posting_date=date,
+                customer_id__in=overdue_customers
+            ).filter(cash_cond & offset_cond)
+            sums_due = collected_due_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
+            collected_due = (sums_due['d'] or 0) - (sums_due['c'] or 0)
+
+            # 3. Tổng thu trong ngày — qua AccountDetail.business_unit
             collection_qs = AccountDetail.objects.filter(
                 posting_date=date,
-                business_unit=bu,
+                business_unit_id__in=bu_ids,
             ).filter(cash_cond & offset_cond)
             total_sums = collection_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
             total_collected = (total_sums['d'] or 0) - (total_sums['c'] or 0)

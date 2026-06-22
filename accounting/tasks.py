@@ -25,7 +25,7 @@ def auto_import_excel_from_folder():
     
     # 2. Mapping giữa Tiền tố File - Model - Resource
     IMPORT_MAP = {
-        'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True},
+        # 'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True},
 
         # Cùng loại SalesTransaction
         # 'So_chi_tiet_ban_hang': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
@@ -182,12 +182,15 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
 
     # --- 2. XÁC ĐỊNH PHẠM VI (GLOBAL / SUB-BU) ---
     is_global = False
+    bu_ids = []
     if bu_id is None:
         is_global = True
     else:
         bu = BusinessUnit.objects.filter(id=bu_id).first()
-        if bu and bu.parent_id is None:
-            is_global = True
+        if bu:
+            if bu.parent_id is None:
+                is_global = True
+            bu_ids = bu.get_all_descendant_ids()
 
     customer_rev_filter = Q(customer__has_revenue=True)
 
@@ -196,7 +199,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
 
     inventory_filter = Q(created_at__month=month, created_at__year=year)
     if not is_global:
-        inventory_filter &= Q(warehouse__business_unit_id=bu_id)
+        inventory_filter &= Q(warehouse__business_unit_id__in=bu_ids)
 
     # Tồn kho tháng (tính tổng theo filter, nếu là global thì lấy tất cả, nếu là sub-BU thì lọc theo BU)
     inv_data = InventorySummary.objects.filter(inventory_filter).aggregate(
@@ -210,7 +213,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     inventory_actual = inv_data['closing'] or 0
 
     if not is_global:
-        base_filter &= Q(business_unit_id=bu_id)
+        base_filter &= Q(business_unit_id__in=bu_ids)
 
     # Doanh thu tháng
     sales_qs = SalesTransaction.objects.filter(base_filter)
@@ -230,20 +233,32 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     # Thiết lập filter cho Ageing
     ageing_filter = Q()
     if not is_global:
-        # Lọc theo khách hàng thuộc BU đó quản lý
-        ageing_filter &= Q(customer__business_unit_id=bu_id)
+        # Lọc theo khách hàng thuộc BU đó (và các BU con) quản lý
+        ageing_filter &= Q(customer__business_unit_id__in=bu_ids)
     
-    # Tính toán các chỉ số nợ
+    # Tính toán các chỉ số dư nợ và nợ quá hạn cuối kỳ từ ReceivablesAgeing
     rec_data = ReceivablesAgeing.objects.filter(ageing_filter).aggregate(
         total=Sum('total_debt'),
         overdue=Sum('overdue_total'),
-        due_now=Sum('due_total'), # Đã thu (đến hạn)
     )
     receivable_total = rec_data['total'] or 0
     receivable_overdue = rec_data['overdue'] or 0
-    collection_due_actual = rec_data['due_now'] or 0
-    # Thu trong hạn + COD = Tổng nợ - Nợ quá hạn
-    collection_in_term_cod = receivable_total - receivable_overdue
+
+    # Tính Đã thu (đến hạn) cấp tháng: Tổng số tiền thực thu từ các khách hàng có nợ quá hạn
+    overdue_customers = ReceivablesAgeing.objects.filter(
+        ageing_filter, 
+        overdue_total__gt=0
+    ).values_list('customer_id', flat=True)
+
+    month_due_qs = AccountDetail.objects.filter(
+        base_filter,
+        customer_id__in=overdue_customers
+    ).filter(cash_cond & offset_cond)
+    sums_due = month_due_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
+    collection_due_actual = (sums_due['d'] or 0) - (sums_due['c'] or 0)
+
+    # Thu trong hạn + COD = Tổng thực thu - Đã thu đến hạn
+    collection_in_term_cod = coll_actual - collection_due_actual
 
     # --- 4. CẬP NHẬT DATABASE (BẢNG THÁNG) ---
     performance, _ = BUPerformance.objects.update_or_create(
@@ -271,7 +286,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     while current_date <= target_date:
         daily_filter = Q(posting_date=current_date)
         if not is_global:
-            daily_filter &= Q(business_unit_id=bu_id)
+            daily_filter &= Q(business_unit_id__in=bu_ids)
         
         # Doanh thu ngày (áp dụng customer_rev_filter tương tự như tháng)
         daily_rev = SalesTransaction.objects.filter(daily_filter & customer_rev_filter).aggregate(

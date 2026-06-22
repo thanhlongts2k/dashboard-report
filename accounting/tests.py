@@ -97,3 +97,91 @@ class MisaAutomationTests(TestCase):
             self.assertTrue(misa_logs.exists())
             self.assertEqual(misa_logs.first().status, 'ERROR')
 
+
+from accounting.models import BusinessUnit, Customer, ReceivablesAgeing, AccountDetail, BUPerformance
+from accounting.tasks import update_single_bu_performance
+
+class BUHierarchyAndCollectionTests(TestCase):
+    def setUp(self):
+        # Tạo BU cha và BU con
+        self.bu_parent = BusinessUnit.objects.create(code="BUP", name="Parent BU", is_main=True)
+        self.bu_child = BusinessUnit.objects.create(code="BUC", name="Child BU", parent=self.bu_parent)
+
+        # Tạo các khách hàng
+        self.cust_parent = Customer.objects.create(code="CP", name="Cust Parent", business_unit=self.bu_parent, has_revenue=True)
+        self.cust_child = Customer.objects.create(code="CC", name="Cust Child", business_unit=self.bu_child, has_revenue=True)
+
+        # Tạo tuổi nợ cho khách hàng
+        # cust_parent: không có nợ quá hạn
+        self.ageing_parent = ReceivablesAgeing.objects.create(
+            customer=self.cust_parent,
+            total_debt=1000,
+            overdue_total=0,
+            due_total=1000
+        )
+        # cust_child: có nợ quá hạn (500)
+        self.ageing_child = ReceivablesAgeing.objects.create(
+            customer=self.cust_child,
+            total_debt=2000,
+            overdue_total=500,
+            due_total=1500
+        )
+
+        # Tạo bút toán thực thu trong AccountDetail
+        # Thu từ cust_parent: 400 (vào ngày 2026-06-15)
+        self.acc_parent = AccountDetail.objects.create(
+            posting_date="2026-06-15",
+            doc_id="D1",
+            account_number="1111",
+            account_name="Cash",
+            offset_account="1311",
+            debit_amount=400,
+            credit_amount=0,
+            business_unit=self.bu_parent,
+            customer=self.cust_parent
+        )
+        # Thu từ cust_child: 600 (vào ngày 2026-06-15)
+        self.acc_child = AccountDetail.objects.create(
+            posting_date="2026-06-15",
+            doc_id="D2",
+            account_number="1121",
+            account_name="Bank",
+            offset_account="1312",
+            debit_amount=600,
+            credit_amount=0,
+            business_unit=self.bu_child,
+            customer=self.cust_child
+        )
+
+    def test_get_all_descendant_ids(self):
+        parent_descendants = self.bu_parent.get_all_descendant_ids()
+        self.assertIn(self.bu_parent.id, parent_descendants)
+        self.assertIn(self.bu_child.id, parent_descendants)
+        self.assertEqual(len(parent_descendants), 2)
+
+        child_descendants = self.bu_child.get_all_descendant_ids()
+        self.assertEqual(child_descendants, [self.bu_child.id])
+
+    def test_update_single_bu_performance_hierarchy(self):
+        # Chạy tính toán hiệu suất BU cha
+        update_single_bu_performance(self.bu_parent.id, month=6, year=2026, target_date_str="2026-06-30")
+
+        # Lấy bản ghi hiệu suất BU cha vừa tạo/cập nhật
+        perf = BUPerformance.objects.get(business_unit=self.bu_parent, month=6, year=2026)
+
+        # Tổng dư nợ: 1000 (cust_parent) + 2000 (cust_child) = 3000
+        self.assertEqual(perf.receivable_total, 3000)
+
+        # Tổng nợ quá hạn: 0 (cust_parent) + 500 (cust_child) = 500
+        self.assertEqual(perf.receivable_overdue, 500)
+
+        # Tổng thực thu lũy kế: 400 (cust_parent) + 600 (cust_child) = 1000
+        self.assertEqual(perf.mtd_collection_actual, 1000)
+
+        # Đã thu (đến hạn): chỉ có cust_child có nợ quá hạn, số tiền thu là 600
+        self.assertEqual(perf.collection_due_actual, 600)
+
+        # Thu trong hạn + COD: 1000 (tổng thực thu) - 600 (đã thu đến hạn) = 400
+        self.assertEqual(perf.collection_in_term_cod, 400)
+
+

@@ -89,6 +89,7 @@ class WarehouseAdmin(admin.ModelAdmin):
         'inventory_out_value', 'inventory_value_actual'
     )
     list_filter = ('business_unit',)
+    search_fields = ('code', 'name', 'business_unit__code', 'business_unit__name')
     actions = ['trigger_sync_inventory']
 
     @admin.action(description='🔄 Đồng bộ tồn kho từ Inventory Summary')
@@ -208,7 +209,7 @@ class InventorySummaryAdmin(ImportExportModelAdmin):
     resource_class = InventorySummaryResource
     list_display = ('warehouse', 'product', 'opening_quantity', 'closing_quantity', 'closing_value')
     list_filter = ('warehouse', 'product__group')
-    search_fields = ('product__code', 'product__name', 'warehouse__name')
+    search_fields = ('product__code', 'product__name', 'warehouse__name', 'warehouse__code')
 
 @admin.register(PurchaseDetail)
 class PurchaseDetailAdmin(ImportExportModelAdmin):

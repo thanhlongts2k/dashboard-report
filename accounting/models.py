@@ -28,6 +28,10 @@ class Warehouse(models.Model):
     def __str__(self):
         return f"{self.code} - {self.name}"
     
+    class Meta:
+        verbose_name = "Kho"
+        verbose_name_plural = "Danh mục kho"
+
 class CustomerGroup(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhóm khách hàng")
     name = models.CharField(max_length=255, verbose_name="Tên nhóm khách hàng")
@@ -103,6 +107,12 @@ class BusinessUnit(models.Model):
         related_name="children"
     )
     is_main = models.BooleanField(default=False, verbose_name="BU chính")
+
+    def get_all_descendant_ids(self):
+        ids = [self.id]
+        for child in self.children.all():
+            ids.extend(child.get_all_descendant_ids())
+        return ids
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -279,8 +289,8 @@ class InventorySummary(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Ngày tạo")
 
     class Meta:
-        verbose_name = "Tổng hợp tồn kho"
-        verbose_name_plural = "Bảng tổng hợp tồn kho"
+        verbose_name = "Hàng tồn kho"
+        verbose_name_plural = "Danh mục kho (chi tiết hàng có tại kho)"
 
 
 class PurchaseDetail(models.Model):
