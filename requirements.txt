@@ -39,3 +39,4 @@ django-environ==0.13.0
 django-celery-results==2.6.0
 redis==4.6.0
 playwright
+django-filter==25.2

@@ -185,3 +185,109 @@ class BUHierarchyAndCollectionTests(TestCase):
         self.assertEqual(perf.collection_in_term_cod, 400)
 
 
+from django.urls import reverse
+from django.contrib.auth.models import User
+
+class BUReportAPIFilterTests(TestCase):
+    def setUp(self):
+        # Tạo user và đăng nhập để vượt qua IsAuthenticated
+        self.user = User.objects.create_user(username='testuser', password='password')
+        self.client.force_login(self.user)
+
+        # Tạo Business Units
+        self.bu_parent = BusinessUnit.objects.create(code="BUP", name="Parent BU", is_main=True)
+        self.bu_child = BusinessUnit.objects.create(code="BUC", name="Child BU", parent=self.bu_parent)
+
+        # Tạo BUPerformance cho các tháng khác nhau
+        self.perf_may = BUPerformance.objects.create(
+            business_unit=self.bu_parent, month=5, year=2026,
+            mtd_revenue_plan=100, mtd_revenue_actual=90
+        )
+        self.perf_june = BUPerformance.objects.create(
+            business_unit=self.bu_parent, month=6, year=2026,
+            mtd_revenue_plan=200, mtd_revenue_actual=180
+        )
+        self.perf_july_child = BUPerformance.objects.create(
+            business_unit=self.bu_child, month=7, year=2026,
+            mtd_revenue_plan=150, mtd_revenue_actual=140
+        )
+
+        self.api_url = reverse('bu_performance_api')
+
+    def test_get_all_without_params(self):
+        response = self.client.get(self.api_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 3)
+
+    def test_filter_by_month_and_year(self):
+        response = self.client.get(self.api_url, {'month': 6, 'year': 2026})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['month'], 6)
+
+    def test_filter_by_start_date_only(self):
+        # start_date = 2026-06-15, sẽ lấy tháng 6 và tháng 7
+        response = self.client.get(self.api_url, {'start_date': '2026-06-15'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        months = [item['month'] for item in response.data]
+        self.assertIn(6, months)
+        self.assertIn(7, months)
+
+    def test_filter_by_end_date_only(self):
+        # end_date = 2026-06-15, sẽ lấy tháng 5 và tháng 6
+        response = self.client.get(self.api_url, {'end_date': '2026-06-15'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        months = [item['month'] for item in response.data]
+        self.assertIn(5, months)
+        self.assertIn(6, months)
+
+    def test_filter_by_date_range(self):
+        # start_date = 2026-05-15, end_date = 2026-06-15 -> Lấy tháng 5 và tháng 6
+        response = self.client.get(self.api_url, {'start_date': '2026-05-15', 'end_date': '2026-06-15'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        months = [item['month'] for item in response.data]
+        self.assertIn(5, months)
+        self.assertIn(6, months)
+
+    def test_filter_by_bu_id(self):
+        # bu_id = null -> Lấy Tổng công ty (bu_parent vì business_unit__isnull=True là null)
+        # Wait, bu_parent và bu_child trong setup đều có business_unit_id khác null.
+        # Chúng ta hãy tạo một BUPerformance không có business_unit (Tổng công ty)
+        perf_total = BUPerformance.objects.create(
+            business_unit=None, month=6, year=2026,
+            mtd_revenue_plan=1000, mtd_revenue_actual=900
+        )
+        # Query bu_id=null -> Trả về perf_total
+        response = self.client.get(self.api_url, {'bu_id': 'null'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertIsNone(response.data[0]['business_unit'])
+
+        # Query bu_id = bu_parent -> Trả về perf_may và perf_june
+        response = self.client.get(self.api_url, {'bu_id': self.bu_parent.id})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+
+    def test_filter_only_roots(self):
+        # only_roots=true -> Chỉ lấy perf_may và perf_june (vì bu_parent không có parent)
+        # và perf_total (vì business_unit=None không có parent)
+        perf_total = BUPerformance.objects.create(
+            business_unit=None, month=6, year=2026,
+            mtd_revenue_plan=1000, mtd_revenue_actual=900
+        )
+        response = self.client.get(self.api_url, {'only_roots': 'true'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 3) # perf_may, perf_june, perf_total
+        bu_ids = [item['business_unit'] for item in response.data]
+        self.assertNotIn(self.bu_child.id, bu_ids)
+
+    def test_no_matching_records_returns_404(self):
+        response = self.client.get(self.api_url, {'year': 2027})
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data['message'], "Không tìm thấy dữ liệu phù hợp với bộ lọc.")
+
+
+

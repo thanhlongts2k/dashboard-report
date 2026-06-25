@@ -293,16 +293,20 @@ py manage.py runserver
 #### 3. Lấy số liệu Hiệu suất BU theo Tháng (Dashboard chính)
 *   `GET /api/bu-performance/`: Trả về số liệu kế hoạch và thực tế theo tháng kèm theo các trường KPI được tính toán tự động như `revenue_kpi`, `collection_kpi`, `inventory_vs_plan`.
 *   **Query Parameters**:
-    *   `?month=6&year=2026`
+    *   `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`: Lọc theo quãng ngày (tự động tính các tháng/năm giao thoa với khoảng ngày này).
+    *   `?month=X`: Tháng cần lấy dữ liệu (Số từ 1-12).
+    *   `?year=X`: Năm cần lấy dữ liệu (Số 4 chữ số).
     *   `?bu_id=X`: Lọc theo BU (`null` hoặc bỏ trống để lấy Tổng công ty, `all` để lấy toàn bộ, hoặc ID cụ thể).
     *   `?only_roots=true`: Chỉ lấy các BU cấp cao nhất (không có BU cha).
 
 #### 4. Lấy số liệu Hiệu suất BU theo Ngày (Vẽ biểu đồ)
 *   `GET /api/performance/daily/`: Trả về dữ liệu doanh thu và thực thu phát sinh trong từng ngày của tháng.
 *   **Query Parameters**:
-    *   `?bu_id=X` (Bỏ trống hoặc ID cụ thể)
-    *   `?month=6`
-    *   `?year=2026`
+    *   `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`: Lọc theo quãng ngày (Khuyên dùng cho lọc theo tuần/khoảng thời gian).
+    *   `?week=X`: Lọc theo số tuần cụ thể trong năm.
+    *   `?month=X`: Tháng cần lấy dữ liệu (Số từ 1-12).
+    *   `?year=X`: Năm cần lấy dữ liệu (Số 4 chữ số).
+    *   `?bu_id=X`: Lọc theo BU (`null`, `0` hoặc bỏ trống để lấy Tổng công ty, hoặc ID cụ thể).
 
 #### 5. Lấy số liệu Báo cáo Thu nợ theo BU (Dashboard Thu Nợ)
 *   `GET /api/dashboard/collection-by-bu/`:

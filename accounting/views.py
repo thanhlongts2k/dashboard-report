@@ -6,14 +6,17 @@ from django.db.models import Q, Sum
 from .models import (
     Branch, Warehouse, Customer, Employee, InventorySummary,
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
-    ReceivablesAgeing, AccountDetail
+    ReceivablesAgeing, AccountDetail, BUPerformance, BUPerformanceDaily
 )
 from .serializers import *
+from .filters import BUPerformanceDailyFilter, BUPerformanceFilter
+
 from knox.views import LoginView as KnoxLoginView
 from rest_framework import permissions, status
 from django.contrib.auth import authenticate, login
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django_filters.rest_framework import DjangoFilterBackend
 
 class LoginAPI(KnoxLoginView):
     permission_classes = [permissions.AllowAny]
@@ -101,56 +104,42 @@ class PurchaseDetailViewSet(viewsets.ModelViewSet):
     filterset_fields = ['supplier__code', 'business_unit__code', 'warehouse__code']
 
 
-class BUReportAPIView(APIView):
+class BUReportAPIView(generics.ListAPIView):
     """
-    APIView để truy xuất dữ liệu báo cáo hiệu suất (KPI) tháng của các Đơn vị kinh doanh (BU).
+    API lấy danh sách dữ liệu hiệu suất (KPI) tháng của các Đơn vị kinh doanh (BU).
+
+    ### QUY TẮC LỌC THEO ĐƠN VỊ (bu_id):
+    - Nếu KHÔNG truyền `bu_id`, hoặc truyền `?bu_id=all`: Hệ thống lấy báo cáo của tất cả các BU và Tổng công ty.
+    - Nếu truyền `?bu_id=null` hoặc bỏ trống giá trị `?bu_id=`: Hệ thống lọc lấy báo cáo của Tổng công ty (BU gốc/không có BU cha).
+    - Nếu truyền `bu_id` hợp lệ (Ví dụ: `?bu_id=70`): Hệ thống lọc chính xác theo BU đó.
+
+    ### CÁC THAM SỐ LỌC (Query Parameters):
+    Hỗ trợ kết hợp các tham số lọc động dưới đây bằng dấu `&`:
     
-    Hỗ trợ các tham số lọc động (Query Parameters):
-    - `month`: Tháng cần lấy dữ liệu (Ví dụ: ?month=6).
-    - `year`: Năm cần lấy dữ liệu (Ví dụ: ?year=2026).
-    - `bu_id`: Lọc theo Đơn vị kinh doanh (BU):
-        - 'null' hoặc bỏ trống: Lấy báo cáo của Tổng công ty (BU gốc/không có BU cha).
-        - 'all': Lấy báo cáo của tất cả các BU và Tổng công ty.
-        - [ID]: Lấy báo cáo của riêng BU có ID tương ứng.
-    - `only_roots`: 'true' để chỉ lấy báo cáo của các BU cấp cao nhất (không có BU cha).
+    1. **Lọc theo quãng ngày (Date Range):**
+       - `start_date`: Ngày bắt đầu (Format: YYYY-MM-DD). Ví dụ: `?start_date=2026-06-22`
+       - `end_date`: Ngày kết thúc (Format: YYYY-MM-DD). Ví dụ: `?end_date=2026-06-28`
+       *(Bộ lọc tự động tính toán các tháng/năm giao thoa với khoảng ngày này)*
+
+    2. **Lọc theo tháng / năm cố định:**
+       - `month`: Tháng cần lấy dữ liệu (Số từ 1-12). Ví dụ: `?month=6`
+       - `year`: Năm cần lấy dữ liệu (Số có 4 chữ số). Ví dụ: `?year=2026`
+
+    3. **Các bộ lọc khác:**
+       - `only_roots`: Truyền `true` để chỉ lấy báo cáo của các BU cấp cao nhất (không có BU cha).
     """
-    def get(self, request):
-        # 1. Lấy tham số lọc từ query params
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
-        bu_id = request.query_params.get('bu_id')
-        only_roots = request.query_params.get('only_roots')
+    serializer_class = BUPerformanceSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = BUPerformanceFilter
 
-        # 2. Khởi tạo filter động dựa trên tham số truyền vào
-        filters = {}
-        
-        # Chỉ thêm vào filter nếu người dùng có truyền tham số
-        if month and month.isdigit():
-            filters['month'] = int(month)
-        if year and year.isdigit():
-            filters['year'] = int(year)
-        
-        # 3. Xử lý logic Business Unit (Quan trọng)
-        # Nếu bu_id là 'all' hoặc không truyền gì cả -> Lấy tất cả (không lọc BU)
-        # Nếu bu_id là 'null' -> Lấy bản ghi Tổng công ty
-        # Nếu bu_id là số -> Lấy theo ID của BU đó
-        
-        if bu_id == 'null' or bu_id == '':
-            filters['business_unit__isnull'] = True
-        elif bu_id and bu_id != 'all':
-            filters['business_unit_id'] = bu_id
-        # Nếu bu_id='all' hoặc không có bu_id trong params thì không thêm vào filters -> lấy hết
+    def get_queryset(self):
+        # Khởi tạo query gốc tối ưu SQL chống lỗi N+1 Query
+        return BUPerformance.objects.all().select_related('business_unit').order_by('-year', '-month')
 
-        if only_roots == 'true':
-            # Chỉ lấy những bản ghi Performance mà BU của nó không có parent
-            filters['business_unit__parent__isnull'] = True
-
-        # 4. Sử dụng .filter() thay vì .get() để tránh lỗi khi có nhiều bản ghi
-        queryset = BUPerformance.objects.filter(**filters).order_by('-year', '-month')
-
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
         if queryset.exists():
-            # many=True cho phép serializer xử lý một danh sách bản ghi
-            serializer = BUPerformanceSerializer(queryset, many=True)
+            serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
         else:
             return Response(
@@ -161,41 +150,76 @@ class BUReportAPIView(APIView):
 
 class BUPerformanceDailyListView(generics.ListAPIView):
     """
-    APIView để lấy danh sách dữ liệu hiệu suất chi tiết theo từng ngày (doanh thu, thực thu) của BU.
+    API lấy danh sách dữ liệu hiệu suất chi tiết theo từng ngày (doanh thu, thực thu) của Business Unit (BU).
+
+    ### QUY TẮC LỌC THEO ĐƠN VỊ (bu_id):
+    - Nếu KHÔNG truyền `bu_id`, hoặc truyền `?bu_id=0`, `?bu_id=null`: Hệ thống tự động hiểu là lọc theo **Tổng công ty** (business_unit__isnull=True).
+    - Nếu truyền `bu_id` hợp lệ (Ví dụ: `?bu_id=70`): Hệ thống lọc chính xác theo BU đó.
+
+    ### CÁC THAM SỐ LỌC (Query Parameters):
+    Fen Front-end có thể kết hợp linh hoạt các param dưới đây bằng dấu `&`:
     
-    Hỗ trợ các tham số lọc động (Query Parameters):
-    - `bu_id`: ID của Đơn vị kinh doanh (Nếu bỏ trống, mặc định lọc theo Tổng công ty).
-    - `month`: Tháng cần lấy dữ liệu (Ví dụ: ?month=6).
-    - `year`: Năm cần lấy dữ liệu (Ví dụ: ?year=2026).
+    1. **Lọc theo quãng ngày (Date Range - Khuyên dùng cho lọc theo tuần/khoảng thời gian):**
+       - `start_date`: Ngày bắt đầu (Format: YYYY-MM-DD). Ví dụ: `?start_date=2026-06-22`
+       - `end_date`: Ngày kết thúc (Format: YYYY-MM-DD). Ví dụ: `?end_date=2026-06-28`
+       *(Để lọc theo TUẦN, Front-end tự tính ngày đầu tuần và cuối tuần rồi truyền vào cặp param này)*
+
+    2. **Lọc theo tháng / năm cố định (Nếu không dùng quãng ngày):**
+       - `month`: Tháng cần lấy dữ liệu (Số từ 1-12). Ví dụ: `?month=6`
+       - `year`: Năm cần lấy dữ liệu (Số có 4 chữ số). Ví dụ: `?year=2026`
+
+    ### VÍ DỤ GỌI API:
+    - **Lấy dữ liệu tuần này của Tổng công ty (Giả sử từ 22/06 đến 28/06):**
+      `GET /api/bu-performance/daily/?start_date=2026-06-22&end_date=2026-06-28`
+      
+    - **Lấy dữ liệu tuần trước của BU có ID = 70:**
+      `GET /api/bu-performance/daily/?bu_id=70&start_date=2026-06-15&end_date=2026-06-21`
+      
+    - **Lấy toàn bộ dữ liệu tháng 6/2026 của Tổng công ty:**
+      `GET /api/bu-performance/daily/?month=6&year=2026`
     """
     serializer_class = BUPerformanceDailySerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = BUPerformanceDailyFilter
+
+    # def get_queryset(self):
+    #     """
+    #     Cho phép lọc dữ liệu qua URL params:
+    #     ?bu_id=1&month=1&year=2026
+    #     """
+    #     queryset = BUPerformanceDaily.objects.all().select_related(
+    #         'performance_month__business_unit'
+    #     )
+        
+    #     bu_id = self.request.query_params.get('bu_id')
+    #     month = self.request.query_params.get('month')
+    #     year = self.request.query_params.get('year')
+
+    #     # Lọc theo BU (Nếu không truyền bu_id hoặc bu_id=0/null thì lấy Tổng công ty)
+    #     if bu_id:
+    #         queryset = queryset.filter(performance_month__business_unit_id=bu_id)
+    #     else:
+    #         queryset = queryset.filter(performance_month__business_unit__isnull=True)
+
+    #     # Lọc theo tháng/năm
+    #     if month:
+    #         queryset = queryset.filter(date__month=month)
+    #     if year:
+    #         queryset = queryset.filter(date__year=year)
+
+    #     return queryset.order_by('date')
 
     def get_queryset(self):
-        """
-        Cho phép lọc dữ liệu qua URL params:
-        ?bu_id=1&month=1&year=2026
-        """
+        # Khởi tạo query gốc với select_related để tối ưu SQL chống lỗi N+1
         queryset = BUPerformanceDaily.objects.all().select_related(
             'performance_month__business_unit'
-        )
+        ).order_by('date')
         
-        bu_id = self.request.query_params.get('bu_id')
-        month = self.request.query_params.get('month')
-        year = self.request.query_params.get('year')
-
-        # Lọc theo BU (Nếu không truyền bu_id hoặc bu_id=0/null thì lấy Tổng công ty)
-        if bu_id:
-            queryset = queryset.filter(performance_month__business_unit_id=bu_id)
-        else:
+        # Xử lý fallback cho trường hợp client hoàn toàn KHÔNG truyền param `bu_id`
+        if 'bu_id' not in self.request.query_params:
             queryset = queryset.filter(performance_month__business_unit__isnull=True)
-
-        # Lọc theo tháng/năm
-        if month:
-            queryset = queryset.filter(date__month=month)
-        if year:
-            queryset = queryset.filter(date__year=year)
-
-        return queryset.order_by('date')
+            
+        return queryset
     
 class BUPerformanceUpdateAPIView(APIView):
     """
