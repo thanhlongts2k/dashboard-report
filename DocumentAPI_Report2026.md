@@ -87,7 +87,7 @@ graph TD
     - Ngay khi tiến trình import hoàn tất thành công, Celery Worker sẽ **tự động kích hoạt** việc tính toán lại KPI cho Tổng công ty và từng BU bằng cách xếp hàng các tác vụ ngầm:
       - `update_single_bu_performance.delay(None)` (Cho Tổng công ty).
       - `update_single_bu_performance.delay(bu.id)` (Cho từng BU cụ thể trong danh mục `BusinessUnit`).
-    - **Lưu ý**: Tiến trình đồng bộ tồn kho kho hàng (`sync_warehouse_inventory_data`) **không tự động chạy** khi kết thúc import mà phải kích hoạt thủ công (xem chi tiết ở Luồng C).
+    - **Tự động chạy đồng bộ kho hàng**: Đồng thời, tiến trình đồng bộ tồn kho kho hàng (`sync_warehouse_inventory_data.delay()`) cũng sẽ được **tự động kích hoạt** ngay sau khi lên lịch tính KPI để cập nhật số liệu tồn kho vào bảng `Warehouse` (xem chi tiết ở Luồng C).
 
 ---
 
@@ -152,7 +152,7 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 > [!IMPORTANT]
 > **Cơ chế kích hoạt**:
-> Khác với tiến trình tính KPI BU tự động chạy sau khi import Excel, đồng bộ tồn kho kho hàng **bắt buộc phải kích hoạt thủ công** bằng một trong hai cách:
+> Hệ thống sẽ **tự động kích hoạt** đồng bộ tồn kho kho hàng sau khi hoàn tất chu kỳ tính KPI BU. Ngoài ra, bạn vẫn có thể kích hoạt thủ công bằng một trong hai cách:
 > 1. Truy cập Django Admin của bảng `Warehouse`, tích chọn các kho hàng cần cập nhật, chọn Action **`🔄 Đồng bộ tồn kho từ Inventory Summary`** rồi ấn Run.
 > 2. Chạy tác vụ Celery `sync_warehouse_inventory_data` thông qua Django Celery Beat hoặc trigger bằng dòng lệnh.
 
@@ -444,7 +444,7 @@ Dưới đây là phần trả lời chi tiết cho các câu hỏi thường g�
 ### Q5: Khi import xong, hệ thống có tự động chạy `update_single_bu_performance()` và `sync_warehouse_inventory_data()` không?
 * **Trả lời**: 
   - **Tự động chạy `update_single_bu_performance()`**: Có. Ngay khi luồng import file kết thúc thành công trong tác vụ `auto_import_excel_from_folder`, hệ thống sẽ tự động gửi các tác vụ Celery ngầm (`.delay()`) để tính toán lại KPI cho Tổng công ty và cho toàn bộ các BU lẻ trong hệ thống.
-  - **KHÔNG tự động chạy `sync_warehouse_inventory_data()`**: Tác vụ đồng bộ dữ liệu tồn kho từ `InventorySummary` vào `Warehouse` không được gọi tự động. Tiến trình này bắt buộc phải được **kích hoạt thủ công** bởi Admin/Developer thông qua nút Action trong danh sách `Warehouse` của Django Admin (hoặc cấu hình lên lịch riêng trong Celery Beat).
+  - **Tự động chạy `sync_warehouse_inventory_data()`**: Có. Ngay sau khi các tác vụ tính KPI được lên lịch, hệ thống sẽ tự động kích hoạt tác vụ `sync_warehouse_inventory_data` (thông qua `.delay()` đối với Celery nạp tự động, hoặc chạy trực tiếp đồng bộ trong script chạy tay) để đồng bộ số liệu từ `InventorySummary` vào bảng danh mục `Warehouse`. (Ngoài ra, Admin/Developer vẫn có thể kích hoạt thủ công từ Django Admin của bảng `Warehouse` nếu cần).
 
 ### Q6: Tại sao kết quả (Result Data) của Celery Task trong bảng "Task results" lại hiển thị các ký tự mã thoát Unicode (ví dụ: \u1ed4...) và cách khắc phục?
 * **Trả lời**: Mặc định Celery tuần tự hóa (serialize) kết quả trả về của hàm dưới dạng chuỗi JSON bằng `json.dumps(..., ensure_ascii=True)` để đảm bảo an toàn truyền tin, chuyển các ký tự có dấu thành mã thoát. 

@@ -116,8 +116,14 @@ def import_file(file_path):
                 for bu in BusinessUnit.objects.all():
                     update_single_bu_performance(bu.id)
                 print("KPI calculation completed.")
+                
+                # Tự động đồng bộ tồn kho vào Warehouse sau khi tính KPI
+                print("Syncing warehouse inventory data...")
+                from accounting.tasks import sync_warehouse_inventory_data
+                sync_warehouse_inventory_data()
+                print("Warehouse sync completed.")
             except Exception as ke:
-                print(f"Warning: Failed to recalculate KPIs: {ke}")
+                print(f"Warning: Failed to recalculate KPIs or sync Warehouse: {ke}")
                 
     except Exception as e:
         msg = f"⚠️ Lỗi hệ thống: {str(e)}"

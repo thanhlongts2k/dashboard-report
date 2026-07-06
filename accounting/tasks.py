@@ -155,6 +155,9 @@ def auto_import_excel_from_folder():
     for bu in BusinessUnit.objects.all():
         update_single_bu_performance.delay(bu.id)
 
+    # Tự động đồng bộ tồn kho vào Warehouse sau khi tính KPI
+    sync_warehouse_inventory_data.delay()
+
     return "\n".join(report)
 
 def move_to_processed(file_path, status):
