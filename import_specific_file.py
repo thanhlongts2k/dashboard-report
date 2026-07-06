@@ -2,6 +2,9 @@ import os
 import django
 import sys
 
+# Reconfigure stdout to use UTF-8 encoding on Windows terminals
+sys.stdout.reconfigure(encoding='utf-8')
+
 # Setup Django Environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 django.setup()
@@ -49,6 +52,8 @@ def import_file(file_path):
     print(f"[{matched_prefix}] Starting import for file: {filename}")
     
     try:
+        import_success = False
+        msg = ""
         with transaction.atomic():
             deleted_count = 0
             if not config.get('skip_delete', False):
@@ -64,7 +69,6 @@ def import_file(file_path):
             
             if not result.has_errors():
                 msg = f"Đã xóa {deleted_count} dòng cũ & Import mới {len(dataset)} dòng (chạy thủ công)."
-                print(f"SUCCESS: {msg}")
                 ImportLog.objects.create(
                     file_name=filename,
                     status='SUCCESS',
@@ -72,18 +76,7 @@ def import_file(file_path):
                     start_time=start_time,
                     end_time=timezone.now()
                 )
-                
-                # Move to success folder
-                move_to_processed(file_path, 'success')
-                print(f"Moved imported file to processed folder.")
-                
-                # Recalculate KPIs
-                print("Recalculating KPI performance for all Business Units...")
-                from accounting.models import BusinessUnit
-                update_single_bu_performance(None)
-                for bu in BusinessUnit.objects.all():
-                    update_single_bu_performance(bu.id)
-                print("KPI calculation completed.")
+                import_success = True
             else:
                 error_details = []
                 if result.base_errors:
@@ -104,6 +97,28 @@ def import_file(file_path):
                     start_time=start_time,
                     end_time=timezone.now()
                 )
+                
+        if import_success:
+            print(f"SUCCESS: {msg}")
+            
+            # Move to success folder (run outside transaction)
+            try:
+                move_to_processed(file_path, 'success')
+                print(f"Moved imported file to processed folder.")
+            except Exception as fe:
+                print(f"Warning: Failed to move file to success folder: {fe}")
+                
+            # Recalculate KPIs (run outside transaction)
+            try:
+                print("Recalculating KPI performance for all Business Units...")
+                from accounting.models import BusinessUnit
+                update_single_bu_performance(None)
+                for bu in BusinessUnit.objects.all():
+                    update_single_bu_performance(bu.id)
+                print("KPI calculation completed.")
+            except Exception as ke:
+                print(f"Warning: Failed to recalculate KPIs: {ke}")
+                
     except Exception as e:
         msg = f"⚠️ Lỗi hệ thống: {str(e)}"
         print(f"SYSTEM ERROR: {msg}")
@@ -114,6 +129,7 @@ def import_file(file_path):
             start_time=start_time,
             end_time=timezone.now()
         )
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

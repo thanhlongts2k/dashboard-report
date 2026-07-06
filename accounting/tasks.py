@@ -197,7 +197,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     # --- 3. TÍNH DOANH THU & THỰC THU (LŨY KẾ THÁNG) ---
     base_filter = Q(posting_date__month=month, posting_date__year=year) & customer_rev_filter
 
-    inventory_filter = Q(created_at__month=month, created_at__year=year)
+    inventory_filter = Q()
     if not is_global:
         inventory_filter &= Q(warehouse__business_unit_id__in=bu_ids)
 

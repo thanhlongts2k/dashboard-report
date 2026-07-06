@@ -520,16 +520,46 @@ class InventorySummaryResource(resources.ModelResource):
         )
 
         # 3. Xử lý Product (Vật tư hàng hóa)
-        # Sử dụng update_or_create để cập nhật thông tin mới nhất (như ĐVT, Nhóm)
+        # Sử dụng update_or_create để cập nhật thông tin mới nhất (như ĐVT, Nhóm, Giá bán)
+        selling_price = 0
+        try:
+            selling_price = float(row.get('Đơn giá bán 1') or 0)
+        except Exception:
+            pass
+
         Product.objects.update_or_create(
             code=prod_code[:500],
             defaults={
                 'name': str(row.get('Tên hàng') or 'N/A')[:255],
                 'unit': str(row.get('ĐVT') or 'Cái')[:20],
                 'group': group_obj,
-                'brand': str(row.get('Nguồn gốc') or '')[:100]
+                'brand': str(row.get('Nguồn gốc') or '')[:100],
+                'selling_price': selling_price,
             }
         )
+
+        # Tự động tính toán trị giá nếu trống hoặc bằng 0
+        try:
+            opening_qty = float(row.get('Đầu kỳ_Số lượng') or 0)
+            in_qty = float(row.get('Nhập kho_Số lượng') or 0)
+            out_qty = float(row.get('Xuất kho_Số lượng') or 0)
+            closing_qty = float(row.get('Cuối kỳ_Số lượng') or 0)
+
+            if not row.get('Đầu kỳ_Giá trị'):
+                row['Đầu kỳ_Giá trị'] = opening_qty * selling_price
+            if not row.get('Nhập kho_Giá trị'):
+                row['Nhập kho_Giá trị'] = in_qty * selling_price
+            if not row.get('Xuất kho_Giá trị'):
+                row['Xuất kho_Giá trị'] = out_qty * selling_price
+            if not row.get('Cuối kỳ_Giá trị'):
+                row['Cuối kỳ_Giá trị'] = closing_qty * selling_price
+        except Exception:
+            pass
+
+        # Gán lại vào row để ForeignKeyWidget dùng code tìm chính xác (không bị lệch khoảng trắng)
+        row['Mã hàng'] = prod_code
+        row['Mã kho'] = wh_code
+        return row
 
 
 class PurchaseDetailResource(resources.ModelResource):

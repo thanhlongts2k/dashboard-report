@@ -12,7 +12,7 @@ Dữ liệu tồn kho được xử lý và lưu trữ qua hai cấp độ chín
 * **Nguồn dữ liệu:** Nạp từ các file Excel có tiền tố `TON_KHO` (ví dụ: `TON_KHO*.xlsx`) vào bảng [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models.py#L255-L284).
 * **Mối liên kết đơn vị (BU):** Bảng `InventorySummary` không lưu trực tiếp thông tin `business_unit_id` mà liên kết gián tiếp qua trường kho hàng `warehouse` (`warehouse__business_unit_id`).
 * **Logic tính toán tích lũy tháng:** Được thực hiện tự động trong Celery task [update_single_bu_performance](file:///d:/Sources/dashboard-report/accounting/tasks.py#L168):
-  * **Bộ lọc thời gian:** Lọc theo tháng và năm chứng từ (`created_at__month=month`, `created_at__year=year`).
+  * **Bộ lọc thời gian:** Lấy theo Snapshot hiện hành của bảng `InventorySummary` (không lọc theo thời gian cụ thể của trường `created_at` do bảng được xóa và nạp mới hoàn toàn mỗi lần import).
   * **Bộ lọc BU:**
     * Nếu tính cho *Tổng công ty* (`is_global = True`): Không lọc theo BU, cộng dồn toàn bộ dữ liệu từ tất cả các kho.
     * Nếu tính cho *BU cụ thể* (`is_global = False`): Lọc theo đơn vị sở hữu kho hàng (`warehouse__business_unit_id=bu_id`).

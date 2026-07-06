@@ -91,6 +91,7 @@ class Product(models.Model):
     unit = models.CharField(max_length=20, verbose_name="ĐVT")
     group = models.ForeignKey(MaterialGroup, on_delete=models.CASCADE, verbose_name="Nhóm VTHH")
     brand = models.CharField(max_length=100, blank=True, verbose_name="Nhãn hiệu (Trường mở rộng)")
+    selling_price = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="Đơn giá bán")
 
     def __str__(self):
         return self.code
