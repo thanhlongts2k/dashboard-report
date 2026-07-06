@@ -102,3 +102,45 @@ Các chỉ số KPI chính gồm:
 * **Mục đích:** Lưu trữ doanh thu và thực thu phát sinh trong từng ngày đơn lẻ của tháng.
 * **Liên kết:** Mỗi bản ghi tham chiếu đến một dòng tổng hợp tháng của `BUPerformance`.
 * **Nghiệp vụ:** Hỗ trợ vẽ biểu đồ đường xu hướng doanh thu/thu tiền hàng ngày của đơn vị kinh doanh.
+
+---
+
+## 5. Báo Cáo Rà Soát Ánh Xạ Chi Tiết & Lỗi Thiết Kế (Technical Debt)
+
+### 5.1. Bảng tổng hợp trạng thái ánh xạ các bảng
+
+| File Excel Báo cáo | Model Đích | Trạng thái ánh xạ tổng quát | Phát hiện sai lệch / Lỗi mất dữ liệu |
+| :--- | :--- | :--- | :--- |
+| **`BAN_HANG*.xlsx`** | `SalesTransaction` | Thiếu ánh xạ khóa ngoại quan trọng | ❌ Cột **`Mã kho`** & **`Chi nhánh`** bị bỏ qua (100% bản ghi bị null trong DB). |
+| **`TON_KHO*.xlsx`** | `InventorySummary` | Tốt (Sau nâng cấp giá bán) | Hỗ trợ tính toán động trị giá khi thiếu cột trị giá từ Excel. |
+| **`MUA_HANG*.xlsx`** | `PurchaseDetail` | Tốt | Hoạt động chính xác theo đúng cấu trúc tệp. |
+| **`CONG_NO_NCC*.xlsx`** | `SupplierDebt` | Khớp | Rủi ro tiềm ẩn về khoảng trắng thừa ở mã nhà cung cấp giống tồn kho cũ. |
+| **`TUOI_NO_KH*.xlsx`** | `ReceivablesAgeing`| Thiếu cấu trúc chi tiết | ❌ Các cột **tuổi nợ chi tiết (0-14, 15-30 ngày...)** bị bỏ qua hoàn toàn. |
+| **`TAI_KHOAN_CT*.xlsx`**| `AccountDetail` | Lỗi copy-paste trường | ❌ Cột **`Mã đơn vị`**, **`Tên đơn vị`**, **`Tên tài khoản`**, **`Dư Nợ/Có`** bị trống 100%. |
+| **`KHACH_HANG*.xlsx`** | `Customer` | Khớp | Tự động tạo danh mục bổ sung khi có phát sinh mới. |
+
+### 5.2. Chi tiết các điểm sai lệch nghiêm trọng và nguyên nhân
+
+#### A. Báo cáo Bán hàng (`BAN_HANG`) ➔ Model `SalesTransaction`
+*   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã khách hàng`, `product` ➔ `Mã hàng`, `employee` ➔ `Mã nhân viên bán hàng`, `business_unit` ➔ `Mã thống kê`, `quantity` ➔ `Tổng số lượng bán`, `unit_price` ➔ `Đơn giá`, `sales_amount` ➔ `Doanh số bán`, `tax_percent` ➔ `% Thuế`, `tax_amount` ➔ `Thuế GTGT`, `debit_acc` ➔ `TK Nợ`, `credit_acc` ➔ `TK Có`, `discount_acc` ➔ `TK chiết khấu`, `discount_amount` ➔ `Chiết khấu`, `actual_sales` ➔ `Doanh số thực tế`.
+*   **Lỗi mất dữ liệu:** Trường `warehouse` (Kho) và `branch` (Chi nhánh) được khai báo trong model và hàm `before_import_row` có tạo/lấy danh mục tương ứng. Tuy nhiên, class `SalesTransactionResource` **bỏ quên không khai báo** hai trường này ở cấp class fields.
+*   **Hậu quả:** 100% dòng dữ liệu bán hàng (tất cả 22,864 dòng) có trường `warehouse` và `branch` bị **`NULL`**.
+
+#### B. Báo cáo Tồn kho (`TON_KHO`) ➔ Model `InventorySummary` & `Product`
+*   **Các trường ánh xạ đúng:** `warehouse` ➔ `Mã kho`, `product` ➔ `Mã hàng`, `opening_quantity` ➔ `Đầu kỳ_Số lượng`, `in_quantity` ➔ `Nhập kho_Số lượng`, `out_quantity` ➔ `Xuất kho_Số lượng`, `closing_quantity` ➔ `Cuối kỳ_Số lượng`, `selling_price` ➔ `Đơn giá bán 1`.
+*   **Cơ chế tự động:** Các trường trị giá (`opening_value`, `in_value`, `out_value`, `closing_value`) tự động tính toán bằng `Số lượng * Đơn giá bán 1` nếu các cột này bị trống hoặc bằng 0 trong file Excel của MISA.
+
+#### C. Báo cáo Công nợ nhà cung cấp (`CONG_NO_NCC`) ➔ Model `SupplierDebt`
+*   **Các trường ánh xạ đúng:** `supplier` ➔ `Mã nhà cung cấp`, `opening_debit`/`opening_credit` ➔ `Đầu kỳ_Nợ`/`Đầu kỳ_Có`, `incurred_debit`/`incurred_credit` ➔ `Phát sinh_Nợ`/`Phát sinh_Có`, `closing_debit`/`closing_credit` ➔ `Cuối kỳ_Nợ`/`Cuối kỳ_Có`.
+*   **Rủi ro:** Mã nhà cung cấp được `.strip()` để kiểm tra danh mục nhưng chưa được gán ngược lại cho `row['Mã nhà cung cấp']`, có rủi ro lỗi mapping khóa ngoại nếu tệp Excel bị thừa khoảng trắng.
+
+#### D. Báo cáo Tuổi nợ khách hàng (`TUOI_NO_KH`) ➔ Model `ReceivablesAgeing`
+*   **Các trường ánh xạ đúng:** `customer` ➔ `Mã khách hàng`, `branch` ➔ `Chi nhánh`, `doc_date` ➔ `Ngày chứng từ`, `total_debt` ➔ `Tổng nợ`, `due_total` ➔ `Nợ trước hạn_Tổng`, `overdue_total` ➔ `Nợ quá hạn_Tổng`.
+*   **Thiếu sót dữ liệu:** Model có thiết kế chi tiết các khoảng quá hạn `overdue_0_14`, `overdue_15_30`... và tệp Excel thực tế của MISA có các cột tương ứng, nhưng Resource **không hề khai báo hay ánh xạ**.
+*   **Hậu quả:** 100% các cột quá hạn chi tiết trong DB đều bị **bằng `0.00`**.
+
+#### E. Báo cáo Sổ chi tiết tài khoản (`TAI_KHOAN_CT`) ➔ Model `AccountDetail`
+*   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã đối tượng`, `business_unit` ➔ `Mã thống kê`, `branch` ➔ `Chi nhánh`, `account_number` ➔ `Tài khoản`, `offset_account` ➔ `TK đối ứng`, `debit_amount` ➔ `Phát sinh Nợ`, `credit_amount` ➔ `Phát sinh Có`, `unreasonable_cost` ➔ `CP không hợp lý`.
+*   **Lỗi lập trình:** 
+    1. Lập trình viên cũ copy-paste logic từ Mua hàng nên gán giá trị cho key `org_unit_code`/`org_unit_name` trong khi model thực tế đặt tên trường là `unit_code`/`unit_name` ➔ **100% dữ liệu Mã/Tên đơn vị bị rỗng trong DB.**
+    2. Cột `Tên tài khoản` (`account_name`) và các cột số dư `Dư Nợ` (`balance_debit`), `Dư Có` (`balance_credit`) có trong file Excel nhưng không được khai báo trong Resource ➔ **100% bị trống dữ liệu.**
