@@ -262,19 +262,24 @@ class AccountDetailResource(resources.ModelResource):
     )
 
     account_number = fields.Field(attribute='account_number', column_name='Tài khoản')
+    account_name = fields.Field(attribute='account_name', column_name='Tên tài khoản')
     offset_account = fields.Field(attribute='offset_account', column_name='TK đối ứng')
     
     # Mapping các trường khác
     debit_amount = fields.Field(attribute='debit_amount', column_name='Phát sinh Nợ', widget=DecimalWidget())
     credit_amount = fields.Field(attribute='credit_amount', column_name='Phát sinh Có', widget=DecimalWidget())
+    balance_debit = fields.Field(attribute='balance_debit', column_name='Dư Nợ', widget=DecimalWidget())
+    balance_credit = fields.Field(attribute='balance_credit', column_name='Dư Có', widget=DecimalWidget())
+    unit_code = fields.Field(attribute='unit_code', column_name='Mã đơn vị')
+    unit_name = fields.Field(attribute='unit_name', column_name='Tên đơn vị')
     unreasonable_cost = fields.Field(attribute='unreasonable_cost', column_name='CP không hợp lý', widget=BooleanWidget())
 
     class Meta:
         model = AccountDetail
         fields = (
-            'posting_date', 'doc_id', 'account_number', 'offset_account', 
-            'debit_amount', 'credit_amount', 'business_unit', 'branch', 'customer',
-            'unit_code', 'unit_name', 'unreasonable_cost'
+            'posting_date', 'doc_id', 'account_number', 'account_name', 'offset_account', 
+            'debit_amount', 'credit_amount', 'balance_debit', 'balance_credit',
+            'business_unit', 'branch', 'customer', 'unit_code', 'unit_name', 'unreasonable_cost'
         )
         import_id_fields = []
         skip_unchanged = False

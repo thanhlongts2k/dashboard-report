@@ -116,7 +116,7 @@ Các chỉ số KPI chính gồm:
 | **`MUA_HANG*.xlsx`** | `PurchaseDetail` | Tốt | Hoạt động chính xác theo đúng cấu trúc tệp. |
 | **`CONG_NO_NCC*.xlsx`** | `SupplierDebt` | Khớp | Rủi ro tiềm ẩn về khoảng trắng thừa ở mã nhà cung cấp giống tồn kho cũ. |
 | **`TUOI_NO_KH*.xlsx`** | `ReceivablesAgeing`| Thiếu cấu trúc chi tiết | ❌ Các cột **tuổi nợ chi tiết (0-14, 15-30 ngày...)** bị bỏ qua hoàn toàn. |
-| **`TAI_KHOAN_CT*.xlsx`**| `AccountDetail` | Lỗi copy-paste trường | ❌ Cột **`Mã đơn vị`**, **`Tên đơn vị`**, **`Tên tài khoản`**, **`Dư Nợ/Có`** bị trống 100%. |
+| **`TAI_KHOAN_CT*.xlsx`**| `AccountDetail` | Tốt (Đã sửa lỗi) | Hỗ trợ nạp đầy đủ Tên tài khoản, Dư Nợ/Có, Mã/Tên đơn vị. |
 | **`KHACH_HANG*.xlsx`** | `Customer` | Khớp | Tự động tạo danh mục bổ sung khi có phát sinh mới. |
 
 ### 5.2. Chi tiết các điểm sai lệch nghiêm trọng và nguyên nhân
@@ -140,7 +140,5 @@ Các chỉ số KPI chính gồm:
 *   **Hậu quả:** 100% các cột quá hạn chi tiết trong DB đều bị **bằng `0.00`**.
 
 #### E. Báo cáo Sổ chi tiết tài khoản (`TAI_KHOAN_CT`) ➔ Model `AccountDetail`
-*   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã đối tượng`, `business_unit` ➔ `Mã thống kê`, `branch` ➔ `Chi nhánh`, `account_number` ➔ `Tài khoản`, `offset_account` ➔ `TK đối ứng`, `debit_amount` ➔ `Phát sinh Nợ`, `credit_amount` ➔ `Phát sinh Có`, `unreasonable_cost` ➔ `CP không hợp lý`.
-*   **Lỗi lập trình:** 
-    1. Lập trình viên cũ copy-paste logic từ Mua hàng nên gán giá trị cho key `org_unit_code`/`org_unit_name` trong khi model thực tế đặt tên trường là `unit_code`/`unit_name` ➔ **100% dữ liệu Mã/Tên đơn vị bị rỗng trong DB.**
-    2. Cột `Tên tài khoản` (`account_name`) và các cột số dư `Dư Nợ` (`balance_debit`), `Dư Có` (`balance_credit`) có trong file Excel nhưng không được khai báo trong Resource ➔ **100% bị trống dữ liệu.**
+*   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã đối tượng`, `business_unit` ➔ `Mã thống kê`, `branch` ➔ `Chi nhánh`, `account_number` ➔ `Tài khoản`, `offset_account` ➔ `TK đối ứng`, `debit_amount` ➔ `Phát sinh Nợ`, `credit_amount` ➔ `Phát sinh Có`, `unreasonable_cost` ➔ `CP không hợp lý`, `account_name` ➔ `Tên tài khoản`, `balance_debit` ➔ `Dư Nợ`, `balance_credit` ➔ `Dư Có`, `unit_code` ➔ `Mã đơn vị`, `unit_name` ➔ `Tên đơn vị`.
+*   **Đánh giá:** Đã khắc phục lỗi copy-paste trường và khai báo thiếu sót, dữ liệu nạp đầy đủ 100%.
