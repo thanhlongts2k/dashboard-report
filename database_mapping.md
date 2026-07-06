@@ -97,6 +97,8 @@ Các chỉ số KPI chính gồm:
 * **Thực thu tiền mặt (MTD Collection):** Tính toán từ chênh lệch phát sinh Nợ - Có của tài khoản tiền mặt/ngân hàng đối ứng phải thu khách hàng trong bảng `AccountDetail`.
 * **Quản trị công nợ:** Thu trong hạn + COD, nợ quá hạn, dư nợ cần thu (lấy từ bảng `ReceivablesAgeing`).
 * **Giá trị tồn kho:** Giá trị tồn kho thực tế đầu kỳ, nhập kỳ, xuất kỳ và cuối kỳ (lấy từ bảng `InventorySummary`).
+* **Tiền cuối kỳ thực tế (Cash Balance Actual):** Cộng dồn số dư Nợ (`balance_debit`) ở dòng giao dịch cuối cùng trong tháng của tài khoản `111` (Tiền mặt) và `112` (Tiền gửi ngân hàng) từ bảng `AccountDetail`.
+* **Nợ ngân hàng thực tế (Bank Debt Actual):** Số dư Có (`balance_credit`) ở dòng giao dịch cuối cùng trong tháng của tài khoản `341` từ bảng `AccountDetail`.
 
 ### 4.2. Hiệu suất BU theo ngày (`BUPerformanceDaily`)
 * **Mục đích:** Lưu trữ doanh thu và thực thu phát sinh trong từng ngày đơn lẻ của tháng.

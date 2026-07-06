@@ -263,6 +263,23 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     # Thu trong hạn + COD = Tổng thực thu - Đã thu đến hạn
     collection_in_term_cod = coll_actual - collection_due_actual
 
+    # --- 3.6. TÍNH TOÁN TIỀN CUỐI KỲ & NỢ NGÂN HÀNG THỰC TẾ (LŨY KẾ THÁNG) ---
+    ledger_filter = Q(posting_date__month=month, posting_date__year=year)
+    if not is_global:
+        ledger_filter &= Q(business_unit_id__in=bu_ids)
+
+    # Tiền cuối kỳ thực tế: Dư Nợ dòng cuối cùng tài khoản 111 và 112 cộng lại
+    last_111 = AccountDetail.objects.filter(ledger_filter, account_number='111').order_by('posting_date', 'id').last()
+    last_112 = AccountDetail.objects.filter(ledger_filter, account_number='112').order_by('posting_date', 'id').last()
+    
+    cash_bal_111 = last_111.balance_debit if last_111 else 0
+    cash_bal_112 = last_112.balance_debit if last_112 else 0
+    cash_balance_actual = cash_bal_111 + cash_bal_112
+
+    # Nợ ngân hàng thực tế: Dư Có dòng cuối cùng tài khoản 341
+    last_341 = AccountDetail.objects.filter(ledger_filter, account_number='341').order_by('posting_date', 'id').last()
+    bank_debt_actual = last_341.balance_credit if last_341 else 0
+
     # --- 4. CẬP NHẬT DATABASE (BẢNG THÁNG) ---
     performance, _ = BUPerformance.objects.update_or_create(
         business_unit_id=bu_id,
@@ -279,6 +296,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             'inventory_in_value': inv_data['in_val'] or 0,
             'inventory_out_value': inv_data['out_val'] or 0,
             'inventory_value_actual': inventory_actual,
+            'cash_balance_actual': cash_balance_actual,       # Tiền cuối kỳ thực tế
+            'bank_debt_actual': bank_debt_actual,             # Nợ ngân hàng thực tế
         }
     )
 

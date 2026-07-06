@@ -139,7 +139,7 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 
 > [!WARNING]
 > **Các trường số liệu thực tế chưa được tính toán:**
-> Hiện tại, các trường `bank_debt_actual` (Nợ ngân hàng thực tế), `opex_actual` (Chi phí vận hành thực tế), và `cash_balance_actual` (Tiền cuối kỳ thực tế) trong bảng `BUPerformance` **chưa có logic tính toán** trong backend và luôn mang giá trị mặc định là `0`.
+> Hiện tại, chỉ còn trường `opex_actual` (Chi phí vận hành thực tế) trong bảng `BUPerformance` **chưa có logic tính toán** trong backend và luôn mang giá trị mặc định là `0`. Các trường `bank_debt_actual` (Nợ ngân hàng thực tế) và `cash_balance_actual` (Tiền cuối kỳ thực tế) đã được tính toán tự động lấy số dư từ sổ chi tiết tài khoản `AccountDetail`.
 
 > [!NOTE]
 > **Các bảng độc lập:**
