@@ -130,10 +130,44 @@ async def login_to_misa(page, context, email, password):
     except Exception:
         pass
     
+    # Xử lý cảnh báo đăng nhập đồng thời nếu xuất hiện
+    await handle_concurrent_login(page)
+    
     # Save browser session state
     os.makedirs(os.path.dirname(settings.MISA_BROWSER_STATE_PATH), exist_ok=True)
     await context.storage_state(path=settings.MISA_BROWSER_STATE_PATH)
     logger.info(f"Saved MISA browser session state to {settings.MISA_BROWSER_STATE_PATH}")
+
+
+async def handle_concurrent_login(page):
+    """
+    Kiểm tra xem có bị chuyển hướng tới trang cảnh báo đăng nhập đồng thời (verify) không,
+    nếu có thì tự động click "Tiếp tục đăng nhập" để tiếp tục phiên làm việc.
+    """
+    logger.info("Checking for concurrent login warning (verify) redirect...")
+    # Chờ tối đa 5 giây xem URL có chứa 'verify' hay không
+    for _ in range(5):
+        if "verify" in page.url:
+            break
+        await asyncio.sleep(1)
+        
+    if "verify" in page.url:
+        logger.warning(f"Redirected to MISA verify page: {page.url}")
+        # Chờ tối đa 8 giây cho nút bấm xuất hiện
+        btn = page.locator("button:has-text('Tiếp tục đăng nhập'), span:has-text('Tiếp tục đăng nhập'), div:has-text('Tiếp tục đăng nhập')").first
+        try:
+            await btn.wait_for(state="visible", timeout=8000)
+            logger.warning("Concurrent login warning detected. Clicking 'Tiếp tục đăng nhập'...")
+            await btn.click(force=True)
+            await page.wait_for_load_state("load", timeout=15000)
+            await asyncio.sleep(3.0)
+            logger.info("Successfully bypassed concurrent login warning page.")
+            return True
+        except Exception as e:
+            logger.warning(f"Did not find or click 'Tiếp tục đăng nhập' button: {str(e)}")
+    else:
+        logger.info("No concurrent login warning detected.")
+    return False
 
 
 async def find_locator_in_any_frame(page, selectors, timeout=3000):
@@ -212,6 +246,24 @@ async def find_locator_in_any_frame(page, selectors, timeout=3000):
 async def close_misa_popups(page):
     logger.info("Handling MISA popups/overlays...")
     
+    # Click "Tiếp tục đăng nhập" if concurrent login warning page appears
+    concurrent_selectors = [
+        "button:has-text('Tiếp tục đăng nhập')",
+        "span:has-text('Tiếp tục đăng nhập')",
+        "text='Tiếp tục đăng nhập'",
+        "div:has-text('Tiếp tục đăng nhập')"
+    ]
+    for frame in page.frames:
+        for selector in concurrent_selectors:
+            try:
+                locator = frame.locator(selector).first
+                if await locator.is_visible(timeout=1000):
+                    logger.warning("WARNING: Concurrent login detected! Clicking 'Tiếp tục đăng nhập'...")
+                    await locator.click(force=True)
+                    await asyncio.sleep(3.0)
+            except Exception:
+                pass
+    
     # Click "Nhắc lại sau" button if it exists
     nhac_lai_selectors = [
         "text='Nhắc lại sau'",
@@ -235,6 +287,18 @@ async def close_misa_popups(page):
     for frame in page.frames:
         try:
             await frame.evaluate("""() => {
+                // Close concurrent login popup box if it has the warning text
+                const popups = document.querySelectorAll('.ms-popup, .ms-message-box, .dx-dialog-wrapper');
+                popups.forEach(el => {
+                    const text = (el.textContent || '').normalize('NFC');
+                    if (text.includes('Đã có máy khác sử dụng') || text.includes('tiếp tục làm việc trên máy này')) {
+                        const closeBtn = el.querySelector('button, .ms-button, .dx-button, [role="button"]');
+                        if (closeBtn) {
+                            closeBtn.click();
+                        }
+                    }
+                });
+
                 // Hide wrapper blocks and popups that contain ad/welcome/expiration texts
                 const elements = document.querySelectorAll('.ms-popup--wrapper, .ms-popup, .popup-start-use, .popup-survey, .ms-component.con-ms-popup');
                 elements.forEach(el => {
@@ -427,49 +491,141 @@ async def select_accounts_for_so_chi_tiet(page, accounts):
     logger.info(f"Finished selecting accounts: {accounts}")
 
 
+async def click_saved_report_link(page, report_name, creator='NGUYỄN THÀNH LONG'):
+    """
+    Tìm và click vào link báo cáo đã lưu có tên tương ứng của người tạo chỉ định.
+    Tìm kiếm trong trang chính và tất cả các frames.
+    Trả về (clicked_page, is_popup) trong đó clicked_page là page chứa báo cáo (có thể là tab mới).
+    """
+    link_el = None
+    target_frame = None
+    
+    for frame in [page] + page.frames:
+        try:
+            # 1. Tìm thẻ <span class="drilldown"> chứa tên báo cáo trong dòng tr chứa tên người tạo
+            loc = frame.locator("tr, [role='row']").filter(has_text=creator).locator("span.drilldown").filter(has_text=report_name).first
+            if await loc.is_visible(timeout=1000):
+                link_el = loc
+                target_frame = frame
+                break
+        except Exception:
+            pass
+            
+        try:
+            # 2. Dự phòng 1: Tìm thẻ <span> bất kỳ chứa tên báo cáo trong dòng của người tạo
+            loc = frame.locator("tr, [role='row']").filter(has_text=creator).locator("span").filter(has_text=report_name).first
+            if await loc.is_visible(timeout=1000):
+                link_el = loc
+                target_frame = frame
+                break
+        except Exception:
+            pass
 
-async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None):
-    logger.info(f"Navigating to report URL: {report_url}")
-    try:
-        await page.goto(report_url, timeout=30000, wait_until="load")
-    except Exception as e:
-        logger.warning(f"Navigation to report URL timed out or failed: {str(e)}")
+        try:
+            # 3. Dự phòng 2: Tìm thẻ <a> chứa tên báo cáo trong dòng của người tạo
+            loc = frame.locator("tr, [role='row']").filter(has_text=creator).locator("a").filter(has_text=report_name).first
+            if await loc.is_visible(timeout=1000):
+                link_el = loc
+                target_frame = frame
+                break
+        except Exception:
+            pass
+
+        try:
+            # 4. Dự phòng 3: Tìm bất kỳ phần tử nào chứa tên báo cáo trong dòng của người tạo
+            loc = frame.locator("tr, [role='row']").filter(has_text=creator).locator(f"text='{report_name}'").first
+            if await loc.is_visible(timeout=1000):
+                link_el = loc
+                target_frame = frame
+                break
+        except Exception:
+            pass
+
+    if link_el:
+        logger.info(f"Found saved report link '{report_name}' by '{creator}'. Clicking it...")
         
-    try:
-        await page.wait_for_load_state("domcontentloaded", timeout=10000)
-    except Exception:
-        pass
-    
-    # Wait to check if MISA auto-redirects us to the home screen
-    logger.info("Waiting 5s to check for SPA routing redirect...")
-    await asyncio.sleep(5)
-    
-    # Debug logging and screenshot
-    logger.info(f"Current Page URL: {page.url}")
-    title = ""
-    try:
-        title = await page.title()
-        logger.info(f"Current Page Title: {title}")
-    except Exception as e:
-        logger.warning(f"Could not get page title: {str(e)}")
-        
-    # Check if we got redirected to the home/dashboard screen
-    if "home" in page.url or "dashboard" in page.url or "Tong quan" in title or "T\u1ed5ng quan" in title:
-        logger.info("Auto-redirected to home page. Hiding popups on home page and returning to report URL...")
-        await close_misa_popups(page)
-        await asyncio.sleep(1)
-        
-        logger.info(f"Re-navigating to report URL: {report_url}")
+        # 1. Thử click chuẩn bằng Playwright (có thể bị che bởi popup ẩn)
+        try:
+            # Lắng nghe popup nếu có
+            async with page.expect_popup(timeout=3000) as popup_info:
+                await link_el.click(timeout=5000)
+            new_page = await popup_info.value
+            logger.info("Report opened in a new tab/popup.")
+            return new_page, True
+        except Exception as e:
+            # Nếu click thành công nhưng không mở tab mới -> Đã chuyển hướng cùng tab!
+            if "timeout" in str(e).lower() and "popup" in str(e).lower():
+                logger.info("Normal click succeeded (no popup). Assuming same tab navigation.")
+                try:
+                    await page.wait_for_load_state("load", timeout=5000)
+                except Exception:
+                    pass
+                return page, False
+                
+            # Nếu click bị lỗi (ví dụ: bị che khuất bởi overlay quảng cáo)
+            logger.info(f"Standard click failed: {str(e)}. Trying evaluate click...")
+            try:
+                async with page.expect_popup(timeout=3000) as popup_info:
+                    await link_el.evaluate("el => el.click()")
+                new_page = await popup_info.value
+                logger.info("Report opened in a new tab/popup via evaluate click.")
+                return new_page, True
+            except Exception as ee:
+                logger.info("Assume same tab navigation after evaluate click.")
+                try:
+                    await page.wait_for_load_state("load", timeout=5000)
+                except Exception:
+                    pass
+                return page, False
+            
+    return None, False
+
+
+async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False):
+    if report_url:
+        logger.info(f"Navigating to report URL: {report_url}")
         try:
             await page.goto(report_url, timeout=30000, wait_until="load")
         except Exception as e:
-            logger.warning(f"Re-navigation to report URL timed out or failed: {str(e)}")
+            logger.warning(f"Navigation to report URL timed out or failed: {str(e)}")
+            
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=10000)
         except Exception:
             pass
-        await asyncio.sleep(3)
-        logger.info(f"New Page URL: {page.url}")
+        
+        # Wait to check if MISA auto-redirects us to the home screen
+        logger.info("Waiting 5s to check for SPA routing redirect...")
+        await asyncio.sleep(5)
+        
+        # Debug logging and screenshot
+        logger.info(f"Current Page URL: {page.url}")
+        title = ""
+        try:
+            title = await page.title()
+            logger.info(f"Current Page Title: {title}")
+        except Exception as e:
+            logger.warning(f"Could not get page title: {str(e)}")
+            
+        # Check if we got redirected to the home/dashboard screen
+        if "home" in page.url or "dashboard" in page.url or "Tong quan" in title or "T\u1ed5ng quan" in title:
+            logger.info("Auto-redirected to home page. Hiding popups on home page and returning to report URL...")
+            await close_misa_popups(page)
+            await asyncio.sleep(1)
+            
+            logger.info(f"Re-navigating to report URL: {report_url}")
+            try:
+                await page.goto(report_url, timeout=30000, wait_until="load")
+            except Exception as e:
+                logger.warning(f"Re-navigation to report URL timed out or failed: {str(e)}")
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+            except Exception:
+                pass
+            await asyncio.sleep(3)
+            logger.info(f"New Page URL: {page.url}")
+    else:
+        logger.info("No report_url provided. Reusing current page state.")
         
     # Print the frames structure
     try:
@@ -510,147 +666,52 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         except Exception as e:
             logger.warning(f"Failed to capture after_popups screenshot: {str(e)}")
         
-        # Step 2: Click "Chọn tham số" button
-        param_btn_selectors = [
-            "button:has-text('Chọn tham số')",
-            ".btn:has-text('Chọn tham số')",
-            "div.ms-button:has-text('Chọn tham số')",
-            "span:has-text('Chọn tham số')",
-            ".dx-button-content:has-text('Chọn tham số')"
-        ]
-        param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
-        if not param_btn:
-            for f in page.frames:
-                try:
-                    locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
-                    if await locator.is_visible(timeout=1000):
-                        param_btn = locator
-                        frame = f
-                        break
-                except Exception:
-                    continue
-                    
-        if param_btn:
-            logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
-            await param_btn.click(force=True)
+        if skip_parameters:
+            # For Saved Reports, skip choosing parameters and wait 40 seconds to let report load fully
+            logger.info("Waiting 40s for the saved report to load...")
+            await asyncio.sleep(40)
+            await close_misa_popups(page)
+            await asyncio.sleep(1)
         else:
-            logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
-        await asyncio.sleep(1)
-        
-        # Step 3: Check "Bao gồm số liệu chi nhánh phụ thuộc" checkbox
-        dep_checkbox_selectors = [
-            "text='Bao gồm số liệu chi nhánh phụ thuộc'",
-            "label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
-            "span:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
-            "div:has-text('Bao gồm số liệu chi nhánh phụ thuộc')"
-        ]
-        dep_checkbox, frame = await find_locator_in_any_frame(page, dep_checkbox_selectors, timeout=3000)
-        if dep_checkbox:
-            is_already_checked = False
-            try:
-                parent = frame.locator("xpath=//node()[contains(text(), 'Bao gồm số liệu chi nhánh phụ thuộc')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
-                if await parent.count() > 0:
-                    parent_class = await parent.get_attribute("class")
-                    if parent_class and ("checked" in parent_class or "active" in parent_class):
-                        is_already_checked = True
-            except Exception:
-                pass
-                
-            if not is_already_checked:
-                logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
-                await dep_checkbox.click(force=True)
-            else:
-                logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
-        else:
-            logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' checkbox.")
-        await asyncio.sleep(0.5)
-        
-        # Step 4: Choose "Kỳ báo cáo" -> "Năm nay"
-        skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
-        ky_baocao_selectors = [
-            "xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
-            "xpath=//div[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
-            "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
-            "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
-            ".ms-combo input[placeholder*='Kỳ báo cáo']",
-            "input[placeholder*='Kỳ báo cáo']"
-        ]
-        ky_input, frame = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
-        if not ky_input:
-            for f in page.frames:
-                try:
-                    label_locator = f.locator("text='Kỳ báo cáo'").first
-                    if await label_locator.is_visible(timeout=1000):
-                        ky_input = f.locator("xpath=//node()[contains(text(), 'Kỳ báo cáo')]/following::input[1]").first
-                        frame = f
-                        break
-                except Exception:
-                    continue
-                    
-        if skip_ky_bao_cao:
-            logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as requested.")
-        elif ky_input:
-            logger.info("Clicking 'Ky bao cao' combobox to open options...")
-            await ky_input.click(force=True)
-            await asyncio.sleep(0.3)
-            
-            # Click the combobox arrow button specifically to ensure the dropdown opens
-            try:
-                arrow = frame.locator("xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//*[contains(@class, 'arrow') or contains(@class, 'icon') or contains(@class, 'button')]").first
-                if await arrow.is_visible(timeout=1000):
-                    logger.info("Clicking combobox arrow icon...")
-                    await arrow.click(force=True)
-                    await asyncio.sleep(0.5)
-            except Exception as e:
-                logger.debug(f"Failed to click combo arrow: {str(e)}")
-            
-            nam_nay_selectors = [
-                "text='Năm nay'",
-                ".dx-list-item-content:has-text('Năm nay')",
-                ".ms-combo-item:has-text('Năm nay')",
-                "div[role='option']:has-text('Năm nay')",
-                "li:has-text('Năm nay')",
-                "xpath=//div[contains(@class, 'dx-item-content') and text()='Năm nay']"
+            # Step 2: Click "Chọn tham số" button
+            param_btn_selectors = [
+                "button:has-text('Chọn tham số')",
+                ".btn:has-text('Chọn tham số')",
+                "div.ms-button:has-text('Chọn tham số')",
+                "span:has-text('Chọn tham số')",
+                ".dx-button-content:has-text('Chọn tham số')"
             ]
-            nam_nay_item, option_frame = await find_locator_in_any_frame(page, nam_nay_selectors, timeout=3000)
-            if nam_nay_item:
-                logger.info("Selecting 'Nam nay' from dropdown list...")
-                await nam_nay_item.click(force=True)
+            param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
+            if not param_btn:
+                for f in page.frames:
+                    try:
+                        locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
+                        if await locator.is_visible(timeout=1000):
+                            param_btn = locator
+                            frame = f
+                            break
+                    except Exception:
+                        continue
+                        
+            if param_btn:
+                logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
+                await param_btn.click(force=True)
             else:
-                logger.warning("Could not find 'Nam nay' option in dropdown list. Trying keyboard search...")
-                try:
-                    await ky_input.click(click_count=3)
-                    await page.keyboard.press("Backspace")
-                    await asyncio.sleep(0.2)
-                    await ky_input.type("Năm nay")
-                    await asyncio.sleep(0.5)
-                    await page.keyboard.press("ArrowDown")
-                    await asyncio.sleep(0.2)
-                    await page.keyboard.press("Enter")
-                    logger.info("Typed 'Năm nay' and pressed Enter.")
-                except Exception as e:
-                    logger.error(f"Failed to fill 'Nam nay': {str(e)}")
-        else:
-            logger.warning("Could not find 'Ky bao cao' input combobox.")
-        await asyncio.sleep(0.5)
-        
-        # Step 5: Chọn tất cả (default) hoặc chọn Bậc + tài khoản cụ thể (TAI_KHOAN_CT)
-        if prefix == 'TAI_KHOAN_CT':
-            logger.info("[TAI_KHOAN_CT] Running custom account selection: Bac 1 + accounts 111, 112, 341")
-            await select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341'])
-        else:
-            select_all_selectors = [
-                "text='Chọn tất cả'",
-                "label:has-text('Chọn tất cả')",
-                "span:has-text('Chọn tất cả')",
-                "div:has-text('Chọn tất cả')",
-                ".ms-checkbox:has-text('Chọn tất cả')"
+                logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
+            await asyncio.sleep(1)
+            
+            # Step 3: Check "Bao gồm số liệu chi nhánh phụ thuộc" checkbox
+            dep_checkbox_selectors = [
+                "text='Bao gồm số liệu chi nhánh phụ thuộc'",
+                "label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
+                "span:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
+                "div:has-text('Bao gồm số liệu chi nhánh phụ thuộc')"
             ]
-            select_all_btn, frame = await find_locator_in_any_frame(page, select_all_selectors, timeout=3000)
-            if select_all_btn:
+            dep_checkbox, frame = await find_locator_in_any_frame(page, dep_checkbox_selectors, timeout=3000)
+            if dep_checkbox:
                 is_already_checked = False
                 try:
-                    parent = frame.locator("xpath=//node()[contains(text(), 'Chọn tất cả')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
+                    parent = frame.locator("xpath=//node()[contains(text(), 'Bao gồm số liệu chi nhánh phụ thuộc')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
                     if await parent.count() > 0:
                         parent_class = await parent.get_attribute("class")
                         if parent_class and ("checked" in parent_class or "active" in parent_class):
@@ -659,33 +720,135 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     pass
                     
                 if not is_already_checked:
-                    logger.info("Clicking 'Chon tat ca' checkbox...")
-                    await select_all_btn.click(force=True)
+                    logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
+                    await dep_checkbox.click(force=True)
                 else:
-                    logger.info("'Chon tat ca' is already checked.")
+                    logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
             else:
-                logger.warning("Could not find 'Chon tat ca' checkbox.")
-        await asyncio.sleep(0.5)
-        
-        # Step 6: Click "Xem báo cáo"
-        view_report_selectors = [
-            "button:has-text('Xem báo cáo')",
-            ".btn:has-text('Xem báo cáo')",
-            "div.ms-button:has-text('Xem báo cáo')",
-            "span:has-text('Xem báo cáo')",
-            "button:has-text('Đồng ý')",
-            ".dx-button-content:has-text('Xem báo cáo')"
-        ]
-        view_report_btn, frame = await find_locator_in_any_frame(page, view_report_selectors, timeout=3000)
-        if view_report_btn:
-            logger.info("Clicking 'Xem bao cao' button...")
-            await view_report_btn.click(force=True)
-        else:
-            raise Exception("Could not find 'Xem bao cao' button.")
+                logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' checkbox.")
+            await asyncio.sleep(0.5)
             
-        # Wait 10 seconds as requested
-        logger.info("Waiting 10s for the report to load...")
-        await asyncio.sleep(10)
+            # Step 4: Choose "Kỳ báo cáo" -> "Năm nay"
+            skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
+            ky_baocao_selectors = [
+                "xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
+                "xpath=//div[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
+                "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+                "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+                ".ms-combo input[placeholder*='Kỳ báo cáo']",
+                "input[placeholder*='Kỳ báo cáo']"
+            ]
+            ky_input, frame = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
+            if not ky_input:
+                for f in page.frames:
+                    try:
+                        label_locator = f.locator("text='Kỳ báo cáo'").first
+                        if await label_locator.is_visible(timeout=1000):
+                            ky_input = f.locator("xpath=//node()[contains(text(), 'Kỳ báo cáo')]/following::input[1]").first
+                            frame = f
+                            break
+                    except Exception:
+                        continue
+                        
+            if skip_ky_bao_cao:
+                logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as requested.")
+            elif ky_input:
+                logger.info("Clicking 'Ky bao cao' combobox to open options...")
+                await ky_input.click(force=True)
+                await asyncio.sleep(0.3)
+                
+                # Click the combobox arrow button specifically to ensure the dropdown opens
+                try:
+                    arrow = frame.locator("xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//*[contains(@class, 'arrow') or contains(@class, 'icon') or contains(@class, 'button')]").first
+                    if await arrow.is_visible(timeout=1000):
+                        logger.info("Clicking combobox arrow icon...")
+                        await arrow.click(force=True)
+                        await asyncio.sleep(0.5)
+                except Exception as e:
+                    logger.debug(f"Failed to click combo arrow: {str(e)}")
+                
+                nam_nay_selectors = [
+                    "text='Năm nay'",
+                    ".dx-list-item-content:has-text('Năm nay')",
+                    ".ms-combo-item:has-text('Năm nay')",
+                    "div[role='option']:has-text('Năm nay')",
+                    "li:has-text('Năm nay')",
+                    "xpath=//div[contains(@class, 'dx-item-content') and text()='Năm nay']"
+                ]
+                nam_nay_item, option_frame = await find_locator_in_any_frame(page, nam_nay_selectors, timeout=3000)
+                if nam_nay_item:
+                    logger.info("Selecting 'Nam nay' from dropdown list...")
+                    await nam_nay_item.click(force=True)
+                else:
+                    logger.warning("Could not find 'Nam nay' option in dropdown list. Trying keyboard search...")
+                    try:
+                        await ky_input.click(click_count=3)
+                        await page.keyboard.press("Backspace")
+                        await asyncio.sleep(0.2)
+                        await ky_input.type("Năm nay")
+                        await asyncio.sleep(0.5)
+                        await page.keyboard.press("ArrowDown")
+                        await asyncio.sleep(0.2)
+                        await page.keyboard.press("Enter")
+                        logger.info("Typed 'Năm nay' and pressed Enter.")
+                    except Exception as e:
+                        logger.error(f"Failed to fill 'Nam nay': {str(e)}")
+            else:
+                logger.warning("Could not find 'Ky bao cao' input combobox.")
+            await asyncio.sleep(0.5)
+            
+            # Step 5: Chọn tất cả (default) hoặc chọn Bậc + tài khoản cụ thể (TAI_KHOAN_CT)
+            if prefix == 'TAI_KHOAN_CT':
+                logger.info("[TAI_KHOAN_CT] Running custom account selection: Bac 1 + accounts 111, 112, 341")
+                await select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341'])
+            else:
+                select_all_selectors = [
+                    "text='Chọn tất cả'",
+                    "label:has-text('Chọn tất cả')",
+                    "span:has-text('Chọn tất cả')",
+                    "div:has-text('Chọn tất cả')",
+                    ".ms-checkbox:has-text('Chọn tất cả')"
+                ]
+                select_all_btn, frame = await find_locator_in_any_frame(page, select_all_selectors, timeout=3000)
+                if select_all_btn:
+                    is_already_checked = False
+                    try:
+                        parent = frame.locator("xpath=//node()[contains(text(), 'Chọn tất cả')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
+                        if await parent.count() > 0:
+                            parent_class = await parent.get_attribute("class")
+                            if parent_class and ("checked" in parent_class or "active" in parent_class):
+                                is_already_checked = True
+                    except Exception:
+                        pass
+                        
+                    if not is_already_checked:
+                        logger.info("Clicking 'Chon tat ca' checkbox...")
+                        await select_all_btn.click(force=True)
+                    else:
+                        logger.info("'Chon tat ca' is already checked.")
+                else:
+                    logger.warning("Could not find 'Chon tat ca' checkbox.")
+            await asyncio.sleep(0.5)
+            
+            # Step 6: Click "Xem báo cáo"
+            view_report_selectors = [
+                "button:has-text('Xem báo cáo')",
+                ".btn:has-text('Xem báo cáo')",
+                "div.ms-button:has-text('Xem báo cáo')",
+                "span:has-text('Xem báo cáo')",
+                "button:has-text('Đồng ý')",
+                ".dx-button-content:has-text('Xem báo cáo')"
+            ]
+            view_report_btn, frame = await find_locator_in_any_frame(page, view_report_selectors, timeout=3000)
+            if view_report_btn:
+                logger.info("Clicking 'Xem bao cao' button...")
+                await view_report_btn.click(force=True)
+            else:
+                raise Exception("Could not find 'Xem bao cao' button.")
+                
+            # Wait 10 seconds as requested
+            logger.info("Waiting 10s for the report to load...")
+            await asyncio.sleep(10)
         
         # Step 7: Click the Excel icon dropdown button
         excel_btn_selectors = [
@@ -775,11 +938,13 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
             "text='Xuất Excel'"
         ]
+        excel_triggered = False
         dropdown_item, dropdown_frame = await find_locator_in_any_frame(page, dropdown_selectors, timeout=3000)
         if dropdown_item:
             logger.info("Clicking 'Xuat Excel (dang du lieu)' option...")
             await dropdown_item.click(force=True)
             await asyncio.sleep(2.5)
+            excel_triggered = True
         else:
             logger.info("Dropdown 'Xuất Excel (dạng dữ liệu)' option not found or not visible. Checking for options dialog directly...")
 
@@ -797,8 +962,12 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             logger.info("Found 'Đồng ý' button (Options dialog). Clicking it to start export...")
             await agree_btn.click(force=True)
             await asyncio.sleep(2.0)
-        else:
-            logger.info("No 'Đồng ý' button found. Proceeding to wait for download...")
+            excel_triggered = True
+            
+        if not excel_triggered:
+            logger.warning("Neither Excel option nor 'Đồng ý' button was clicked. Checking for blockers/warning popups...")
+            await close_misa_popups(page)
+            raise Exception("Failed to trigger Excel export. The action might have been blocked by a concurrent login warning or dialog.")
             
         # Step 9 & 10: Wait for 50 seconds first for background generation, then open download panel
         logger.info("Waiting 50 seconds for MISA to generate the report in the background...")
@@ -998,6 +1167,9 @@ async def run_misa_automation():
         if not logged_in:
             logger.info("Proceeding to log in to MISA AMIS...")
             await login_to_misa(page, context, email, password)
+        else:
+            # Xử lý cảnh báo đăng nhập đồng thời đối với phiên làm việc được khôi phục
+            await handle_concurrent_login(page)
             
         # Download each configured report
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1005,33 +1177,147 @@ async def run_misa_automation():
         failed_count = 0
         failed_details = []
         
-        for prefix, url in settings.MISA_REPORTS.items():
-            if not url:
-                continue
-                
-            filename = f"{prefix}_{timestamp}.xlsx"
-            output_path = os.path.join(auto_imports_dir, filename)
-            
-            try:
-                # Try downloading (pass prefix for report-specific custom logic)
-                success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix)
-                if not success:
-                    # Retry once after logging in again
-                    logger.info("Retrying download after re-logging in...")
-                    await login_to_misa(page, context, email, password)
-                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix)
-                    
-                if success:
-                    downloaded_count += 1
-                else:
+        use_option = getattr(settings, 'USE_OPTION_EXPORT_REPORT_MISA', 1)
+        if use_option == 2:
+            logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 2 (Saved Reports Flow)")
+            # 1. Download TUOI_NO_KH directly (excluded from saved reports list)
+            tuoi_no_kh_url = settings.MISA_REPORTS.get('TUOI_NO_KH')
+            if tuoi_no_kh_url:
+                prefix = 'TUOI_NO_KH'
+                filename = f"{prefix}_{timestamp}.xlsx"
+                output_path = os.path.join(auto_imports_dir, filename)
+                logger.info(f"Downloading {prefix} via step-by-step export flow...")
+                try:
+                    success = await download_report_from_url(page, tuoi_no_kh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                    if not success:
+                        logger.info("Retrying TUOI_NO_KH download after re-logging in...")
+                        await login_to_misa(page, context, email, password)
+                        success = await download_report_from_url(page, tuoi_no_kh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                        
+                    if success:
+                        downloaded_count += 1
+                    else:
+                        failed_count += 1
+                        logger.error(f"Failed to download report for prefix {prefix}")
+                        failed_details.append(f"{prefix}: Failed to download/login expired")
+                except Exception as e:
                     failed_count += 1
-                    logger.error(f"Failed to download report for prefix {prefix}")
-                    failed_details.append(f"{prefix}: Failed to download/login expired")
+                    logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
+                    failed_details.append(f"{prefix}: {str(e)}")
+            
+            # 2. Go to Saved Reports URL
+            logger.info(f"Navigating to MISA Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+            try:
+                await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
             except Exception as e:
-                failed_count += 1
-                logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
-                failed_details.append(f"{prefix}: {str(e)}")
+                logger.warning(f"Navigation to Saved Reports List timed out or failed: {str(e)}")
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+            except Exception:
+                pass
+            
+            # Close popups on saved reports page
+            await close_misa_popups(page)
+            await asyncio.sleep(2)
+            
+            # 3. Process remaining 5 reports
+            saved_reports_to_download = [
+                ('BAN_HANG', '01 - Sổ chi tiết bán hàng - Important'),
+                ('MUA_HANG', '02 - Sổ chi tiết mua hàng - Important'),
+                ('TON_KHO', '03 - Tổng hợp tồn kho - Important'),
+                ('CONG_NO_NCC', '04 - Tổng hợp công nợ phải trả nhà cung cấp - Important'),
+                ('TAI_KHOAN_CT', '06 - Sổ chi tiết các tài khoản - Important'),
+            ]
+            
+            for prefix, report_name in saved_reports_to_download:
+                filename = f"{prefix}_{timestamp}.xlsx"
+                output_path = os.path.join(auto_imports_dir, filename)
+                logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix})")
                 
+                # Click the report link (handles opening in a new tab)
+                target_page, is_popup = await click_saved_report_link(page, report_name)
+                if not target_page:
+                    logger.error(f"Failed to find or click saved report link: '{report_name}'")
+                    failed_count += 1
+                    failed_details.append(f"{prefix} (Saved Report): Link not found")
+                    continue
+                    
+                # Download using skip_parameters=True and report_url=None
+                try:
+                    success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
+                    if not success:
+                        # Retry: go to saved reports page, re-login, click and try again
+                        logger.info("Retrying download after re-logging in...")
+                        if is_popup:
+                            try:
+                                await target_page.close()
+                            except Exception:
+                                pass
+                        await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                        await login_to_misa(page, context, email, password)
+                        await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                        await close_misa_popups(page)
+                        target_page, is_popup = await click_saved_report_link(page, report_name)
+                        if target_page:
+                            success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
+                        
+                    if success:
+                        downloaded_count += 1
+                    else:
+                        failed_count += 1
+                        logger.error(f"Failed to download saved report: '{report_name}'")
+                        failed_details.append(f"{prefix} (Saved Report): Failed to download/login expired")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Error downloading saved report '{report_name}': {str(e)}")
+                    failed_details.append(f"{prefix} (Saved Report): {str(e)}")
+                finally:
+                    # Clean up: close the popup tab if it was opened in a new tab
+                    if is_popup and target_page:
+                        try:
+                            logger.info("Closing report popup tab...")
+                            await target_page.close()
+                        except Exception as ce:
+                            logger.warning(f"Failed to close popup tab: {str(ce)}")
+                    
+                # Navigate back to Saved Reports List ONLY if it was same-tab navigation
+                if not is_popup:
+                    logger.info(f"Returning to Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+                    try:
+                        await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                        await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                        await close_misa_popups(page)
+                        await asyncio.sleep(2)
+                    except Exception as e:
+                        logger.warning(f"Failed to navigate back to Saved Reports List: {str(e)}")
+        else:
+            logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 1 (Step-by-step Flow)")
+            for prefix, url in settings.MISA_REPORTS.items():
+                if not url:
+                    continue
+                    
+                filename = f"{prefix}_{timestamp}.xlsx"
+                output_path = os.path.join(auto_imports_dir, filename)
+                
+                try:
+                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                    if not success:
+                        # Retry once after logging in again
+                        logger.info("Retrying download after re-logging in...")
+                        await login_to_misa(page, context, email, password)
+                        success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                        
+                    if success:
+                        downloaded_count += 1
+                    else:
+                        failed_count += 1
+                        logger.error(f"Failed to download report for prefix {prefix}")
+                        failed_details.append(f"{prefix}: Failed to download/login expired")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
+                    failed_details.append(f"{prefix}: {str(e)}")
+                    
         await browser.close()
         
         result_msg = f"SUCCESS: Downloaded {downloaded_count} reports. Failed {failed_count} reports."

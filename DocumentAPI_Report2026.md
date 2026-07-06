@@ -197,6 +197,12 @@ Hệ thống sử dụng thư viện `django-environ` để bảo mật và tác
     MISA_HEADLESS=True
     MISA_EXPORT_SELECTOR="button:has-text('Xuất khẩu')"
     
+    # Lựa chọn cơ chế tải báo cáo MISA:
+    # 1: Xuất từng bước (Mặc định - Bot tự chọn tham số và click xuất)
+    # 2: Tải từ danh sách báo cáo đã lưu (Saved Reports) để tối ưu thời gian chọn tham số
+    USE_OPTION_EXPORT_REPORT_MISA=1
+    MISA_URL_REPORT_SAVED=https://actapp.misa.vn/app/RP/ReportSavedList
+    
     # URL của các báo cáo MISA cụ thể cần tải tự động
     MISA_URL_BAN_HANG=https://act.amis.vn/report/sales-detail
     MISA_URL_MUA_HANG=https://act.amis.vn/report/purchase-detail
@@ -204,7 +210,7 @@ Hệ thống sử dụng thư viện `django-environ` để bảo mật và tác
     MISA_URL_CONG_NO_NCC=https://act.amis.vn/report/supplier-debt
     MISA_URL_TUOI_NO_KH=
     MISA_URL_TAI_KHOAN_CT=
-   ```
+    ```
 *(Lưu ý: Tệp `.env` đã được tự động thêm vào `.gitignore` để tránh đẩy thông tin nhạy cảm lên Git).*
 
 ### Bước 0.5: Cài đặt các thư viện Python cần thiết

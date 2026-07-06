@@ -191,6 +191,9 @@ MISA_BROWSER_CHANNEL = env('MISA_BROWSER_CHANNEL', default='chrome')
 MISA_EXPORT_SELECTOR = env('MISA_EXPORT_SELECTOR', default="button:has-text('Xuất khẩu')")
 MISA_BROWSER_STATE_PATH = os.path.join(BASE_DIR, 'media', env('MISA_BROWSER_STATE_FILENAME', default='misa_session.json'))
 
+USE_OPTION_EXPORT_REPORT_MISA = env.int('USE_OPTION_EXPORT_REPORT_MISA', default=1)
+MISA_URL_REPORT_SAVED = env('MISA_URL_REPORT_SAVED', default='https://actapp.misa.vn/app/RP/ReportSavedList')
+
 MISA_REPORTS = {
     'BAN_HANG': env('MISA_URL_BAN_HANG', default=''),
     'MUA_HANG': env('MISA_URL_MUA_HANG', default=''),
