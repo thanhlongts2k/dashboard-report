@@ -717,21 +717,39 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                         if parent_class and ("checked" in parent_class or "active" in parent_class):
                             is_already_checked = True
                 except Exception:
-                    pass
+                    parent = None
                     
                 if not is_already_checked:
                     logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
-                    await dep_checkbox.click(force=True)
+                    try:
+                        if parent and await parent.count() > 0:
+                            logger.info("Clicking parent container to check 'Bao gom so lieu chi nhanh phu thuoc'...")
+                            await parent.click(force=True)
+                        else:
+                            await dep_checkbox.click(force=True)
+                    except Exception as click_err:
+                        logger.warning(f"Failed to click parent checkbox: {click_err}. Fallback to click text element.")
+                        await dep_checkbox.click(force=True)
                 else:
                     logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
             else:
                 logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' checkbox.")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(2.0)  # Đợi 2 giây để giao diện cập nhật và tải danh sách chi nhánh phụ thuộc
 
             # Step 3.1: Loại bỏ các chi nhánh có chứa "_Nhật"
             logger.info("Checking for branch tags containing '_Nhật' to remove...")
             target_frame = frame if frame else page
             try:
+                # Đợi tối đa 3 giây cho các branch tag xuất hiện trên giao diện
+                for wait_attempt in range(6):
+                    tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(@class, 'tag') or contains(@class, 'item') or contains(@class, 'badge') or contains(@class, 'dx-tag') or contains(@class, 'ms-tag') or @class='dx-tag-content' or @class='ms-tag-content']"
+                    tag_containers = target_frame.locator(f"xpath={tag_xpath}")
+                    count = await tag_containers.count()
+                    if count > 0:
+                        logger.info(f"Found {count} branch tags containing '_Nhật' after waiting.")
+                        break
+                    await asyncio.sleep(0.5)
+
                 for attempt in range(15):  # Click tối đa 15 lần
                     tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(@class, 'tag') or contains(@class, 'item') or contains(@class, 'badge') or contains(@class, 'dx-tag') or contains(@class, 'ms-tag') or @class='dx-tag-content' or @class='ms-tag-content']"
                     tag_containers = target_frame.locator(f"xpath={tag_xpath}")
