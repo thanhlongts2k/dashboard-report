@@ -269,6 +269,10 @@ def auto_import_excel_from_folder():
         parsed_files.sort(key=lambda x: (x[0], x[2], x[5]))
 
         for start_date, filepath, end_date, reporting_period, is_range, ctime in parsed_files:
+            if not os.path.exists(filepath):
+                logger.warning(f"[{prefix}] File {os.path.basename(filepath)} no longer exists. It may have been processed by another concurrent task.")
+                continue
+                
             start_time = timezone.now()
             logger.info(f"[{prefix}] Bắt đầu import từ file: {os.path.basename(filepath)}")
             
