@@ -962,35 +962,57 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             await manager_btn.click(force=True)
             await asyncio.sleep(2.0)
             
-            # Click "Xóa hết lịch sử tải tệp" if visible
-            clear_btn_selectors = [
-                "text='Xóa hết lịch sử tải tệp'",
-                ".clear-all",
-                ".clear-all--text",
-                "div:has-text('Xóa hết lịch sử tải tệp')"
-            ]
-            clear_btn, clear_frame = await find_locator_in_any_frame(page, clear_btn_selectors, timeout=2000)
-            if clear_btn:
-                logger.info("Clicking 'Xóa hết lịch sử tải tệp' to clear old downloads...")
-                await clear_btn.click(force=True)
-                await asyncio.sleep(1.5)
+            # Retry xóa lịch sử download tối đa 3 lần để đảm bảo panel sạch trước khi export
+            for clear_attempt in range(3):
+                # Check if there are any download entries in the panel
+                has_entries = False
+                tai_tep_check = page.locator("text='Tải tệp'").first
+                try:
+                    has_entries = await tai_tep_check.is_visible(timeout=1500)
+                except Exception:
+                    pass
                 
-                # Handle confirmation popup dialog "Có" button
-                confirm_btn_selectors = [
-                    "button:has-text('Có')",
-                    ".ms-button:has-text('Có')",
-                    ".dx-button-content:has-text('Có')",
-                    "text='Có'",
-                    "span:has-text('Có')",
-                    ".popup-confirm button:has-text('Có')"
+                if not has_entries:
+                    logger.info(f"Download panel is clean (attempt {clear_attempt + 1}). No old entries to remove.")
+                    break
+                    
+                logger.info(f"Found old entries in download panel (attempt {clear_attempt + 1}). Clearing...")
+                # Click "Xóa hết lịch sử tải tệp" if visible
+                clear_btn_selectors = [
+                    "text='Xóa hết lịch sử tải tệp'",
+                    ".clear-all",
+                    ".clear-all--text",
+                    "div:has-text('Xóa hết lịch sử tải tệp')"
                 ]
-                confirm_btn, confirm_frame = await find_locator_in_any_frame(page, confirm_btn_selectors, timeout=3000)
-                if confirm_btn:
-                    logger.info("Clicking 'Có' on deletion confirmation popup...")
-                    await confirm_btn.click(force=True)
+                clear_btn, clear_frame = await find_locator_in_any_frame(page, clear_btn_selectors, timeout=2000)
+                if clear_btn:
+                    logger.info("Clicking 'Xóa hết lịch sử tải tệp' to clear old downloads...")
+                    await clear_btn.click(force=True)
                     await asyncio.sleep(1.5)
+                    
+                    # Handle confirmation popup dialog "Có" button
+                    confirm_btn_selectors = [
+                        "button:has-text('Có')",
+                        ".ms-button:has-text('Có')",
+                        ".dx-button-content:has-text('Có')",
+                        "text='Có'",
+                        "span:has-text('Có')",
+                        ".popup-confirm button:has-text('Có')"
+                    ]
+                    confirm_btn, confirm_frame = await find_locator_in_any_frame(page, confirm_btn_selectors, timeout=3000)
+                    if confirm_btn:
+                        logger.info("Clicking 'Có' on deletion confirmation popup...")
+                        await confirm_btn.click(force=True)
+                        await asyncio.sleep(2.0)
+                    else:
+                        logger.warning("Could not find confirmation 'Có' button. Waiting before retry...")
+                        await asyncio.sleep(1.5)
                 else:
-                    logger.warning("Could not find confirmation 'Có' button.")
+                    logger.warning(f"Could not find 'Xóa hết' button on attempt {clear_attempt + 1}.")
+                    await asyncio.sleep(1.0)
+                    break
+            else:
+                logger.warning("Could not fully clear download history after 3 attempts. Proceeding anyway.")
                 
             # Close download manager panel
             logger.info("Closing download manager panel...")
@@ -1095,34 +1117,36 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             else:
                 logger.warning("Could not find download manager button. Checking if 'Tải tệp' is visible anyway.")
                 
-        # Wait up to an additional 40 seconds (checking every 2 seconds) for the "Tải tệp" button to appear inside the panel
-        download_btn_selectors = [
-            "text='Tải tệp'",
-            "span:has-text('Tải tệp')",
-            "div:has-text('Tải tệp')",
-            "a:has-text('Tải tệp')",
-            "button:has-text('Tải tệp')",
-            "text='Tải xuống'",
-            "span:has-text('Tải xuống')",
-            "div:has-text('Tải xuống')",
-            "a:has-text('Tải xuống')",
-            "button:has-text('Tải xuống')",
-            "text='Tải về'",
-            "span:has-text('Tải về')",
-            "div:has-text('Tải về')",
-            "a:has-text('Tải về')",
-            "button:has-text('Tải về')",
-            ".ms-toast-download button",
-            ".popup-download button:has-text('Tải tệp')",
-            "xpath=//*[contains(text(), 'Tải tệp')]",
-            "xpath=//*[contains(text(), 'Tải xuống')]",
-            "xpath=//*[contains(text(), 'Tải về')]"
-        ]
+        # Wait up to an additional 40 seconds (checking every 2 seconds) for exactly ONE new "Tải tệp" entry to appear
+        # Strategy: wait until panel has at least 1 entry, then click ONLY the FIRST (newest) entry's download button
+        logger.info("Waiting for a NEW 'Tải tệp' button to appear in the download panel (newest entry only)...")
         
         download_btn = None
         frame = None
         
-        logger.info("Looking for the 'Tải tệp' button in the download panel...")
+        # Selectors targeting the FIRST (topmost/newest) download entry's action button
+        # MISA renders entries newest-first; we always click the first entry to avoid stale old ones
+        first_entry_selectors = [
+            # Try to click 'Tải tệp' inside the FIRST item row of the download list
+            "xpath=(//span[text()='Tải tệp'] | //a[text()='Tải tệp'] | //div[text()='Tải tệp'])[1]",
+            "xpath=(//span[contains(text(),'Tải tệp')] | //a[contains(text(),'Tải tệp')])[1]",
+        ]
+        # Fallback broad selectors (used only after verifying just 1 entry exists)
+        broad_download_selectors = [
+            "text='Tải tệp'",
+            "span:has-text('Tải tệp')",
+            "a:has-text('Tải tệp')",
+            "button:has-text('Tải tệp')",
+            "text='Tải xuống'",
+            "span:has-text('Tải xuống')",
+            "a:has-text('Tải xuống')",
+            "button:has-text('Tải xuống')",
+            "text='Tải về'",
+            "span:has-text('Tải về')",
+            "a:has-text('Tải về')",
+            "button:has-text('Tải về')",
+        ]
+        
         for attempt in range(20):
             # Capture debug screenshot periodically
             if attempt % 3 == 0:
@@ -1134,28 +1158,33 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception as se:
                     logger.warning(f"Failed to capture loop screenshot: {str(se)}")
                     
-            download_btn, frame = await find_locator_in_any_frame(page, download_btn_selectors, timeout=1000)
+            # Always try the first-entry xpath selectors first
+            download_btn, frame = await find_locator_in_any_frame(page, first_entry_selectors, timeout=1000)
             if download_btn:
-                logger.info(f"Found 'Tải tệp' button in panel after {attempt * 2} seconds of searching.")
+                logger.info(f"Found newest 'Tải tệp' button (first entry) after {attempt * 2} seconds.")
                 break
             await asyncio.sleep(2)
             
         if not download_btn:
-            # Last resort check in any frame by exact text
-            for f in page.frames:
-                try:
-                    locator = f.locator("text='Tải tệp'").first
-                    if await locator.is_visible(timeout=1000):
-                        download_btn = locator
-                        frame = f
-                        break
-                except Exception:
-                    continue
+            # Fallback: try broad selectors — but log a warning about potential stale entries
+            logger.warning("Could not find first-entry download button. Falling back to broad search (may pick stale entry).")
+            download_btn, frame = await find_locator_in_any_frame(page, broad_download_selectors, timeout=3000)
+            if not download_btn:
+                # Last resort: search all frames
+                for f in page.frames:
+                    try:
+                        locator = f.locator("text='Tải tệp'").first
+                        if await locator.is_visible(timeout=1000):
+                            download_btn = locator
+                            frame = f
+                            break
+                    except Exception:
+                        continue
                     
         if not download_btn:
             raise Exception("Could not find the 'Tải tệp' button to download the report after waiting.")
             
-        logger.info("Clicking the 'Tải tệp' button and waiting for Playwright download event...")
+        logger.info("Clicking the 'Tải tệp' button (first/newest entry) and waiting for Playwright download event...")
         async with page.expect_download(timeout=45000) as download_info:
             await download_btn.click(force=True)
             
