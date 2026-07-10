@@ -742,7 +742,9 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             try:
                 # Đợi tối đa 3 giây cho các branch tag xuất hiện trên giao diện
                 for wait_attempt in range(6):
-                    tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(@class, 'tag') or contains(@class, 'item') or contains(@class, 'badge') or contains(@class, 'dx-tag') or contains(@class, 'ms-tag') or @class='dx-tag-content' or @class='ms-tag-content']"
+                    # Chỉ khớp chính xác các thẻ tag đơn lẻ đại diện cho chi nhánh (ví dụ class dx-tag, ms-tag, selected-item, dx-tag-content...)
+                    # Tránh class "item" hay "tag" chung chung để không nhận diện sai sang các container cha hoặc ô checkbox
+                    tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' selected-item ') or contains(concat(' ', normalize-space(@class), ' '), ' dx-tag ') or contains(concat(' ', normalize-space(@class), ' '), ' ms-tag ') or contains(concat(' ', normalize-space(@class), ' '), ' dx-tag-content ') or contains(concat(' ', normalize-space(@class), ' '), ' ms-tag-content ') or contains(concat(' ', normalize-space(@class), ' '), ' badge ')]"
                     tag_containers = target_frame.locator(f"xpath={tag_xpath}")
                     count = await tag_containers.count()
                     if count > 0:
@@ -751,7 +753,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     await asyncio.sleep(0.5)
 
                 for attempt in range(15):  # Click tối đa 15 lần
-                    tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(@class, 'tag') or contains(@class, 'item') or contains(@class, 'badge') or contains(@class, 'dx-tag') or contains(@class, 'ms-tag') or @class='dx-tag-content' or @class='ms-tag-content']"
+                    tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' selected-item ') or contains(concat(' ', normalize-space(@class), ' '), ' dx-tag ') or contains(concat(' ', normalize-space(@class), ' '), ' ms-tag ') or contains(concat(' ', normalize-space(@class), ' '), ' dx-tag-content ') or contains(concat(' ', normalize-space(@class), ' '), ' ms-tag-content ') or contains(concat(' ', normalize-space(@class), ' '), ' badge ')]"
                     tag_containers = target_frame.locator(f"xpath={tag_xpath}")
                     count = await tag_containers.count()
                     
@@ -759,7 +761,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     for i in range(count):
                         tag = tag_containers.nth(i)
                         if await tag.is_visible():
-                            close_btn = tag.locator("xpath=.//*[contains(@class, 'close') or contains(@class, 'remove') or contains(@class, 'clear') or contains(@class, 'dx-tag-remove-button') or text()='x' or text()='×']").first
+                            close_btn = tag.locator("xpath=.//*[contains(@class, 'close') or contains(@class, 'remove') or contains(@class, 'clear') or contains(@class, 'dx-tag-remove-button') or contains(@class, 'mi-close') or text()='x' or text()='×']").first
                             if await close_btn.count() > 0 and await close_btn.is_visible():
                                 logger.info("Removing branch tag containing '_Nhật' (click close button)")
                                 await close_btn.click(force=True)
