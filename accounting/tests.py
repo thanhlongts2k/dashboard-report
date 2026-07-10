@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.db.models.deletion import ProtectedError
 from django.contrib.admin.sites import site
 from accounting.models import Customer, CustomerGroup
@@ -117,14 +117,16 @@ class BUHierarchyAndCollectionTests(TestCase):
             customer=self.cust_parent,
             total_debt=1000,
             overdue_total=0,
-            due_total=1000
+            due_total=1000,
+            reporting_period="2026-06"
         )
         # cust_child: có nợ quá hạn (500)
         self.ageing_child = ReceivablesAgeing.objects.create(
             customer=self.cust_child,
             total_debt=2000,
             overdue_total=500,
-            due_total=1500
+            due_total=1500,
+            reporting_period="2026-06"
         )
 
         # Tạo bút toán thực thu trong AccountDetail
@@ -187,12 +189,15 @@ class BUHierarchyAndCollectionTests(TestCase):
 
 from django.urls import reverse
 from django.contrib.auth.models import User
+from rest_framework.test import APITestCase
+from knox.models import AuthToken
 
-class BUReportAPIFilterTests(TestCase):
+class BUReportAPIFilterTests(APITestCase):
     def setUp(self):
-        # Tạo user và đăng nhập để vượt qua IsAuthenticated
+        # Tạo user và đăng nhập qua Knox Token
         self.user = User.objects.create_user(username='testuser', password='password')
-        self.client.force_login(self.user)
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
 
         # Tạo Business Units
         self.bu_parent = BusinessUnit.objects.create(code="BUP", name="Parent BU", is_main=True)
@@ -288,6 +293,71 @@ class BUReportAPIFilterTests(TestCase):
         response = self.client.get(self.api_url, {'year': 2027})
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data['message'], "Không tìm thấy dữ liệu phù hợp với bộ lọc.")
+
+
+class ImportPeriodDetectionTests(TestCase):
+    def test_detect_period_from_filename_range(self):
+        from accounting.tasks import detect_period_from_filename
+        start, end, period, is_range = detect_period_from_filename("BAN_HANG_202601-202605.xlsx", None)
+        self.assertEqual(start.year, 2026)
+        self.assertEqual(start.month, 1)
+        self.assertEqual(start.day, 1)
+        self.assertEqual(end.year, 2026)
+        self.assertEqual(end.month, 5)
+        self.assertEqual(end.day, 31)
+        self.assertEqual(period, "2026-05")
+        self.assertTrue(is_range)
+
+    def test_detect_period_from_filename_single(self):
+        from accounting.tasks import detect_period_from_filename
+        start, end, period, is_range = detect_period_from_filename("BAN_HANG_20260710_072009.xlsx", None)
+        self.assertEqual(start.year, 2026)
+        self.assertEqual(start.month, 7)
+        self.assertEqual(start.day, 1)
+        self.assertEqual(end.year, 2026)
+        self.assertEqual(end.month, 7)
+        self.assertEqual(end.day, 31)
+        self.assertEqual(period, "2026-07")
+        self.assertFalse(is_range)
+
+    def test_detect_period_from_filename_month(self):
+        from accounting.tasks import detect_period_from_filename
+        start, end, period, is_range = detect_period_from_filename("BAN_HANG_202606.xlsx", None)
+        self.assertEqual(start.year, 2026)
+        self.assertEqual(start.month, 6)
+        self.assertEqual(start.day, 1)
+        self.assertEqual(end.year, 2026)
+        self.assertEqual(end.month, 6)
+        self.assertEqual(end.day, 30)
+        self.assertEqual(period, "2026-06")
+        self.assertFalse(is_range)
+
+    def test_bu_performance_ytd_propagation(self):
+        from accounting.models import BusinessUnit, BUPerformance
+        from accounting.tasks import update_single_bu_performance
+        
+        bu = BusinessUnit.objects.create(code="TEST_YTD", name="Test YTD BU")
+        
+        # Tạo sẵn bản ghi BUPerformance cho tháng 5 và 6
+        perf_may = BUPerformance.objects.create(
+            business_unit=bu, month=5, year=2026,
+            mtd_revenue_actual=1000, mtd_collection_actual=800,
+            ytd_revenue_actual=1000, ytd_collection_actual=800
+        )
+        perf_june = BUPerformance.objects.create(
+            business_unit=bu, month=6, year=2026,
+            mtd_revenue_actual=1500, mtd_collection_actual=1200,
+            ytd_revenue_actual=2500, ytd_collection_actual=2000
+        )
+        
+        # Chạy update cho tháng 5
+        update_single_bu_performance(bu.id, month=5, year=2026)
+        
+        # Lấy lại bản ghi tháng 6 để kiểm tra lũy kế YTD có tự động cập nhật
+        perf_june.refresh_from_db()
+        perf_may.refresh_from_db()
+        self.assertEqual(perf_june.ytd_revenue_actual, perf_may.ytd_revenue_actual + perf_june.mtd_revenue_actual)
+        self.assertEqual(perf_june.ytd_collection_actual, perf_may.ytd_collection_actual + perf_june.mtd_collection_actual)
 
 
 

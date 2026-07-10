@@ -113,11 +113,11 @@ Các chỉ số KPI chính gồm:
 
 | File Excel Báo cáo | Model Đích | Trạng thái ánh xạ tổng quát | Phát hiện sai lệch / Lỗi mất dữ liệu |
 | :--- | :--- | :--- | :--- |
-| **`BAN_HANG*.xlsx`** | `SalesTransaction` | Thiếu ánh xạ khóa ngoại quan trọng | ❌ Cột **`Mã kho`** & **`Chi nhánh`** bị bỏ qua (100% bản ghi bị null trong DB). |
+| **`BAN_HANG*.xlsx`** | `SalesTransaction` | Tốt (Đã sửa lỗi) | Đã sửa lỗi ánh xạ: Cột **`Mã kho`** & **`Chi nhánh`** được ánh xạ đầy đủ. |
 | **`TON_KHO*.xlsx`** | `InventorySummary` | Tốt (Sau nâng cấp giá bán) | Hỗ trợ tính toán động trị giá khi thiếu cột trị giá từ Excel. |
 | **`MUA_HANG*.xlsx`** | `PurchaseDetail` | Tốt | Hoạt động chính xác theo đúng cấu trúc tệp. |
 | **`CONG_NO_NCC*.xlsx`** | `SupplierDebt` | Khớp | Rủi ro tiềm ẩn về khoảng trắng thừa ở mã nhà cung cấp giống tồn kho cũ. |
-| **`TUOI_NO_KH*.xlsx`** | `ReceivablesAgeing`| Thiếu cấu trúc chi tiết | ❌ Các cột **tuổi nợ chi tiết (0-14, 15-30 ngày...)** bị bỏ qua hoàn toàn. |
+| **`TUOI_NO_KH*.xlsx`** | `ReceivablesAgeing`| Tốt (Đã sửa lỗi) | Đã sửa lỗi ánh xạ: Toàn bộ 14 cột tuổi nợ chi tiết được nạp chính xác. |
 | **`TAI_KHOAN_CT*.xlsx`**| `AccountDetail` | Tốt (Đã sửa lỗi) | Hỗ trợ nạp đầy đủ Tên tài khoản, Dư Nợ/Có, Mã/Tên đơn vị. |
 | **`KHACH_HANG*.xlsx`** | `Customer` | Khớp | Tự động tạo danh mục bổ sung khi có phát sinh mới. |
 
@@ -125,8 +125,7 @@ Các chỉ số KPI chính gồm:
 
 #### A. Báo cáo Bán hàng (`BAN_HANG`) ➔ Model `SalesTransaction`
 *   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã khách hàng`, `product` ➔ `Mã hàng`, `employee` ➔ `Mã nhân viên bán hàng`, `business_unit` ➔ `Mã thống kê`, `quantity` ➔ `Tổng số lượng bán`, `unit_price` ➔ `Đơn giá`, `sales_amount` ➔ `Doanh số bán`, `tax_percent` ➔ `% Thuế`, `tax_amount` ➔ `Thuế GTGT`, `debit_acc` ➔ `TK Nợ`, `credit_acc` ➔ `TK Có`, `discount_acc` ➔ `TK chiết khấu`, `discount_amount` ➔ `Chiết khấu`, `actual_sales` ➔ `Doanh số thực tế`.
-*   **Lỗi mất dữ liệu:** Trường `warehouse` (Kho) và `branch` (Chi nhánh) được khai báo trong model và hàm `before_import_row` có tạo/lấy danh mục tương ứng. Tuy nhiên, class `SalesTransactionResource` **bỏ quên không khai báo** hai trường này ở cấp class fields.
-*   **Hậu quả:** 100% dòng dữ liệu bán hàng (tất cả 22,864 dòng) có trường `warehouse` và `branch` bị **`NULL`**.
+*   **Kết quả sửa đổi:** Class `SalesTransactionResource` đã khai báo tường minh hai trường `warehouse` (Kho) và `branch` (Chi nhánh) sử dụng `ForeignKeyWidget` khớp chính xác danh mục liên kết. Dữ liệu import không còn bị `NULL`.
 
 #### B. Báo cáo Tồn kho (`TON_KHO`) ➔ Model `InventorySummary` & `Product`
 *   **Các trường ánh xạ đúng:** `warehouse` ➔ `Mã kho`, `product` ➔ `Mã hàng`, `opening_quantity` ➔ `Đầu kỳ_Số lượng`, `in_quantity` ➔ `Nhập kho_Số lượng`, `out_quantity` ➔ `Xuất kho_Số lượng`, `closing_quantity` ➔ `Cuối kỳ_Số lượng`, `selling_price` ➔ `Đơn giá bán 1`.
@@ -138,8 +137,7 @@ Các chỉ số KPI chính gồm:
 
 #### D. Báo cáo Tuổi nợ khách hàng (`TUOI_NO_KH`) ➔ Model `ReceivablesAgeing`
 *   **Các trường ánh xạ đúng:** `customer` ➔ `Mã khách hàng`, `branch` ➔ `Chi nhánh`, `doc_date` ➔ `Ngày chứng từ`, `total_debt` ➔ `Tổng nợ`, `due_total` ➔ `Nợ trước hạn_Tổng`, `overdue_total` ➔ `Nợ quá hạn_Tổng`.
-*   **Thiếu sót dữ liệu:** Model có thiết kế chi tiết các khoảng quá hạn `overdue_0_14`, `overdue_15_30`... và tệp Excel thực tế của MISA có các cột tương ứng, nhưng Resource **không hề khai báo hay ánh xạ**.
-*   **Hậu quả:** 100% các cột quá hạn chi tiết trong DB đều bị **bằng `0.00`**.
+*   **Kết quả sửa đổi:** Đã bổ sung khai báo đầy đủ 14 cột tuổi nợ chi tiết (bao gồm `due_0_7`, `due_8_30`, `overdue_0_14`, `overdue_15_30`...) trong class `ReceivablesAgeingResource`. Dữ liệu được mapping chính xác vào DB.
 
 #### E. Báo cáo Sổ chi tiết tài khoản (`TAI_KHOAN_CT`) ➔ Model `AccountDetail`
 *   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã đối tượng`, `business_unit` ➔ `Mã thống kê`, `branch` ➔ `Chi nhánh`, `account_number` ➔ `Tài khoản`, `offset_account` ➔ `TK đối ứng`, `debit_amount` ➔ `Phát sinh Nợ`, `credit_amount` ➔ `Phát sinh Có`, `unreasonable_cost` ➔ `CP không hợp lý`, `account_name` ➔ `Tên tài khoản`, `balance_debit` ➔ `Dư Nợ`, `balance_credit` ➔ `Dư Có`, `unit_code` ➔ `Mã đơn vị`, `unit_name` ➔ `Tên đơn vị`.

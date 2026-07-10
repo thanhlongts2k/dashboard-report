@@ -8,7 +8,27 @@ from .models import (
 )
 from .models import Supplier, SupplierDebt, SupplierGroup, ReceivablesAgeing, InventorySummary
 
-class SalesTransactionResource(resources.ModelResource):
+class BulkCreateResource(resources.ModelResource):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instances_to_create = []
+
+    def save_instance(self, *args, **kwargs):
+        dry_run = kwargs.get('dry_run', False)
+        if len(args) >= 4:
+            dry_run = args[3]
+        if not dry_run:
+            instance = kwargs.get('instance')
+            if len(args) >= 1:
+                instance = args[0]
+            self.instances_to_create.append(instance)
+
+    def after_import(self, dataset, result, using_transactions, dry_run, **kwargs):
+        if not dry_run and self.instances_to_create:
+            self.Meta.model.objects.bulk_create(self.instances_to_create, batch_size=1000)
+            self.instances_to_create.clear()
+
+class SalesTransactionResource(BulkCreateResource):
     # --- 1. MAPPING FIELDS ---
     posting_date = fields.Field(
         attribute='posting_date', 
@@ -35,6 +55,16 @@ class SalesTransactionResource(resources.ModelResource):
         attribute='business_unit', 
         column_name='Mã thống kê', 
         widget=ForeignKeyWidget(BusinessUnit, 'code')
+    )
+    warehouse = fields.Field(
+        attribute='warehouse',
+        column_name='Mã kho',
+        widget=ForeignKeyWidget(Warehouse, 'code')
+    )
+    branch = fields.Field(
+        attribute='branch',
+        column_name='Chi nhánh',
+        widget=ForeignKeyWidget(Branch, 'name')
     )
     
     # Các trường số liệu
@@ -149,7 +179,7 @@ class SalesTransactionResource(resources.ModelResource):
             Warehouse.objects.get_or_create(code=wh_code, defaults={'name': row.get('Tên kho') or 'N/A'})
 
 
-class SupplierDebtResource(resources.ModelResource):
+class SupplierDebtResource(BulkCreateResource):
     supplier = fields.Field(
         attribute='supplier',
         column_name='Mã nhà cung cấp',
@@ -163,6 +193,7 @@ class SupplierDebtResource(resources.ModelResource):
     incurred_credit = fields.Field(attribute='incurred_credit', column_name='Phát sinh_Có', widget=DecimalWidget())
     closing_debit = fields.Field(attribute='closing_debit', column_name='Cuối kỳ_Nợ', widget=DecimalWidget())
     closing_credit = fields.Field(attribute='closing_credit', column_name='Cuối kỳ_Có', widget=DecimalWidget())
+    reporting_period = fields.Field(attribute='reporting_period', column_name='reporting_period')
 
     class Meta:
         model = SupplierDebt
@@ -239,8 +270,9 @@ class SupplierDebtResource(resources.ModelResource):
                 'group': s_group
             }
         )
+        row['reporting_period'] = kwargs.get('reporting_period')
 
-class AccountDetailResource(resources.ModelResource):
+class AccountDetailResource(BulkCreateResource):
     posting_date = fields.Field(attribute='posting_date', column_name='Ngày hạch toán', widget=DateWidget(format='%Y-%m-%d'))
     doc_id = fields.Field(attribute='doc_id', column_name='Số chứng từ')
     customer = fields.Field(
@@ -341,16 +373,32 @@ class AccountDetailResource(resources.ModelResource):
             row['Chi nhánh'] = None
 
 
-class ReceivablesAgeingResource(resources.ModelResource):
+class ReceivablesAgeingResource(BulkCreateResource):
     customer = fields.Field(attribute='customer', column_name='Mã khách hàng', widget=ForeignKeyWidget(Customer, 'code'))
     branch = fields.Field(attribute='branch', column_name='Chi nhánh', widget=ForeignKeyWidget(Branch, 'name'))
     doc_date = fields.Field(attribute='doc_date', column_name='Ngày chứng từ', widget=DateWidget(format='%Y-%m-%d'))
     
-    # Mapping các trường số liệu (các cột khác sẽ bị bỏ qua vì không khai báo)
+    # Mapping các trường số liệu
     total_debt = fields.Field(attribute='total_debt', column_name='Tổng nợ', widget=DecimalWidget())
+    no_due_limit = fields.Field(attribute='no_due_limit', column_name='Không có hạn nợ', widget=DecimalWidget())
+    due_0_7 = fields.Field(attribute='due_0_7', column_name='Nợ trước hạn_0-7 ngày', widget=DecimalWidget())
+    due_8_14 = fields.Field(attribute='due_8_14', column_name='Nợ trước hạn_8-14 ngày', widget=DecimalWidget())
+    due_15_21 = fields.Field(attribute='due_15_21', column_name='Nợ trước hạn_15-21 ngày', widget=DecimalWidget())
+    due_22_28 = fields.Field(attribute='due_22_28', column_name='Nợ trước hạn_22-28 ngày', widget=DecimalWidget())
+    due_29_60 = fields.Field(attribute='due_29_60', column_name='Nợ trước hạn_29-60 ngày', widget=DecimalWidget())
+    due_above_60 = fields.Field(attribute='due_above_60', column_name='Nợ trước hạn_Trên 60 ngày', widget=DecimalWidget())
     due_total = fields.Field(attribute='due_total', column_name='Nợ trước hạn_Tổng', widget=DecimalWidget())
+    
+    overdue_0_14 = fields.Field(attribute='overdue_0_14', column_name='Nợ quá hạn_1-14 ngày', widget=DecimalWidget())
+    overdue_15_30 = fields.Field(attribute='overdue_15_30', column_name='Nợ quá hạn_15-30 ngày', widget=DecimalWidget())
+    overdue_31_45 = fields.Field(attribute='overdue_31_45', column_name='Nợ quá hạn_31-45 ngày', widget=DecimalWidget())
+    overdue_46_60 = fields.Field(attribute='overdue_46_60', column_name='Nợ quá hạn_46-60 ngày', widget=DecimalWidget())
+    overdue_61_90 = fields.Field(attribute='overdue_61_90', column_name='Nợ quá hạn_61-90 ngày', widget=DecimalWidget())
+    overdue_91_120 = fields.Field(attribute='overdue_91_120', column_name='Nợ quá hạn_91-120 ngày', widget=DecimalWidget())
+    overdue_above_120 = fields.Field(attribute='overdue_above_120', column_name='Nợ quá hạn_Trên 120 ngày', widget=DecimalWidget())
     overdue_total = fields.Field(attribute='overdue_total', column_name='Nợ quá hạn_Tổng', widget=DecimalWidget())
-    # Lưu ý: Các trường chi tiết ngày (0-7, 15-30...) cần được mapping tương tự nếu muốn lấy đủ
+    
+    reporting_period = fields.Field(attribute='reporting_period', column_name='reporting_period')
 
     class Meta:
         model = ReceivablesAgeing
@@ -405,7 +453,9 @@ class ReceivablesAgeingResource(resources.ModelResource):
         else:
             row['Chi nhánh'] = None
 
-class InventorySummaryResource(resources.ModelResource):
+        row['reporting_period'] = kwargs.get('reporting_period')
+
+class InventorySummaryResource(BulkCreateResource):
     warehouse = fields.Field(
         attribute='warehouse',
         column_name='Mã kho',
@@ -416,6 +466,7 @@ class InventorySummaryResource(resources.ModelResource):
         column_name='Mã hàng',
         widget=ForeignKeyWidget(Product, 'code')
     )
+    reporting_period = fields.Field(attribute='reporting_period', column_name='reporting_period')
     
     # Mapping các cột số liệu (Sau khi đã xử lý tiêu đề tầng 2)
     # opening_quantity = fields.Field(attribute='opening_quantity', column_name='Đầu kỳ_Số lượng', widget=DecimalWidget())
@@ -564,10 +615,11 @@ class InventorySummaryResource(resources.ModelResource):
         # Gán lại vào row để ForeignKeyWidget dùng code tìm chính xác (không bị lệch khoảng trắng)
         row['Mã hàng'] = prod_code
         row['Mã kho'] = wh_code
+        row['reporting_period'] = kwargs.get('reporting_period')
         return row
 
 
-class PurchaseDetailResource(resources.ModelResource):
+class PurchaseDetailResource(BulkCreateResource):
     # Định nghĩa các trường liên kết
     supplier = fields.Field(
         attribute='supplier',
@@ -722,7 +774,7 @@ class PurchaseDetailResource(resources.ModelResource):
         return row
 
 
-class CustomerResource(resources.ModelResource):
+class CustomerResource(BulkCreateResource):
     group = fields.Field(
         attribute='group',
         column_name='Mã nhóm khách hàng',

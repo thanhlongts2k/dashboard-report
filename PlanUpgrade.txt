@@ -1,0 +1,95 @@
+================================================================================
+TÀI LIỆU CHI TIẾT KỸ THUẬT: CHUYỂN ĐỔI LUỒNG IMPORT EXCEL TỪ LŨY KẾ SANG PHÂN ĐOẠN (CHUNK) THEO THÁNG
+Dự án: Report2026 (HP Co.)
+================================================================================
+
+1. BỐI CẢNH & KHẮC PHỤC NỢ KỸ THUẬT (TECHNICAL DEBT)
+--------------------------------------------------------------------------------
+- Hiện tại, hệ thống vận hành theo cơ chế "Wipe and Reload" (Xóa trắng và Nạp lại) 
+  bằng lệnh `objects.all().delete()` ở đầu mỗi tiến trình import. Điều này bắt buộc 
+  kế toán phải xuất file lũy kế từ đầu năm dẫn đến phình to dung lượng file Excel, 
+  gây nghẽn mạng, tốn RAM server và tạo Exclusive Lock (khóa bảng) trên PostgreSQL.
+- Mục tiêu: Chuyển đổi sang cơ chế nạp file rời theo từng tháng. Chỉ xóa và ghi đè 
+  dữ liệu thuộc "Kỳ kế toán" tương ứng của file nạp, bảo toàn dữ liệu các tháng cũ, 
+  đồng thời áp dụng Chunking/Streaming khi đọc file để tối ưu tài nguyên server.
+
+2. QUY TRÌNH KỸ THUẬT XỬ LÝ PHÂN ĐOẠN ĐẦU VÀO (ETL CHUNKING FLOW)
+--------------------------------------------------------------------------------
+Khi một file Excel tháng được đặt vào thư mục `media/auto_imports/`, Celery Task 
+sẽ thực hiện tuần tự theo các bước kỹ thuật sau:
+
+Bước 2.1: Nhận diện Kỳ kế toán chủ động (Period Detection)
+- Do hệ thống không bóc tách thời gian từ tên file (`BAN_HANG*.xlsx`), hệ thống 
+  sẽ "đọc lướt" (peek) 1-2 dòng dữ liệu đầu tiên của file Excel hằng ngày để trích 
+  xuất giá trị tại cột 'Ngày hạch toán' (posting_date).
+- Trích xuất: `year = posting_date.year`, `month = posting_date.month`.
+- Từ đó xác định khoảng ngày hạch toán cần xử lý (Chunk Range):
+  + `start_date = "YYYY-MM-01"`
+  + `end_date = "YYYY-MM-[Ngày cuối tháng]"` (Sử dụng hàm calendar.monthrange)
+
+Bước 2.2: Xóa phân đoạn đích (Targeted Chunk Deletion)
+- Thay vì gọi `Model.objects.all().delete()`, hệ thống chuyển sang xóa trúng mục tiêu.
+- Lệnh thực thi mẫu (ví dụ với bảng SalesTransaction):
+  `SalesTransaction.objects.filter(posting_date__range=[start_date, end_date]).delete()`
+- Toàn bộ lệnh xóa này PHẢI nằm trong khối `with transaction.atomic():` cùng với 
+  tiến trình nạp mới để đảm bảo tính toàn vẹn (Atomicity), lỗi sẽ tự động rollback.
+
+Bước 2.3: Đọc và Nạp theo Lô (Chunk Reading & Bulk Create)
+- Sử dụng cơ chế Streaming của thư viện (hoặc tham số `chunksize` nếu parse qua pandas) 
+  để đọc file Excel theo từng block (Mỗi block tối đa 1.000 dòng) thay vì load 
+  toàn bộ file vào bộ nhớ RAM cùng lúc.
+- Dùng phương thức `Model.objects.bulk_create(batch_list, batch_size=1000)` thay 
+  vì lưu từng dòng qua hàm `.save()` của ORM để giải phóng CPU và tăng tốc độ ghi DB.
+
+3. CHI THIẾT CẤU TRÚC ĐỐI VỚI CÁC BẢNG SỐ DƯ (SNAPSHOT TABLES)
+--------------------------------------------------------------------------------
+Các bảng giao dịch phát sinh biến động (`SalesTransaction`, `AccountDetail`) có mốc 
+ngày cụ thể nên việc chia chunk rất dễ dàng. Tuy nhiên, các bảng dạng Số dư/Ảnh chụp 
+(Snapshot) tại một thời điểm cần có giải pháp gán nhãn:
+
+- Các Model bị ảnh hưởng: `InventorySummary`, `SupplierDebt`, `ReceivablesAgeing`.
+- Giải pháp: Bổ sung trường `reporting_period` (Kiểu CharField, max_length=7, 
+  định dạng "YYYY-MM", đánh index cột này) vào các bảng trên trong `models.py`.
+- Nghiệp vụ Import: Khi kế toán đẩy file Tồn kho hay Công nợ của tháng 6 lên, hệ thống 
+  sẽ xóa dữ liệu cũ có `reporting_period='2026-06'`, sau đó nạp dữ liệu mới và gán 
+  cố định giá trị trường `reporting_period='2026-06'` cho tất cả các dòng đó.
+
+4. NÂNG CẤP LUỒNG TÍNH TOÁN KPI TỰ ĐỘNG (ORCHESTRATION & ANALYTICS)
+--------------------------------------------------------------------------------
+Sau khi dữ liệu thô của tháng được nạp thành công, Celery Beat/Worker sẽ kích hoạt 
+hàm tính toán lại KPI (`update_single_bu_performance`). Hàm này cần được refactor:
+
+- Tham số đầu vào: Nhận thêm tham số `month` và `year` từ tiến trình import trả về.
+- Phạm vi quét: Chỉ tính toán và cập nhật số liệu phát sinh hằng ngày (`BUPerformanceDaily`) 
+  từ ngày 01 đến ngày cuối cùng của tháng hạch toán đó.
+- Logic xử lý Lũy kế năm (Year-to-Date - YTD): 
+  Vì dữ liệu thô đầu vào giờ đã bị chia nhỏ theo tháng độc lập, khi tính chỉ số 
+  Lũy kế năm cho bảng `BUPerformance`, hệ thống áp dụng công thức:
+  `Số lũy kế năm (Tháng N) = Số lũy kế năm (Tháng N-1 lấy từ DB) + Số phát sinh thực tế (Tháng N)`
+- Cơ chế kích hoạt Manual Trigger: API `POST /api/update-performance/` cần chuyển đổi 
+  từ chạy đồng bộ (Synchronous) sang chạy ngầm thông qua hàng chờ Celery bằng cách 
+  sử dụng phương thức `.delay(...)` để tránh lỗi HTTP 504 Gateway Timeout khi bảng dữ 
+  liệu phình to.
+
+5. TIỆN TAY KHẮC PHỤC CÁC SAI LỆCH MAPPING ĐANG CÓ (TECHNICAL DEBT FIX)
+--------------------------------------------------------------------------------
+Trong quá trình mở mã nguồn để sửa luồng import theo tháng, lập trình viên bắt buộc 
+phải xử lý triệt để các lỗi cấu trúc hiện tại trong file `resources.py`:
+
+- Báo cáo Bán hàng (`BAN_HANG`): 
+  Khai báo bổ sung trường `warehouse` (Kho) và `branch` (Chi nhánh) vào class fields 
+  của `SalesTransactionResource` để chấm dứt tình trạng 100% bản ghi bị NULL trong DB, 
+  phục vụ tính năng lọc doanh thu theo kho/chi nhánh trên Dashboard của Lãnh đạo.
+- Báo cáo Tuổi nợ khách hàng (`TUOI_NO_KH`):
+  Ánh xạ chi tiết các cột tuổi nợ cấu trúc (`overdue_0_14`, `overdue_15_30`,...) từ file 
+  Excel MISA vào các trường tương ứng của `ReceivablesAgeingResource`, tránh việc dữ liệu 
+  mặc định bằng 0.00, giúp Dashboard hiển thị biểu đồ cơ cấu tuổi nợ chính xác.
+- Đồng bộ công thức doanh thu:
+  Thống nhất với kế toán để đưa công thức Doanh thu tháng (`rev_actual`) và Doanh thu ngày 
+  (`daily_rev`) về cùng một trường dữ liệu (Khuyến nghị dùng `actual_sales` - Doanh số thực tế 
+  sau giảm trừ) để tránh lệch số liệu giữa các biểu đồ.
+
+================================================================================
+KẾT LUẬN: Tuân thủ quy trình Checklist 5 bước tại file CheckList.md trước khi 
+thực hiện commit các thay đổi trên vào mã nguồn chính thức của dự án.
+================================================================================

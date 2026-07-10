@@ -12,10 +12,16 @@ django.setup()
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.db.models import Q
 from tablib import Dataset
 from accounting.models import Customer, SalesTransaction, PurchaseDetail, InventorySummary, SupplierDebt, ReceivablesAgeing, AccountDetail, ImportLog
 from accounting.resources import CustomerResource, SalesTransactionResource, PurchaseDetailResource, InventorySummaryResource, SupplierDebtResource, ReceivablesAgeingResource, AccountDetailResource
-from accounting.tasks import move_to_processed, update_single_bu_performance
+from accounting.tasks import (
+    move_to_processed, 
+    update_single_bu_performance, 
+    detect_period_from_filename, 
+    load_and_clean_excel
+)
 
 # Mapping Prefix -> Model, Resource
 IMPORT_MAP = {
@@ -54,21 +60,64 @@ def import_file(file_path):
     try:
         import_success = False
         msg = ""
+        
+        # 1. Nhận diện kỳ báo cáo từ tên file
+        start_date, end_date, reporting_period, is_range = detect_period_from_filename(filename, file_path)
+        print(f"[{matched_prefix}] Detected period: {start_date} to {end_date}, period: {reporting_period}")
+        
         with transaction.atomic():
             deleted_count = 0
+            # 2. Xóa phân đoạn dữ liệu cũ
             if not config.get('skip_delete', False):
-                deleted_count = config['model'].objects.count()
-                print(f"Deleting {deleted_count} old records for model {config['model'].__name__}...")
-                config['model'].objects.all().delete()
+                is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing]
+                if is_snapshot:
+                    deleted_count = config['model'].objects.filter(
+                        Q(reporting_period=reporting_period) | Q(reporting_period__isnull=True)
+                    ).delete()[0]
+                else:
+                    deleted_count = config['model'].objects.filter(
+                        posting_date__range=[start_date, end_date]
+                    ).delete()[0]
+                print(f"Deleted {deleted_count} old records for model {config['model'].__name__}...")
                 
-            dataset = Dataset()
-            with open(file_path, 'rb') as f:
-                dataset.load(f.read(), format='xlsx')
-                
-            result = config['resource'].import_data(dataset, dry_run=False)
+            # 3. Đọc và làm sạch dữ liệu Excel
+            headers, cleaned_rows = load_and_clean_excel(file_path, matched_prefix)
             
-            if not result.has_errors():
-                msg = f"Đã xóa {deleted_count} dòng cũ & Import mới {len(dataset)} dòng (chạy thủ công)."
+            # 4. Nạp dữ liệu theo lô (Chunk 1000 dòng)
+            chunk_size = 1000
+            total_rows = len(cleaned_rows)
+            imported_count = 0
+            has_error = False
+            error_details = []
+            
+            for i in range(0, total_rows, chunk_size):
+                chunk_data = cleaned_rows[i:i+chunk_size]
+                chunk_dataset = Dataset()
+                chunk_dataset.headers = headers
+                for r in chunk_data:
+                    chunk_dataset.append([r[h] for h in headers])
+                
+                result = config['resource'].import_data(
+                    chunk_dataset, 
+                    dry_run=False, 
+                    reporting_period=reporting_period
+                )
+                
+                if result.has_errors():
+                    has_error = True
+                    if result.base_errors:
+                         for error in result.base_errors:
+                             error_details.append(f"Lỗi chung: {str(error.error)}")
+                    if result.row_errors():
+                         for row_num, errors in result.row_errors():
+                             for error in errors:
+                                 error_details.append(f"Dòng {row_num + i}: {str(error.error)}")
+                    break
+                else:
+                    imported_count += len(chunk_dataset)
+            
+            if not has_error:
+                msg = f"Đã xóa {deleted_count} dòng cũ & Import mới {imported_count} dòng cho kỳ {reporting_period} (chạy thủ công)."
                 ImportLog.objects.create(
                     file_name=filename,
                     status='SUCCESS',
@@ -78,15 +127,6 @@ def import_file(file_path):
                 )
                 import_success = True
             else:
-                error_details = []
-                if result.base_errors:
-                    for error in result.base_errors:
-                        error_details.append(f"Lỗi chung: {str(error.error)}")
-                if result.row_errors():
-                    for row_num, errors in result.row_errors():
-                        for error in errors:
-                            error_details.append(f"Dòng {row_num}: {str(error.error)}")
-                            
                 err_msg = "\n".join(error_details)
                 msg = f"Lỗi dữ liệu file.\nChi tiết lỗi:\n{err_msg}"
                 print(f"ERROR: {msg}")

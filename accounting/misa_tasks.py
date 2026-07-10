@@ -727,8 +727,42 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             else:
                 logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' checkbox.")
             await asyncio.sleep(0.5)
+
+            # Step 3.1: Loại bỏ các chi nhánh có chứa "_Nhật"
+            logger.info("Checking for branch tags containing '_Nhật' to remove...")
+            target_frame = frame if frame else page
+            try:
+                for attempt in range(15):  # Click tối đa 15 lần
+                    tag_xpath = "//*[contains(text(), '_Nhật')]/ancestor::*[contains(@class, 'tag') or contains(@class, 'item') or contains(@class, 'badge') or contains(@class, 'dx-tag') or contains(@class, 'ms-tag') or @class='dx-tag-content' or @class='ms-tag-content']"
+                    tag_containers = target_frame.locator(f"xpath={tag_xpath}")
+                    count = await tag_containers.count()
+                    
+                    clicked_any = False
+                    for i in range(count):
+                        tag = tag_containers.nth(i)
+                        if await tag.is_visible():
+                            close_btn = tag.locator("xpath=.//*[contains(@class, 'close') or contains(@class, 'remove') or contains(@class, 'clear') or contains(@class, 'dx-tag-remove-button') or text()='x' or text()='×']").first
+                            if await close_btn.count() > 0 and await close_btn.is_visible():
+                                logger.info("Removing branch tag containing '_Nhật' (click close button)")
+                                await close_btn.click(force=True)
+                                await asyncio.sleep(0.5)
+                                clicked_any = True
+                                break
+                            else:
+                                box = await tag.bounding_box()
+                                if box:
+                                    logger.info("Removing branch tag containing '_Nhật' (click right edge coordinates)")
+                                    await page.mouse.click(box['x'] + box['width'] - 10, box['y'] + box['height'] / 2)
+                                    await asyncio.sleep(0.5)
+                                    clicked_any = True
+                                    break
+                    if not clicked_any:
+                        logger.info("Finished filtering branch tags (no more visible '_Nhật' tags found).")
+                        break
+            except Exception as e:
+                logger.warning(f"Error while deselecting '_Nhật' branches: {e}")
             
-            # Step 4: Choose "Kỳ báo cáo" -> "Năm nay"
+            # Step 4: Choose "Kỳ báo cáo" -> "Tháng này"
             skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
             ky_baocao_selectors = [
                 "xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//input",
@@ -757,7 +791,6 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 await ky_input.click(force=True)
                 await asyncio.sleep(0.3)
                 
-                # Click the combobox arrow button specifically to ensure the dropdown opens
                 try:
                     arrow = frame.locator("xpath=//label[contains(text(), 'Kỳ báo cáo')]/following-sibling::div//*[contains(@class, 'arrow') or contains(@class, 'icon') or contains(@class, 'button')]").first
                     if await arrow.is_visible(timeout=1000):
@@ -767,32 +800,32 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception as e:
                     logger.debug(f"Failed to click combo arrow: {str(e)}")
                 
-                nam_nay_selectors = [
-                    "text='Năm nay'",
-                    ".dx-list-item-content:has-text('Năm nay')",
-                    ".ms-combo-item:has-text('Năm nay')",
-                    "div[role='option']:has-text('Năm nay')",
-                    "li:has-text('Năm nay')",
-                    "xpath=//div[contains(@class, 'dx-item-content') and text()='Năm nay']"
+                thang_nay_selectors = [
+                    "text='Tháng này'",
+                    ".dx-list-item-content:has-text('Tháng này')",
+                    ".ms-combo-item:has-text('Tháng này')",
+                    "div[role='option']:has-text('Tháng này')",
+                    "li:has-text('Tháng này')",
+                    "xpath=//div[contains(@class, 'dx-item-content') and text()='Tháng này']"
                 ]
-                nam_nay_item, option_frame = await find_locator_in_any_frame(page, nam_nay_selectors, timeout=3000)
-                if nam_nay_item:
-                    logger.info("Selecting 'Nam nay' from dropdown list...")
-                    await nam_nay_item.click(force=True)
+                thang_nay_item, option_frame = await find_locator_in_any_frame(page, thang_nay_selectors, timeout=3000)
+                if thang_nay_item:
+                    logger.info("Selecting 'Thang nay' from dropdown list...")
+                    await thang_nay_item.click(force=True)
                 else:
-                    logger.warning("Could not find 'Nam nay' option in dropdown list. Trying keyboard search...")
+                    logger.warning("Could not find 'Thang nay' option in dropdown list. Trying keyboard search...")
                     try:
                         await ky_input.click(click_count=3)
                         await page.keyboard.press("Backspace")
                         await asyncio.sleep(0.2)
-                        await ky_input.type("Năm nay")
+                        await ky_input.type("Tháng này")
                         await asyncio.sleep(0.5)
                         await page.keyboard.press("ArrowDown")
                         await asyncio.sleep(0.2)
                         await page.keyboard.press("Enter")
-                        logger.info("Typed 'Năm nay' and pressed Enter.")
+                        logger.info("Typed 'Tháng này' and pressed Enter.")
                     except Exception as e:
-                        logger.error(f"Failed to fill 'Nam nay': {str(e)}")
+                        logger.error(f"Failed to fill 'Tháng này': {str(e)}")
             else:
                 logger.warning("Could not find 'Ky bao cao' input combobox.")
             await asyncio.sleep(0.5)

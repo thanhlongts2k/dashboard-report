@@ -486,3 +486,40 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 4. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
 5. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
 6. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
+
+---
+
+## 10. Nhật ký Cập nhật & Thay đổi (Change Logs)
+
+### Ngày 10/07/2026
+
+#### 🛠️ Đã sửa đổi & Cập nhật:
+- **Chuyển đổi luồng Import Excel sang cơ chế Phân đoạn (Chunk) theo Tháng**:
+  - Hỗ trợ tự động nhận diện kỳ kế toán (`reporting_period`) từ tên file hoặc đọc lướt nội dung file Excel (nếu tên file không chứa thông tin ngày tháng).
+  - Thay đổi cơ chế "Wipe and Reload" (xóa sạch toàn bộ bảng) thành "Targeted Chunk Deletion" (chỉ xóa phân đoạn dữ liệu của kỳ hạch toán tương ứng từ `start_date` đến `end_date`), giúp bảo tồn dữ liệu của các tháng khác.
+  - Bổ sung trường `reporting_period` (định dạng `YYYY-MM`) vào các bảng số dư (Snapshot Tables: `InventorySummary`, `SupplierDebt`, `ReceivablesAgeing`) để quản lý và ghi đè chính xác dữ liệu theo từng kỳ báo cáo.
+  - Kế thừa lớp `BulkCreateResource` sử dụng `objects.bulk_create(..., batch_size=1000)` khi import dữ liệu Excel nhằm tối ưu hóa hiệu năng, rút ngắn thời gian import và phòng tránh lock bảng PostgreSQL.
+- **Nâng cấp logic tính toán KPI & Đồng bộ tồn kho tự động**:
+  - Celery Tasks tự động kích hoạt tính toán lại KPI (`update_single_bu_performance`) cho toàn bộ các Business Unit lẻ và Tổng công ty ngay sau khi nạp file Excel thành công.
+  - Chỉ thực hiện cập nhật số liệu phát sinh hàng ngày (`BUPerformanceDaily`) trong phạm vi tháng của file được nạp (từ ngày 01 đến ngày cuối của tháng đó).
+  - Bổ sung cơ chế **lan truyền lũy kế năm (YTD Propagation)**: tự động tính lũy kế năm `YTD (Tháng N) = YTD (Tháng N-1) + Thực tế tháng N` và cập nhật nối tiếp sang các tháng tiếp theo trong năm nếu có sự thay đổi số liệu tháng bất kỳ.
+  - Chuyển đổi API trigger thủ công (`POST /api/update-performance/`) sang chạy ngầm thông qua Celery queue để phòng tránh lỗi HTTP 504 Gateway Timeout.
+  - Tự động kích hoạt tác vụ đồng bộ tồn kho (`sync_warehouse_inventory_data`) vào bảng `Warehouse` theo đúng kỳ báo cáo sau khi hoàn tất tính KPI.
+- **Khắc phục triệt để các lỗi sai lệch Mapping cũ**:
+  - **Báo cáo Bán hàng (`BAN_HANG`)**: Khai báo bổ sung trường `warehouse` (Kho) và `branch` (Chi nhánh) vào class `SalesTransactionResource` để sửa triệt để lỗi 100% bản ghi bị `NULL` trước đây.
+  - **Báo cáo Tuổi nợ KH (`TUOI_NO_KH`)**: Ánh xạ đầy đủ 14 cột tuổi nợ chi tiết (các khoảng nợ trước hạn `due_0_7`... và quá hạn `overdue_0_14`...) vào model `ReceivablesAgeing` thay vì mặc định bằng `0.00`.
+  - **Đồng bộ công thức Doanh thu**: Thống nhất sử dụng trường `actual_sales` (Doanh số thực tế sau giảm trừ) cho cả doanh thu ngày (`BUPerformanceDaily.daily_revenue`) và doanh thu tháng (`BUPerformance.mtd_revenue_actual`) để tránh lệch số liệu.
+- **Tối ưu hóa Bot MISA Automation (Playwright)**:
+  - Tự động phát hiện và deselect (xóa bỏ) các chi nhánh có tên chứa hậu tố `_Nhật` khi tải báo cáo MISA.
+  - Đổi lựa chọn kỳ báo cáo mặc định từ "Năm nay" sang "Tháng này" để đồng bộ với luồng phân đoạn theo tháng mới.
+  - Tự động fallback chạy đồng bộ trực tiếp nếu máy chủ Redis/Celery offline để chống crash.
+
+#### 📊 Đánh giá kết quả hiện tại so với các lần cập nhật, chỉnh sửa trước đây:
+- **Độ hoàn thiện & Đáp ứng yêu cầu**:
+  - **Đã giải quyết triệt để** hai nợ kỹ thuật lớn nhất: lỗi sập và lock bảng khi nạp dữ liệu lớn (bằng bulk create + chia chunk) và lỗi mất dữ liệu các tháng cũ khi nạp file tháng mới (bằng cơ chế xóa phân đoạn).
+  - **Sửa chữa hoàn toàn** các lỗi mất dữ liệu mapping (kho, chi nhánh, chi tiết tuổi nợ).
+  - **Đồng bộ thành công** công thức tính doanh thu và nâng cao trải nghiệm người dùng bằng cách xử lý timeout 504.
+  - **Kết luận**: So với các lần cập nhật trước, kết quả hiện tại **đã đáp ứng đầy đủ và hoàn thiện các mục tiêu cốt lõi** đề ra cho hệ thống import và tính toán KPI tự động. Các tính năng hoạt động đồng bộ, trơn tru và có độ phủ kiểm thử an toàn cao (23/23 tests pass).
+- **Phần việc cần tiếp tục thực hiện (Pending)**:
+  - Trích xuất thêm các chỉ số Chi phí vận hành (OPEX), dòng tiền ra (cash out) từ dữ liệu MISA/Excel Mua hàng & Công nợ NCC để làm phong phú thêm Dashboard.
+  - Áp dụng phân quyền xem dữ liệu cấp dòng (Row-Level Security) cho từng Business Unit lẻ.

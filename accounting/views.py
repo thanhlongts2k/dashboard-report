@@ -247,22 +247,17 @@ class BUPerformanceUpdateAPIView(APIView):
             target_date_str = target_date.strftime('%Y-%m-%d') if target_date else None
 
             try:
-                # GỌI TASK: 
-                # Cách 1: Chạy ngay lập tức (Sync) để lấy kết quả trả về API
-                result = update_single_bu_performance(
+                # GỌI TASK chạy ngầm bất đồng bộ (Celery) để tránh 504 Gateway Timeout
+                update_single_bu_performance.delay(
                     bu_id=bu_id, 
                     month=month, 
                     year=year, 
                     target_date_str=target_date_str
                 )
                 
-                # Cách 2: Nếu muốn chạy ngầm (Async) qua Celery
-                # update_single_bu_performance.delay(bu_id, month, year, target_date_str)
-                # result = "Task has been queued"
-
                 return Response({
                     "status": "success",
-                    "message": result
+                    "message": "Tiến trình tính toán hiệu suất đã được xếp hàng đợi chạy ngầm (Celery)."
                 }, status=status.HTTP_200_OK)
 
             except Exception as e:

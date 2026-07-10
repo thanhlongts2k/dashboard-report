@@ -184,6 +184,7 @@ class SupplierDebt(models.Model):
     closing_credit = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Cuối kỳ - Có")
     
     created_at = models.DateTimeField(auto_now_add=True)
+    reporting_period = models.CharField(max_length=7, db_index=True, blank=True, null=True, verbose_name="Kỳ báo cáo")
 
     class Meta:
         verbose_name = "Công nợ NCC"
@@ -258,6 +259,7 @@ class ReceivablesAgeing(models.Model):
     overdue_91_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Quá hạn 91-120 ngày")
     overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Quá hạn trên 120 ngày")
     overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ quá hạn")
+    reporting_period = models.CharField(max_length=7, db_index=True, blank=True, null=True, verbose_name="Kỳ báo cáo")
 
     class Meta:
         verbose_name = "Chi tiết tuổi nợ"
@@ -288,6 +290,7 @@ class InventorySummary(models.Model):
     ext_field2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Trường mở rộng 2")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Ngày tạo")
+    reporting_period = models.CharField(max_length=7, db_index=True, blank=True, null=True, verbose_name="Kỳ báo cáo")
 
     class Meta:
         verbose_name = "Hàng tồn kho"
@@ -370,6 +373,14 @@ class BUPerformance(models.Model):
     collection_in_term_cod = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thu trong hạn + COD")
     receivable_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Dư nợ cần thu")
     receivable_overdue = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn")
+
+    # 8. CHỈ SỐ YTD (Lũy kế năm) ---
+    ytd_revenue_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu YTD (Thực tế)")
+    ytd_revenue_plan = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu YTD (Kế hoạch)")
+    ytd_collection_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thu tiền YTD (Thực tế)")
+    ytd_collection_plan = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thu tiền YTD (Kế hoạch)")
+    ytd_opex_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Chi phí opex YTD (Thực tế)")
+    ytd_opex_plan = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Chi phí opex YTD (Kế hoạch)")
 
     class Meta:
         verbose_name = "Chỉ số hiệu suất BU"
