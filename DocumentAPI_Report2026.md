@@ -523,3 +523,25 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 - **Phần việc cần tiếp tục thực hiện (Pending)**:
   - Trích xuất thêm các chỉ số Chi phí vận hành (OPEX), dòng tiền ra (cash out) từ dữ liệu MISA/Excel Mua hàng & Công nợ NCC để làm phong phú thêm Dashboard.
   - Áp dụng phân quyền xem dữ liệu cấp dòng (Row-Level Security) cho từng Business Unit lẻ.
+
+---
+
+### Cập nhật bổ sung 10/07/2026 (Bot MISA - Fix Checkbox & Branch Tag)
+
+#### 🐛 Lỗi đã khắc phục:
+- **Lỗi checkbox "Bao gồm số liệu chi nhánh phụ thuộc" bị untick sau khi click**:
+  - **Nguyên nhân gốc**: Logic cũ dùng XPath ancestor quá rộng (`contains(@class, 'checkbox')`) để kiểm tra trạng thái, dẫn đến tìm sai element cha → biến `parent` trả về `None` → fallback click vào text element thay vì `<label>` container → không toggle được checkbox.
+  - **Giải pháp**: Viết lại hoàn toàn Step 3 bằng cách đọc class của `<span class="ms-checkbox">` bên trong label. MISA sử dụng pattern chuẩn `ms-checkbox-border-checked-true/false` để phản ánh trạng thái. Bot kiểm tra class này để quyết định có cần click hay không, và click vào `<label>` container để toggle một cách chính xác.
+  - **Fallback thêm**: Nếu class span không khớp sau click, bot tự động thử `el.click()` trực tiếp trên `<input type="checkbox">` qua JS evaluate.
+
+- **Lỗi XPath branch tag `_Nhật` khớp nhầm với checkbox container**:
+  - **Nguyên nhân gốc**: XPath cũ dùng `contains(@class, 'item')` khớp nhầm với class `.dx-field-item` và `.form-item` (các layout container bao quanh toàn bộ row tham số kể cả checkbox). Click tọa độ cạnh phải của "tag" này lại rơi đúng vào vị trí của checkbox → toggle checkbox lần 2.
+  - **Giải pháp**: Thay `contains(@class, 'item')` bằng `contains(concat(' ', normalize-space(@class), ' '), ' selected-item ')` để chỉ khớp chính xác với class `selected-item` (các thẻ tag chi nhánh thực sự trong combobox MISA).
+  - Bổ sung class `mi-close` vào selector nút xóa để nhận diện icon close của MISA.
+
+#### ✅ Kết quả kiểm thử xác nhận:
+- Bot hoạt động chính xác theo thứ tự: Detect checkbox state → skip nếu đã checked → find `_Nhật` tags → click close button → tải file Excel thành công.
+- File tải về: `BAN_HANG_TEST_20260710_103721.xlsx` với đầy đủ dữ liệu bán hàng (không bao gồm các nhánh `_Nhật`).
+- Tất cả 23 unit tests pass (`Ran 23 tests in 4.376s - OK`).
+- Đã commit: `fix: rewrite checkbox detection using MISA span class (checked-true/false) + add debug screenshot` (`4627f27`).
+
