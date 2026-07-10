@@ -698,43 +698,65 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 await param_btn.click(force=True)
             else:
                 logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.5)  # Tăng thêm để dialog có thời gian render đầy đủ
             
             # Step 3: Check "Bao gồm số liệu chi nhánh phụ thuộc" checkbox
-            dep_checkbox_selectors = [
-                "text='Bao gồm số liệu chi nhánh phụ thuộc'",
-                "label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
-                "span:has-text('Bao gồm số liệu chi nhánh phụ thuộc')",
-                "div:has-text('Bao gồm số liệu chi nhánh phụ thuộc')"
-            ]
-            dep_checkbox, frame = await find_locator_in_any_frame(page, dep_checkbox_selectors, timeout=3000)
-            if dep_checkbox:
-                is_already_checked = False
-                try:
-                    parent = frame.locator("xpath=//node()[contains(text(), 'Bao gồm số liệu chi nhánh phụ thuộc')]/ancestor::*[contains(@class, 'checkbox') or contains(@class, 'checked')]").first
-                    if await parent.count() > 0:
-                        parent_class = await parent.get_attribute("class")
-                        if parent_class and ("checked" in parent_class or "active" in parent_class):
-                            is_already_checked = True
-                except Exception:
-                    parent = None
-                    
-                if not is_already_checked:
-                    logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
-                    try:
-                        if parent and await parent.count() > 0:
-                            logger.info("Clicking parent container to check 'Bao gom so lieu chi nhanh phu thuoc'...")
-                            await parent.click(force=True)
-                        else:
-                            await dep_checkbox.click(force=True)
-                    except Exception as click_err:
-                        logger.warning(f"Failed to click parent checkbox: {click_err}. Fallback to click text element.")
-                        await dep_checkbox.click(force=True)
+            logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
+            try:
+                target_frame_for_checkbox = frame if frame else page
+                # Tìm thẻ label chứa text "Bao gồm số liệu chi nhánh phụ thuộc"
+                # Cấu trúc HTML thực tế: <label class="ms-component con-ms-checkbox"><input type="checkbox" class="ms-checkbox--input">...<span>Bao gồm...</span></label>
+                checkbox_label = target_frame_for_checkbox.locator("label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')").first
+                if await checkbox_label.count() == 0:
+                    # Thử fallback với text chứa chữ 'chi nhánh phụ thuộc'
+                    checkbox_label = target_frame_for_checkbox.locator("label:has-text('chi nhánh phụ thuộc')").first
+
+                if await checkbox_label.count() > 0:
+                    # Kiểm tra trạng thái checked thông qua class của span bên trong
+                    # MISA dùng class "ms-checkbox-border-checked-true" khi được check và "ms-checkbox-border-checked-false" khi chưa
+                    checkbox_span = checkbox_label.locator("span.ms-checkbox").first
+                    is_already_checked = False
+                    if await checkbox_span.count() > 0:
+                        span_class = await checkbox_span.get_attribute("class") or ""
+                        is_already_checked = "checked-true" in span_class
+                        logger.info(f"Checkbox span class: '{span_class}', is_already_checked={is_already_checked}")
+                    else:
+                        # Fallback: kiểm tra qua input checkbox bên trong label
+                        checkbox_input = checkbox_label.locator("input[type='checkbox']").first
+                        if await checkbox_input.count() > 0:
+                            is_already_checked = await checkbox_input.is_checked()
+                            logger.info(f"Checkbox input is_checked={is_already_checked}")
+
+                    if not is_already_checked:
+                        logger.info("Checkbox not checked yet. Clicking label to toggle ON...")
+                        await checkbox_label.click(force=True)
+                        await asyncio.sleep(1.0)
+                        # Xác nhận trạng thái sau khi click
+                        if await checkbox_span.count() > 0:
+                            span_class_after = await checkbox_span.get_attribute("class") or ""
+                            logger.info(f"Checkbox span class after click: '{span_class_after}'")
+                            if "checked-true" not in span_class_after:
+                                logger.warning("Checkbox may not have been checked! Trying JS click on input...")
+                                checkbox_input = checkbox_label.locator("input[type='checkbox']").first
+                                if await checkbox_input.count() > 0:
+                                    await checkbox_input.evaluate("el => el.click()")
+                                    await asyncio.sleep(0.5)
+                    else:
+                        logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked, skipping.")
                 else:
-                    logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
-            else:
-                logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' checkbox.")
-            await asyncio.sleep(2.0)  # Đợi 2 giây để giao diện cập nhật và tải danh sách chi nhánh phụ thuộc
+                    logger.warning("Could not find 'Bao gom so lieu chi nhanh phu thuoc' label/checkbox.")
+            except Exception as chk_err:
+                logger.warning(f"Error handling 'Bao gom so lieu chi nhanh phu thuoc' checkbox: {chk_err}")
+            # Debug: chụp ảnh giao diện sau khi click checkbox để kiểm tra trạng thái
+            try:
+                debug_dir = os.path.join(settings.BASE_DIR, 'media', 'debug')
+                screenshot_path = os.path.join(debug_dir, "after_checkbox_click.png")
+                await page.screenshot(path=screenshot_path)
+                logger.info(f"Saved after_checkbox_click screenshot to: {screenshot_path}")
+            except Exception:
+                pass
+            await asyncio.sleep(3.0)  # Đợi 3 giây để giao diện cập nhật và tải danh sách chi nhánh phụ thuộc
+
 
             # Step 3.1: Loại bỏ các chi nhánh có chứa "_Nhật"
             logger.info("Checking for branch tags containing '_Nhật' to remove...")
