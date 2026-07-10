@@ -178,6 +178,28 @@ class SalesTransactionResource(BulkCreateResource):
         if wh_code:
             Warehouse.objects.get_or_create(code=wh_code, defaults={'name': row.get('Tên kho') or 'N/A'})
 
+        # 3.5. Fallback tính actual_sales nếu cột bị thiếu hoặc = 0
+        # actual_sales = sales_amount - discount_amount - return_value - discount_value
+        # Công thức: Doanh số thực tế = Doanh số bán - Chiết khấu - Giá trị trả lại - Giá trị giảm giá
+        actual_sales_val = row.get('Doanh số thực tế')
+        try:
+            actual_sales_num = float(str(actual_sales_val).replace(',', '')) if actual_sales_val else 0
+        except (ValueError, TypeError):
+            actual_sales_num = 0
+
+        if not actual_sales_num:
+            try:
+                sales_amount = float(str(row.get('Doanh số bán') or 0).replace(',', ''))
+                discount = float(str(row.get('Chiết khấu') or 0).replace(',', ''))
+                return_val = float(str(row.get('Giá trị trả lại') or 0).replace(',', ''))
+                discount_val = float(str(row.get('Giá trị giảm giá') or 0).replace(',', ''))
+                computed = sales_amount - discount - return_val - discount_val
+                row['Doanh số thực tế'] = computed if computed > 0 else sales_amount
+            except (ValueError, TypeError):
+                pass  # Giữ nguyên nếu không tính được
+
+
+
 
 class SupplierDebtResource(BulkCreateResource):
     supplier = fields.Field(

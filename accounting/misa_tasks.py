@@ -1011,19 +1011,31 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             "span:has-text('Xuất Excel (dạng dữ liệu)')",
             "div:has-text('Xuất Excel (dạng dữ liệu)')",
             ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
-            "text='Xuất Excel'"
+            # Fallback: khớp text chứa "dữ liệu" để phòng MISA đổi tên nhẹ
+            "xpath=//*[contains(text(), 'dạng dữ liệu')]",
+            "xpath=//*[contains(text(), 'd\u1ea1ng d\u1eef li\u1ec7u')]",
         ]
         excel_triggered = False
         dropdown_item, dropdown_frame = await find_locator_in_any_frame(page, dropdown_selectors, timeout=3000)
+        
+        # Nếu lần đầu không tìm thấy dropdown, thử click lại nút Excel và tìm lại
+        if not dropdown_item:
+            logger.warning("Dropdown 'Xuất Excel (dạng dữ liệu)' not visible after first click. Re-clicking Excel button to retry...")
+            await excel_btn.click(force=True)
+            await asyncio.sleep(2.5)
+            dropdown_item, dropdown_frame = await find_locator_in_any_frame(page, dropdown_selectors, timeout=4000)
+
         if dropdown_item:
             logger.info("Clicking 'Xuat Excel (dang du lieu)' option...")
             await dropdown_item.click(force=True)
             await asyncio.sleep(2.5)
             excel_triggered = True
         else:
-            logger.info("Dropdown 'Xuất Excel (dạng dữ liệu)' option not found or not visible. Checking for options dialog directly...")
+            logger.warning("Dropdown 'Xuất Excel (dạng dữ liệu)' option not found after retry. Checking for options dialog directly...")
 
-        # Also handle "Tùy chọn" popup dialog if it appears (either after clicking Excel, or after clicking the dropdown option)
+        # Xử lý popup "Tùy chọn" nếu xuất hiện SAU KHI đã click menu dropdown (không phải thay thế menu dropdown)
+        # QUAN TRỌNG: Chỉ click "Đồng ý" nếu đã tìm thấy và click dropdown option trước đó,
+        # hoặc đây là loại báo cáo không có dropdown (direct export)
         agree_btn_selectors = [
             "button:has-text('Đồng ý')",
             ".btn:has-text('Đồng ý')",
@@ -1032,7 +1044,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             ".dx-button-content:has-text('Đồng ý')",
             "text='Đồng ý'"
         ]
-        agree_btn, agree_frame = await find_locator_in_any_frame(page, agree_btn_selectors, timeout=8000)
+        agree_btn, agree_frame = await find_locator_in_any_frame(page, agree_btn_selectors, timeout=5000)
         if agree_btn:
             logger.info("Found 'Đồng ý' button (Options dialog). Clicking it to start export...")
             await agree_btn.click(force=True)
@@ -1043,6 +1055,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             logger.warning("Neither Excel option nor 'Đồng ý' button was clicked. Checking for blockers/warning popups...")
             await close_misa_popups(page)
             raise Exception("Failed to trigger Excel export. The action might have been blocked by a concurrent login warning or dialog.")
+
             
         # Step 9 & 10: Wait for 50 seconds first for background generation, then open download panel
         logger.info("Waiting 50 seconds for MISA to generate the report in the background...")
