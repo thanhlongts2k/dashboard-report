@@ -63,21 +63,24 @@ graph TD
     I --> J[Tự động kích hoạt tính KPI]
 ```
 
-1. **Chu kỳ quét**: Hàng ngày vào lúc **07:00 AM** (giờ Việt Nam, tương ứng cấu hình `crontab(hour=7, minute=0)` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L165) và múi giờ `CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'`), Celery Beat tự động bắn tác vụ vào hàng chờ Redis.
+1. **Chu kỳ quét**: Lịch chạy Celery Beat được tải động từ cấu hình `.env` (thông qua hàm `get_import_schedule` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py#L173)), cho phép cấu hình linh hoạt (hàng ngày, hàng tuần, hàng tháng hoặc cron tùy chỉnh).
+    * *Mặc định thực tế hiện tại*: Cấu hình Custom Cron chạy nhiều lần trong ngày: `20 7,9,11,14,16 * * 1-6` (tương ứng 07:20, 09:20, 11:20, 14:20, 16:20 từ Thứ Hai đến Thứ Bảy).
 2. **Quét file**: Celery Worker nhận việc, quét thư mục `media/auto_imports/` để tìm các file có tên dạng:
-    *   `KHACH_HANG*.xlsx` (Khách hàng) -> Lưu vào `Customer` (Bảng danh mục khách hàng)
     *   `BAN_HANG*.xlsx` (Bán hàng) -> Lưu vào `SalesTransaction`
     *   `MUA_HANG*.xlsx` (Mua hàng) -> Lưu vào `PurchaseDetail`
     *   `TON_KHO*.xlsx` (Tồn kho) -> Lưu vào `InventorySummary`
     *   `CONG_NO_NCC*.xlsx` (Công nợ nhà cung cấp) -> Lưu vào `SupplierDebt`
     *   `TUOI_NO_KH*.xlsx` (Tuổi nợ khách hàng) -> Lưu vào `ReceivablesAgeing`
     *   `TAI_KHOAN_CT*.xlsx` (Sổ chi tiết các tài khoản 111, 112, 341) -> Lưu vào `AccountDetail`
+    * *Lưu ý*: Danh mục Khách hàng (`KHACH_HANG*.xlsx`) không được đồng bộ tự động theo chu kỳ do MISA AMIS không hỗ trợ URL kết xuất danh mục động. Tuy nhiên, hệ thống vẫn hỗ trợ import thủ công thông qua Django Admin (`CustomerAdmin`) hoặc qua script chạy độc lập [import_specific_file.py](file:///d:/Sources/dashboard-report/import_specific_file.py).
 3. **An toàn dữ liệu & Phạm vi xóa (Scope of Deletion)**: 
     Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). 
-    - Đối với hầu hết các file giao dịch, hệ thống thực hiện lệnh xóa sạch toàn bộ dữ liệu hiện tại của bảng tương ứng trước khi nạp (`objects.all().delete()`). 
-    - **Ngoại lệ an toàn cho danh mục Khách hàng (`KHACH_HANG`)**: Hệ thống **không** thực hiện xóa sạch bảng `Customer` (được cấu hình flag `skip_delete: True` trong code). Do bảng `Customer` có liên kết khóa ngoại với các bảng giao dịch bán hàng (`SalesTransaction`) và tuổi nợ (`ReceivablesAgeing`) bằng thuộc tính `on_delete=models.CASCADE`, việc xóa sạch bảng `Customer` sẽ kéo theo việc tự động xóa sạch toàn bộ dữ liệu giao dịch liên quan. Thay vào đó, tiến trình import Khách hàng hoạt động ở cơ chế **Upsert (Cập nhật hoặc Thêm mới)** dựa trên mã khách hàng (`code`).
-    > [!WARNING]
-    > **Thiết kế mặc định (Wipe and Reload):** Vì hệ thống thực thi `objects.all().delete()` đối với các bảng giao dịch, dữ liệu file nạp được ngầm định phải là **file lũy kế (cumulative)** từ đầu kỳ/đầu năm đến nay. Nếu người dùng nạp file lẻ theo tháng (ví dụ chỉ chứa dữ liệu tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa sạch khỏi cơ sở dữ liệu.
+    - **Cơ chế Phân đoạn (Targeted Chunk Deletion)**: Thay vì xóa toàn bộ bảng (`objects.all().delete()`), hệ thống chỉ thực hiện xóa dữ liệu của kỳ kế toán tương ứng với file Excel đang nạp.
+        - Đối với các bảng giao dịch (`SalesTransaction`, `PurchaseDetail`, `AccountDetail`): Hệ thống xóa dữ liệu trong khoảng ngày hạch toán `[start_date, end_date]` được nhận diện từ file Excel.
+        - Đối với các bảng số dư/lũy kế (`InventorySummary`, `SupplierDebt`, `ReceivablesAgeing`): Hệ thống xóa theo kỳ báo cáo cụ thể `reporting_period` (định dạng `YYYY-MM`) nhận diện từ file.
+    - **Ngoại lệ an toàn cho danh mục Khách hàng (`KHACH_HANG`)**: Do bảng `Customer` có liên kết khóa ngoại với các bảng giao dịch khác bằng `on_delete=models.CASCADE`, việc xóa bảng `Customer` sẽ kéo theo việc tự động xóa sạch toàn bộ dữ liệu giao dịch liên quan. Vì thế, import Khách hàng hoạt động ở cơ chế **Upsert (Cập nhật hoặc Thêm mới)** dựa trên mã khách hàng (`code`) và không bao giờ xóa bảng (cấu hình flag `skip_delete: True`).
+    > [!NOTE]
+    > **Thiết kế ghi đè theo kỳ/phân đoạn:** Nhờ cơ chế xóa phân đoạn này, người dùng hoàn toàn có thể nạp các file Excel lẻ theo từng tháng (ví dụ: chỉ chứa dữ liệu tháng 6) một cách an toàn mà không sợ làm mất dữ liệu của các tháng trước đó.
     - Nếu import thành công, file Excel được di chuyển vào thư mục `success/`.
     - Nếu có bất kỳ lỗi cấu trúc/lỗi kiểu dữ liệu nào, toàn bộ quá trình sẽ được Rollback về trạng thái cũ để tránh mất/sai lệch dữ liệu cũ.
 4. **Nhật ký tiến trình (`ImportLog`)**: Hệ thống ghi nhận mốc thời gian bắt đầu thực thi (`start_time`), thời gian hoàn thành (`end_time`), trạng thái (`SUCCESS`/`ERROR`/`NOTFOUND`) và thông báo chi tiết vào bảng `ImportLog` hiển thị trên Django Admin.
@@ -114,10 +117,8 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 #### 4. Logic chi tiết tính các chỉ số hiệu suất
 *   **Doanh thu lũy kế tháng**: Tổng hợp từ bảng `SalesTransaction` (cộng cột `actual_sales`).
     > [!IMPORTANT]
-    > **Sự bất nhất về cột dữ liệu (Technical Debt):**
-    > - Doanh thu tháng (`rev_actual`) tính bằng: `Sum('actual_sales')` từ `SalesTransaction`.
-    > - Doanh thu ngày (`daily_rev` trong `BUPerformanceDaily`) lại tính bằng: `Sum('sales_amount')` từ `SalesTransaction`.
-    > Do đó, tổng cộng doanh thu các ngày của bảng Daily có thể bị lệch so với doanh thu lũy kế tháng của bảng Monthly.
+    > **Đồng bộ hóa công thức Doanh thu:**
+    > - Cả Doanh thu lũy kế tháng (`mtd_revenue_actual`) và Doanh thu phát sinh hàng ngày (`daily_revenue`) đều được đồng bộ hóa sử dụng chung cột **`actual_sales`** (Doanh số thực tế sau giảm trừ) từ bảng `SalesTransaction` để đảm bảo tính nhất quán tuyệt đối của dữ liệu báo cáo.
 *   **Thực thu tiền mặt/ngân hàng (Collection - Quy tắc Kế toán)**: 
     - Lọc từ sổ chi tiết tài khoản `AccountDetail` các bút toán có:
       - Tài khoản của mình bắt đầu bằng `111` (tiền mặt) hoặc `112` (tiền gửi ngân hàng) (`account_number__startswith`).
@@ -331,14 +332,18 @@ py manage.py runserver
           "target_date": "2026-06-15" // Mốc ngày kết thúc tính toán
         }
         ```
+    *   **Cơ chế thực thi**: Tác vụ được thực hiện **bất đồng bộ (Asynchronous)** bằng cách xếp hàng tác vụ ngầm vào Celery để tránh lỗi 504 Gateway Timeout. API phản hồi ngay lập tức trạng thái `{"status": "success", "message": "..."}`.
 
 #### 7. Các API danh mục chi tiết (DRF ViewSets)
-Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh sách (`GET`), chi tiết (`GET [id]`), tạo (`POST`), sửa (`PUT`), xóa (`DELETE`) dữ liệu mẫu:
+Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh sách (`GET`), chi tiết (`GET [id]`), tạo (`POST`), sửa (`PUT`), xóa (`DELETE`) dữ liệu:
 *   `/api/branches/` (Chi nhánh)
+*   `/api/warehouses/` (Kho hàng)
+*   `/api/customers/` (Khách hàng)
+*   `/api/employees/` (Nhân viên)
+*   `/api/products/` (Sản phẩm/Vật tư hàng hóa)
 *   `/api/business-units/` (Đơn vị kinh doanh - BU):
     *   *Bộ lọc*: `?is_main=true` (chỉ lấy BU chính) hoặc `?is_main=false`
 *   `/api/transactions/` (Chi tiết bán hàng)
-*   `/api/customers/` (Khách hàng)
 *   `/api/suppliers/` (Nhà cung cấp)
 *   `/api/supplier-groups/` (Nhóm nhà cung cấp)
 *   `/api/supplier-debts/` (Công nợ NCC)
@@ -356,10 +361,8 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
 
 Để hỗ trợ đắc lực cho các Agent/Developer tiếp quản và vận hành dự án, dưới đây là các phân tích chi tiết về mặt thiết kế kỹ thuật, rủi ro hiệu năng tiềm ẩn và phương án giải quyết tương ứng:
 
-### 7.1. Logic Doanh thu không khớp (Technical Debt)
-* **Bối cảnh**: Doanh thu lũy kế tháng (`rev_actual` trong `BUPerformance`) tính bằng `Sum('actual_sales')`, trong khi doanh thu ngày (`daily_rev` trong `BUPerformanceDaily`) tính bằng `Sum('sales_amount')`.
-* **Trạng thái**: Đây là **nợ kỹ thuật (Technical Debt)** đã được ghi nhận trong danh sách nâng cấp [target.md](file:///d:/Sources/dashboard-report/target.md#L8-L15) (mức độ Ưu tiên cao).
-* **Hướng xử lý**: Lập trình viên mới được phép đồng bộ lại công thức của 2 bảng này sau khi đã thống nhất với bộ phận nghiệp vụ/kế toán xem trường nào (`actual_sales` hay `sales_amount`) mới thực sự là nguồn dữ liệu chuẩn.
+### 7.1. Logic Doanh thu không khớp (Đã giải quyết)
+* **Trạng thái**: **Đã hoàn thành đồng bộ**. Cả doanh thu tháng (`mtd_revenue_actual`) và doanh thu ngày (`daily_revenue`) hiện tại đều sử dụng chung trường `actual_sales` (Doanh số thực tế sau giảm trừ) thay vì sử dụng `sales_amount` như trước, đảm bảo tính nhất quán của báo cáo.
 
 ### 7.2. Cảnh báo chủ động khi có lỗi (Error Handling & Alerts)
 * **Bối cảnh**: Khi có lỗi định dạng file Excel (thiếu cột, sai kiểu dữ liệu,...) hoặc lỗi runtime, hệ thống thực hiện rollback giao dịch và lưu bản ghi nhật ký với trạng thái `ERROR` vào cột "Nội dung chi tiết" (`message`) của bảng `ImportLog` trên Django Admin. Bản ghi lỗi này bao gồm chi tiết lỗi chung (Base Errors) và chi tiết cụ thể trên từng dòng bị lỗi để nhà phát triển dễ dàng gỡ lỗi (debug).
@@ -375,10 +378,9 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
   3. Sử dụng `bulk_create` hoặc lệnh `COPY` của PostgreSQL thay vì import từng dòng qua ORM.
   4. Đọc file Excel lớn theo từng chunk để tránh tràn bộ nhớ RAM của Server.
 
-### 7.4. Phạm vi xóa khi nạp Excel (Scope of Deletion)
-* **Bối cảnh**: Lệnh `objects.all().delete()` ở đầu luồng Import Excel sẽ **xóa sạch toàn bộ lịch sử dữ liệu của bảng đó từ trước đến nay**, chứ không chỉ xóa dữ liệu của tháng/kỳ đang import.
-* **Hệ quả & Điều kiện**: Hệ thống hiện tại đang ngầm giả định các file Excel nạp vào luôn là **file lũy kế từ trước đến nay** (hoặc tích lũy từ đầu năm). Nếu người dùng nạp file lẻ tách biệt theo tháng (ví dụ: chỉ chứa riêng tháng 6), dữ liệu các tháng từ 1 đến 5 đã nạp trước đó sẽ bị xóa mất hoàn toàn.
-* **Hướng xử lý tương lai**: Cần chuyển đổi từ xóa trắng bảng sang **xóa theo điều kiện thời gian/kỳ kế toán** (ví dụ: chỉ xóa và ghi đè các bản ghi có cùng tháng/năm với file Excel đang nạp) để hỗ trợ import file rời theo tháng.
+### 7.4. Phạm vi xóa khi nạp Excel (Đã giải quyết)
+* **Trạng thái**: **Đã hoàn thành chuyển đổi sang cơ chế Phân đoạn (Targeted Chunk Deletion)**.
+* **Chi tiết**: Khi nạp file Excel mới, hệ thống tự động bóc tách kỳ hạch toán từ file và chỉ thực hiện xóa dữ liệu trùng khớp với kỳ đó (ví dụ: theo khoảng ngày hạch toán `[start_date, end_date]` cho các giao dịch hoặc theo `reporting_period` cho tồn kho/công nợ/tuổi nợ), sau đó nạp bằng cơ chế `bulk_create` theo chunk 1000 dòng để tối ưu hiệu năng. Người dùng có thể nạp các file Excel lẻ theo tháng mà không sợ mất dữ liệu cũ.
 
 ### 7.5. Cấu trúc cây phân cấp của Business Unit (BU Hierarchy)
 * **Bối cảnh**: Bảng `BusinessUnit` sử dụng mối quan hệ đệ quy đơn giản thông qua khóa ngoại tự tham chiếu `parent = models.ForeignKey('self')`. Hệ thống **không** sử dụng các thư viện quản lý cây như `django-mptt` hay `django-treebeard`.
@@ -408,11 +410,9 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
   3. Di chuyển file Excel vào thư mục `success/` (nếu file đã tồn tại trong `success/`, code sẽ ghi đè đè lên file cũ).
 * **Kết quả**: Dữ liệu trong database được đảm bảo nhất quán và không sinh ra dữ liệu rác hay trùng lặp bản ghi, tuy nhiên tiến trình ghi đè (Wipe and Reload) vẫn xảy ra bình thường.
 
-### 7.9. Cơ chế xử lý của API Tính toán lại dữ liệu (Manual Trigger Sync)
-* **Hiện trạng**: API `POST /api/update-performance/` hiện tại đang được xử lý ở chế độ **Đồng bộ (Synchronous)**. 
-* **Logic hoạt động**: Khi gọi API này, luồng HTTP Request sẽ bị chặn (block) để gọi trực tiếp hàm xử lý `update_single_bu_performance()` và chỉ trả về response khi toàn bộ quá trình tính toán KPI cho BU hoàn tất.
-* **Rủi ro hiệu năng**: Khi các bảng dữ liệu gốc (`SalesTransaction`, `AccountDetail`...) phình to lên hàng triệu dòng, việc tính toán đồng bộ trên request này sẽ mất nhiều thời gian, dẫn đến lỗi **HTTP 504 Gateway Timeout** từ phía Web Server (như Nginx/Apache) trước khi kịp trả phản hồi về cho Frontend.
-* **Hướng xử lý tương lai**: Cần chuyển đổi cơ chế gọi hàm trực tiếp sang chạy ngầm thông qua hàng chờ Celery bằng cách dùng phương thức `.delay()` (Ví dụ: `update_single_bu_performance.delay(bu_id, month, year, target_date_str)`). Khi đó, API sẽ lập tức trả về phản hồi `{"status": "processing", "task_id": "..."}` để Frontend hiển thị trạng thái chờ và poll kết quả sau.
+### 7.9. Cơ chế xử lý của API Tính toán lại dữ liệu (Đã giải quyết)
+* **Trạng thái**: **Đã hoàn thành tối ưu hóa bất đồng bộ**.
+* **Chi tiết**: API `POST /api/update-performance/` gọi Celery task `update_single_bu_performance.delay()` chạy ngầm. API phản hồi ngay lập tức để tránh lỗi **HTTP 504 Gateway Timeout** từ phía Web Server.
 
 ---
 
@@ -478,14 +478,22 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 3. **Cơ chế Giám sát & Báo lỗi**:
    - MISA Automation: Bổ sung luồng chụp ảnh màn hình lưu file `MISA_Error_*.png` và báo lỗi Traceback ra console nếu gặp sự cố giao diện MISA thay đổi. Bổ sung ghi nhận chi tiết lỗi và tên tệp gặp sự cố tải ở cuối thông báo trạng thái `ImportLog` khi tải qua Playwright.
    - Import Database: Xây dựng bảng model `ImportLog` trên Django Admin lưu trữ lịch sử nạp (trạng thái `SUCCESS`/`ERROR`, thời gian chạy, báo lỗi chi tiết đến từng dòng dữ liệu hỏng).
+4. **Tối ưu hóa hiệu năng Import (Exclusive Lock bảng)**:
+   - Chuyển từ cơ chế "Wipe & Reload" (xóa toàn bảng) sang "Targeted Chunk Deletion" (xóa theo phân đoạn ngày hạch toán hoặc kỳ kế toán hạch toán cụ thể).
+   - Nạp dữ liệu song song và tối ưu hóa bằng phương thức `bulk_create` với dung lượng chunk 1000 dòng, loại bỏ lock bảng PostgreSQL.
+5. **Đồng bộ hóa công thức tính Doanh thu**:
+   - Đã đồng bộ hóa công thức cho cả doanh thu ngày và doanh thu lũy kế tháng sử dụng cột `actual_sales` thay vì `sales_amount`, loại bỏ chênh lệch số liệu.
+6. **Bổ sung tính toán các chỉ số thực tế về tài chính từ Sổ chi tiết**:
+   - Tiền cuối kỳ thực tế (`cash_balance_actual`): Tự động trích xuất từ số dư tài khoản `111` và `112`.
+   - Nợ ngân hàng thực tế (`bank_debt_actual`): Tự động trích xuất từ số dư tài khoản `341`.
+7. **Tối ưu hóa API bất đồng bộ**:
+   - Đã nâng cấp API cập nhật hiệu suất (`POST /api/update-performance/`) sang chạy ngầm thông qua hàng chờ Celery, loại bỏ lỗi HTTP 504 Gateway Timeout.
 
 ### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)
-1. **Tối ưu hóa hiệu năng Import (Exclusive Lock bảng)**: (Ưu tiên Cao) File sổ chi tiết hiện tại đã hơn 7.000 dòng, luồng Wipe & Reload `objects.all().delete()` gây khóa bảng trong 1-2 phút. Cần chuyển sang cơ chế **Swap Table** hoặc **Xóa theo kỳ kế toán**.
-2. **Đồng bộ hóa công thức tính Doanh thu**: (Ưu tiên Cao) Doanh thu tháng đang tính bằng `actual_sales` trong khi Doanh thu ngày tính bằng `sales_amount`, dẫn đến vênh số liệu. Cần làm rõ nghiệp vụ và đồng bộ lại.
-3. **Bổ sung tính toán các chỉ số thực tế bị thiếu**: (Ưu tiên Cao) Các trường Nợ ngân hàng, Chi phí vận hành, Tiền cuối kỳ đang mang giá trị `0`. Cần trích xuất từ các tài khoản (ví dụ 341, 641, 642, 111, 112) trong Sổ chi tiết để tổng hợp.
-4. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
-5. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
-6. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
+1. **Bổ sung tính toán Chi phí vận hành (OPEX)**: (Ưu tiên Cao) Trường chi phí vận hành thực tế (`opex_actual`) đang mang giá trị `0`. Cần trích xuất từ các tài khoản đầu 6 (như 641, 642) trong Sổ chi tiết tài khoản để tổng hợp.
+2. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
+3. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
+4. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
 
 ---
 
