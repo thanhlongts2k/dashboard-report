@@ -203,4 +203,8 @@ MISA_REPORTS = {
     'TAI_KHOAN_CT': env('MISA_URL_TAI_KHOAN_CT', default=''),
 }
 
+# Cấu hình loại trừ khi tính toán hiệu suất BU
+EXCLUDED_BU_CODES = ['ĐTCT']
+EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']
+
 

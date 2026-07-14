@@ -443,7 +443,15 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             last_day = calendar.monthrange(year, month)[1]
             target_date = datetime(year, month, last_day).date()
 
-    # --- 2. XÁC ĐỊNH PHẠM VI (GLOBAL / SUB-BU) ---
+    # --- 2. XÁC ĐỊNH PHẠM VI (GLOBAL / SUB-BU) & LOẠI TRỪ ---
+    # Lấy cấu hình loại trừ từ settings
+    excluded_bu_codes = getattr(settings, 'EXCLUDED_BU_CODES', [])
+    excluded_bu_ids = []
+    if excluded_bu_codes:
+        excluded_bus = BusinessUnit.objects.filter(code__in=excluded_bu_codes)
+        for ex_bu in excluded_bus:
+            excluded_bu_ids.extend(ex_bu.get_all_descendant_ids())
+
     is_global = False
     bu_ids = []
     if bu_id is None:
@@ -451,18 +459,26 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     else:
         bu = BusinessUnit.objects.filter(id=bu_id).first()
         if bu:
-            if bu.parent_id is None:
-                is_global = True
+            is_global = False
             bu_ids = bu.get_all_descendant_ids()
+            # Loại bỏ các BU bị loại trừ khỏi danh sách bu_ids
+            bu_ids = [bid for bid in bu_ids if bid not in excluded_bu_ids]
 
+    # Bộ lọc khách hàng: Ghi nhận doanh thu và loại bỏ các nhóm khách hàng loại trừ từ settings
+    excluded_cust_group_codes = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', [])
     customer_rev_filter = Q(customer__has_revenue=True)
+    if excluded_cust_group_codes:
+        customer_rev_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
 
     # --- 3. TÍNH DOANH THU & THỰC THU (LŨY KẾ THÁNG) ---
     base_filter = Q(posting_date__month=month, posting_date__year=year) & customer_rev_filter
 
     # Lọc Tồn kho theo kỳ báo cáo cụ thể
     inventory_filter = Q(reporting_period=f"{year:04d}-{month:02d}")
-    if not is_global:
+    if is_global:
+        if excluded_bu_ids:
+            inventory_filter &= ~Q(warehouse__business_unit_id__in=excluded_bu_ids)
+    else:
         inventory_filter &= Q(warehouse__business_unit_id__in=bu_ids)
 
     # Tồn kho tháng
@@ -475,7 +491,10 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     
     inventory_actual = inv_data['closing'] or 0
 
-    if not is_global:
+    if is_global:
+        if excluded_bu_ids:
+            base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+    else:
         base_filter &= Q(business_unit_id__in=bu_ids)
 
     # Doanh thu tháng
@@ -494,7 +513,13 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     # --- BỔ SUNG TÍNH TOÁN CÔNG NỢ & THU TIỀN ---
     # Lọc Ageing theo kỳ báo cáo cụ thể
     ageing_filter = Q(reporting_period=f"{year:04d}-{month:02d}")
-    if not is_global:
+    if excluded_cust_group_codes:
+        ageing_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
+
+    if is_global:
+        if excluded_bu_ids:
+            ageing_filter &= ~Q(customer__business_unit_id__in=excluded_bu_ids)
+    else:
         ageing_filter &= Q(customer__business_unit_id__in=bu_ids)
     
     # Tính toán các chỉ số dư nợ và nợ quá hạn cuối kỳ từ ReceivablesAgeing
@@ -523,7 +548,10 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
 
     # --- 3.6. TÍNH TOÁN TIỀN CUỐI KỲ & NỢ NGÂN HÀNG THỰC TẾ (LŨY KẾ THÁNG) ---
     ledger_filter = Q(posting_date__month=month, posting_date__year=year)
-    if not is_global:
+    if is_global:
+        if excluded_bu_ids:
+            ledger_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+    else:
         ledger_filter &= Q(business_unit_id__in=bu_ids)
 
     # Tiền cuối kỳ thực tế: Dư Nợ dòng cuối cùng tài khoản 111 và 112 cộng lại
@@ -608,7 +636,10 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     
     while current_date <= target_date:
         daily_filter = Q(posting_date=current_date)
-        if not is_global:
+        if is_global:
+            if excluded_bu_ids:
+                daily_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+        else:
             daily_filter &= Q(business_unit_id__in=bu_ids)
         
         # Doanh thu ngày (áp dụng actual_sales thay vì sales_amount để đồng bộ dữ liệu)

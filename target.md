@@ -11,11 +11,13 @@ Dữ liệu tồn kho được xử lý và lưu trữ qua hai cấp độ chín
 ### A. Cấp độ Báo cáo Hiệu suất BU (`BUPerformance`)
 * **Nguồn dữ liệu:** Nạp từ các file Excel có tiền tố `TON_KHO` (ví dụ: `TON_KHO*.xlsx`) vào bảng [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models.py#L255-L284).
 * **Mối liên kết đơn vị (BU):** Bảng `InventorySummary` không lưu trực tiếp thông tin `business_unit_id` mà liên kết gián tiếp qua trường kho hàng `warehouse` (`warehouse__business_unit_id`).
-* **Logic tính toán tích lũy tháng:** Được thực hiện tự động trong Celery task [update_single_bu_performance](file:///d:/Sources/dashboard-report/accounting/tasks.py#L168):
+* **Logic tính toán tích lũy tháng:** Được thực hiện tự động trong Celery task [update_single_bu_performance](file:///d:/Sources/dashboard-report/accounting/tasks.py#L431):
   * **Bộ lọc thời gian:** Lấy theo Snapshot hiện hành của bảng `InventorySummary` (không lọc theo thời gian cụ thể của trường `created_at` do bảng được xóa và nạp mới hoàn toàn mỗi lần import).
-  * **Bộ lọc BU:**
-    * Nếu tính cho *Tổng công ty* (`is_global = True`): Không lọc theo BU, cộng dồn toàn bộ dữ liệu từ tất cả các kho.
-    * Nếu tính cho *BU cụ thể* (`is_global = False`): Lọc theo đơn vị sở hữu kho hàng (`warehouse__business_unit_id=bu_id`).
+  * **Bộ lọc BU & Loại trừ cấu hình ở settings:**
+    * Lọc loại trừ BU: Hệ thống tự động bỏ các BU có mã nằm trong danh sách `EXCLUDED_BU_CODES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['ĐTCT']`) và các BU con trực thuộc nhánh này khỏi mọi phép tính hiệu suất.
+    * Lọc loại trừ Khách hàng: Loại trừ các khách hàng thuộc nhóm có mã trong `EXCLUDED_CUSTOMER_GROUP_CODES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['Internal']`).
+    * Nếu tính cho *Tổng công ty* (`is_global = True`): Không lọc theo BU (chỉ áp dụng lọc loại trừ các BU/Khách hàng đặc thù nói trên).
+    * Nếu tính cho *BU cụ thể* (`is_global = False`): Lọc theo đơn vị sở hữu kho hàng (`warehouse__business_unit_id=bu_id`) và loại trừ các BU/Khách hàng đặc thù.
   * **Công thức tổng hợp:**
     * `inventory_opening_value` (Giá trị đầu kỳ) = Tổng cột `opening_value`
     * `inventory_in_value` (Giá trị nhập kho trong kỳ) = Tổng cột `in_value`
@@ -55,8 +57,8 @@ Lớp API View [DashboardCollectionByBUAPIView](file:///d:/Sources/dashboard-rep
 
 | Chỉ số | Định nghĩa trong Comment | Logic thực tế trong Code | Đánh giá & Bất cập nghiệp vụ |
 | :--- | :--- | :--- | :--- |
-| **`receivable_total`** | Dư nợ cần thu (snapshot hiện tại của `ReceivablesAgeing`). | `Sum('total_debt')` từ bảng `ReceivablesAgeing` lọc theo BU. | **Khớp nghiệp vụ.** Đây là tổng số dư nợ chưa thu hiện tại của các khách hàng thuộc BU. |
-| **`commitment_overdue`** | Cam kết (quá hạn) — dùng tạm `overdue_total`. | `Sum('overdue_total')` từ bảng `ReceivablesAgeing` lọc theo BU. | **Khớp nghiệp vụ.** (Tạm thời dùng số nợ quá hạn do chưa có bảng theo dõi cam kết trả nợ riêng). |
+| **`receivable_total`** | Dư nợ cần thu (snapshot hiện tại của `ReceivablesAgeing`). | `Sum('total_debt')` từ bảng `ReceivablesAgeing` lọc theo BU. | **[GẶP LỖI / BUG]**<br>Thiếu bộ lọc `reporting_period` dẫn đến việc cộng dồn công nợ của **tất cả các tháng** có trong DB (ví dụ: tháng 5, 6, 7/2026), khiến số liệu dư nợ của BU bị phóng đại gấp nhiều lần (HPC tháng 6/2026 thực tế 61.4 tỷ nhưng Dashboard hiện thị 211 tỷ). |
+| **`commitment_overdue`** | Cam kết (quá hạn) — dùng tạm `overdue_total`. | `Sum('overdue_total')` từ bảng `ReceivablesAgeing` lọc theo BU. | **[GẶP LỖI / BUG]**<br>Tương tự `receivable_total`, thiếu bộ lọc theo kỳ báo cáo dẫn đến cộng dồn lũy kế qua các tháng. |
 | **`total_collected`** | Tổng thu trong ngày. | Tính từ phát sinh Nợ - Có (`debit_amount - credit_amount`) của các tài khoản tiền/ngân hàng (`111`, `112`) đối ứng phải thu khách hàng (`1311`, `1312`) trong ngày từ bảng [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L185). | **Khớp nghiệp vụ.** Phản ánh đúng dòng tiền thực thu trong ngày của BU. |
 | **`collected_due`** | Đã thu (đến hạn) — phát sinh trên khách hàng có nợ quá hạn. | Lấy `Sum('due_total')` từ bảng snapshot dư nợ [ReceivablesAgeing](file:///d:/Sources/dashboard-report/accounting/models.py#L222). | **[ĐÃ GIẢI QUYẾT / FIXED]**<br>Code đã được sửa thành lọc đối ứng tiền thu trực tiếp từ `AccountDetail` thay vì dùng bảng Ageing. |
 | **`collected_in_term_cod`**| Thu trong hạn + COD = Tổng thu - Đã thu đến hạn. | Tính bằng công thức:<br>`total_collected - collected_due` | **[ĐÃ GIẢI QUYẾT / FIXED]**<br>Đã sửa theo công thức chính xác là `Tổng thực thu (dòng tiền) - Đã thu đến hạn`. |
@@ -73,6 +75,7 @@ Sự bất nhất này bắt nguồn từ việc copy pattern tính toán lũy k
 ### C. Sự bất nhất trong xử lý phân cấp Đơn vị kinh doanh (BU Hierarchy)
 * **Bối cảnh cấu trúc phân cấp (BU Hierarchy):** Bảng [BusinessUnit](file:///d:/Sources/dashboard-report/accounting/models.py#L94) sử dụng mối quan hệ tự tham chiếu (Self-reference) qua khóa ngoại `parent` để mô tả mô hình cây (BU cha - BU con). Theo tài liệu thiết kế hệ thống, cấu trúc này nhằm phục vụ việc **cộng dồn KPI từ dưới lên** (Bottom-up rollup).
 * **Vấn đề thực tế trong code (ĐÃ GIẢI QUYẾT / FIXED):**
+  * **Lỗi treats root BUs as global trong `update_single_bu_performance`:** Trước đây, hệ thống tự động gán `is_global = True` nếu BU không có cha (`parent_id is None`). Logic này làm cho tất cả các BU gốc (như HPC, ĐTCT,...) khi tính hiệu suất đều bị lấy tổng số liệu của toàn bộ Tổng công ty thay vì tách biệt theo nhánh của mình. Hiện tại, **đã sửa đổi**: hệ thống chỉ bật `is_global = True` khi `bu_id` nhận vào là `None` (Tổng công ty thực sự).
   * **Trong Celery Task `update_single_bu_performance`:** Hệ thống đã được cập nhật logic đệ quy gọi hàm `bu.get_all_descendant_ids()` để lấy các BU con.
   * **Trong `DashboardCollectionByBUAPIView`:** Đã cập nhật áp dụng mảng danh sách các BU con thay vì lọc chính xác bằng id cứng, đảm bảo gom số liệu chuẩn xác.
 
@@ -94,3 +97,23 @@ Sự bất nhất này bắt nguồn từ việc copy pattern tính toán lũy k
          return bu_ids
      ```
    * Khi thực hiện lọc theo BU trong các câu lệnh `filter(...)`, chuyển từ lọc chính xác (`business_unit=bu` hoặc `business_unit_id=bu_id`) sang lọc tập hợp `__in` (`business_unit_id__in=bu_ids` hoặc `business_unit_in=bu_list`).
+4. **Đối với bộ lọc công nợ trên Dashboard (`receivable_total` và `commitment_overdue`):**
+   * Cần bổ sung điều kiện lọc theo kỳ báo cáo `reporting_period` khớp với ngày yêu cầu (ví dụ: `reporting_period=f"{date.year:04d}-{date.month:02d}"`) khi truy vấn bảng `ReceivablesAgeing` trong [DashboardCollectionByBUAPIView](file:///d:/Sources/dashboard-report/accounting/views.py#L272) để tránh cộng dồn sai lệch qua các tháng.
+
+---
+
+## 4. Custom Django Commands hỗ trợ chạy từ Terminal
+Hệ thống cung cấp 2 lệnh Django Management Command để kế toán hoặc kỹ thuật viên có thể trigger tính toán hiệu suất BU trực tiếp từ Terminal:
+
+1. **Tính hiệu suất cho Tổng công ty (Global):**
+   * **Cú pháp:**
+     ```bash
+     python manage.py calculate_global_performance --month 6 --year 2026
+     ```
+   * **Mô tả:** Chạy tính toán KPI cho toàn Tổng công ty trong kỳ tháng 6/2026 (đã loại bỏ các BU loại trừ và khách hàng nhóm 'Internal' cấu hình ở `settings.py`).
+2. **Tính hiệu suất cho BU cụ thể:**
+   * **Cú pháp:**
+     ```bash
+     python manage.py calculate_bu_performance --bu_id 70 --month 6 --year 2026
+     ```
+   * **Mô tả:** Chạy tính toán KPI cho đơn vị kinh doanh có ID = 70 (và các đơn vị con của nó) trong kỳ tháng 6/2026 (đã loại bỏ các BU/Khách hàng loại trừ).

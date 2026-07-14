@@ -98,9 +98,12 @@ graph TD
 Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `update_single_bu_performance` để tổng hợp số liệu cho từng đơn vị kinh doanh (BU) và cho Tổng công ty. Dưới đây là logic nghiệp vụ và kỹ thuật chi tiết:
 
 #### 1. Logic xác định phạm vi (Global / Sub-BU)
-- **Quy ước Global**: Nếu `bu_id` nhận vào là `None` hoặc BU đó không có cha (`parent_id is None`), hệ thống thiết lập biến `is_global = True`.
-- **Hành vi**: Khi `is_global = True`, hệ thống sẽ **bỏ qua bộ lọc theo BU** trên các bảng dữ liệu gốc, trực tiếp tổng hợp toàn bộ dữ liệu của toàn công ty. Đây là quy ước nghiệp vụ của HP Co. chứ không phải là giải thuật gom cụm đệ quy cây phân cấp.
-- **BU cấp dưới (Sub-BU)**: Nếu `bu_id` cụ thể và có BU cha, hệ thống chỉ lọc chính xác bản ghi của riêng BU đó.
+- **Quy ước Global**: Nếu `bu_id` nhận vào là `None`, hệ thống thiết lập biến `is_global = True`.
+- **Hành vi**: Khi `is_global = True`, hệ thống sẽ **bỏ qua bộ lọc theo BU** trên các bảng dữ liệu gốc, trực tiếp tổng hợp toàn bộ dữ liệu của toàn công ty (Tổng công ty). Nếu `bu_id` khác `None` (kể cả các đơn vị gốc cấp cao nhất như HPC hay ĐTCT), hệ thống vẫn thiết lập `is_global = False` để tính toán dựa trên các BU con thuộc nhánh đó thông qua `get_all_descendant_ids()`.
+- **Bộ lọc loại trừ động từ `settings.py`**:
+  * Loại trừ BU: Tự động lọc bỏ các BU có mã nằm trong `settings.EXCLUDED_BU_CODES` (hiện tại là `['ĐTCT']`) và các đơn vị con của chúng khỏi mọi phép tính.
+  * Loại trừ Khách hàng: Lọc bỏ các giao dịch của khách hàng thuộc nhóm trong `settings.EXCLUDED_CUSTOMER_GROUP_CODES` (hiện tại là `['Internal']`).
+- **BU cấp dưới (Sub-BU)**: Nếu `bu_id` cụ thể và có BU cha, hệ thống chỉ lọc chính xác bản ghi của riêng BU đó (và loại trừ các BU/Khách hàng đặc thù nói trên).
 
 #### 2. Logic xử lý mốc thời gian (`target_date`)
 - Nhận tham số ngày kết thúc tính toán `target_date_str`.
@@ -385,8 +388,8 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
 ### 7.5. Cấu trúc cây phân cấp của Business Unit (BU Hierarchy)
 * **Bối cảnh**: Bảng `BusinessUnit` sử dụng mối quan hệ đệ quy đơn giản thông qua khóa ngoại tự tham chiếu `parent = models.ForeignKey('self')`. Hệ thống **không** sử dụng các thư viện quản lý cây như `django-mptt` hay `django-treebeard`.
 * **Logic tổng hợp**: Trong hàm tính toán KPI `update_single_bu_performance` và API:
-  - Nếu `bu_id` là `None` hoặc BU đó không có cha (`parent_id is None`), hệ thống coi là `is_global = True` và tính tổng hợp cho toàn công ty (không lọc theo BU).
-  - Nếu `bu_id` cụ thể, hệ thống **có hỗ trợ đệ quy** thông qua việc gọi hàm `bu.get_all_descendant_ids()` để thu thập danh sách ID của toàn bộ BU con/cháu, và áp dụng bộ lọc `__in=bu_ids`.
+  - Nếu `bu_id` là `None`, hệ thống coi là `is_global = True` và tính tổng hợp cho toàn công ty (không lọc theo BU).
+  - Nếu `bu_id` cụ thể (kể cả BU gốc không có cha), hệ thống coi là `is_global = False` và **có hỗ trợ đệ quy** thông qua việc gọi hàm `bu.get_all_descendant_ids()` để thu thập danh sách ID của toàn bộ BU con/cháu, và áp dụng bộ lọc `__in=bu_ids`.
 * **Hiệu năng**: Do không chạy đệ quy lặp qua các BU con khi tính toán cho BU cha, hệ thống hiện tại tránh được lỗi N+1 Query khét tiếng khi tính toán báo cáo. Tuy nhiên, việc gom cụm số liệu cấp phòng ban (sub-BU) lên BU cấp cao hơn hiện chưa được hỗ trợ tự động theo cây phân cấp.
 
 ### 7.6. Cơ chế phân quyền xem báo cáo (Row-Level Security / Data Isolation)
@@ -427,8 +430,8 @@ Dưới đây là phần trả lời chi tiết cho các câu hỏi thường g�
 
 ### Q2: Logic `parent == NULL` xác định Global Company là chủ ý nghiệp vụ hay giải pháp tình thế (workaround)?
 * **Trả lời**: Đây là **chủ ý nghiệp vụ** của HP Co.
-  - Hệ thống quy ước: Nếu `bu_id is None` hoặc một Business Unit không có đơn vị cha (`parent_id is None`), BU này sẽ được xem như đại diện cho **Tổng công ty (Global)**.
-  - Khi đó, hệ thống sẽ tính toán tổng hợp số liệu cho toàn công ty bằng cách bỏ qua bộ lọc `business_unit` trên toàn bộ các bảng dữ liệu gốc (chứ không chạy thuật toán gom cụm đệ quy cây phân cấp từ các BU con lên).
+  - Hệ thống quy ước trước đây xem bất kỳ BU nào không có cha (`parent_id is None`) như đại diện cho **Tổng công ty (Global)**. Hiện nay hệ thống đã chuyển sang quy ước chính xác hơn: chỉ khi `bu_id is None` mới là **Tổng công ty (Global)**.
+  - Các đơn vị gốc không có cha (như HPC, ĐTCT) vẫn được tính toán riêng biệt theo nhánh BU của mình (lọc theo BU và các BU con trực thuộc) để tránh lỗi trùng lặp dữ liệu của toàn công ty vào các BU gốc.
 
 ### Q3: Các trường `actual_sales` và `sales_amount` khác nhau như thế nào trong nghiệp vụ kế toán của dự án?
 * **Trả lời**: Đây là hai trường số liệu doanh số riêng biệt được lưu trữ trong bảng bán hàng `SalesTransaction`:
