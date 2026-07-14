@@ -572,18 +572,18 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
         month=month,
         year=year,
         defaults={
-            'mtd_revenue_actual': rev_actual,
-            'mtd_collection_actual': coll_actual,
-            'collection_due_actual': collection_due_actual,    # Đã thu đến hạn
-            'collection_in_term_cod': collection_in_term_cod, # Thu trong hạn + COD
-            'receivable_total': receivable_total,   # Dư nợ cần thu
-            'receivable_overdue': receivable_overdue, # Nợ quá hạn
-            'inventory_opening_value': inv_data['opening'] or 0,
-            'inventory_in_value': inv_data['in_val'] or 0,
-            'inventory_out_value': inv_data['out_val'] or 0,
-            'inventory_value_actual': inventory_actual,
-            'cash_balance_actual': cash_balance_actual,       # Tiền cuối kỳ thực tế
-            'bank_debt_actual': bank_debt_actual,             # Nợ ngân hàng thực tế
+            'mtd_revenue_actual': rev_actual,                  # Doanh thu thực tế lũy kế tháng (MTD)
+            'mtd_collection_actual': coll_actual,              # Thực thu thực tế lũy kế tháng (Dòng tiền thu về)
+            'collection_due_actual': collection_due_actual,    # Số tiền nợ quá hạn thực tế đã thu được trong tháng
+            'collection_in_term_cod': collection_in_term_cod,  # Số tiền thu nợ trong hạn + COD thực tế thu được
+            'receivable_total': receivable_total,              # Tổng số dư nợ phải thu của khách hàng tại thời điểm cuối kỳ
+            'receivable_overdue': receivable_overdue,          # Tổng số dư nợ quá hạn của khách hàng tại thời điểm cuối kỳ
+            'inventory_opening_value': inv_data['opening'] or 0, # Giá trị tồn kho đầu kỳ báo cáo
+            'inventory_in_value': inv_data['in_val'] or 0,     # Tổng giá trị nhập kho phát sinh trong kỳ
+            'inventory_out_value': inv_data['out_val'] or 0,   # Tổng giá trị xuất kho phát sinh trong kỳ
+            'inventory_value_actual': inventory_actual,        # Giá trị tồn kho thực tế cuối kỳ báo cáo
+            'cash_balance_actual': cash_balance_actual,        # Tổng số dư tiền mặt và tiền gửi ngân hàng thực tế cuối kỳ
+            'bank_debt_actual': bank_debt_actual,              # Tổng số dư nợ vay ngân hàng (TK 341) thực tế cuối kỳ
         }
     )
 

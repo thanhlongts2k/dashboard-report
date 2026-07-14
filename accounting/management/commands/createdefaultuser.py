@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
         username = 'admin'
         email = 'admin@haophuong.com'
-        password = '123'
+        password = 'Hpc@123456'
 
         # Kiểm tra xem tài khoản này đã tồn tại trong DB PostgreSQL chưa
         if not User.objects.filter(username=username).exists():
