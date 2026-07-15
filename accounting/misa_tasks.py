@@ -437,7 +437,21 @@ async def select_accounts_for_so_chi_tiet(page, accounts):
                     }}
                     if (hasMatch) {{
                         const cb = row.querySelector('input[type="checkbox"], .dx-checkbox, .ms-checkbox, .checkbox, [role="checkbox"]');
-                        if (cb) {{ cb.click(); return true; }}
+                        if (cb) {{
+                            let isChecked = false;
+                            if (cb.tagName === 'INPUT') {{
+                                isChecked = cb.checked;
+                            }} else {{
+                                isChecked = cb.classList.contains('dx-checkbox-checked') || 
+                                            cb.classList.contains('is-checked') || 
+                                            cb.classList.contains('checked') || 
+                                            cb.getAttribute('aria-checked') === 'true' ||
+                                            row.classList.contains('dx-selection') ||
+                                            row.getAttribute('aria-selected') === 'true';
+                            }}
+                            if (!isChecked) {{ cb.click(); }}
+                            return true;
+                        }}
                         if (cells.length > 0) {{ cells[0].click(); return true; }}
                     }}
                 }}
