@@ -153,10 +153,14 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
 ## 7. Chi phí vận hành (OPEX)
 Hệ thống hỗ trợ tính toán và theo dõi Chi phí vận hành thực tế (`opex_actual`) và Kế hoạch (`opex_plan`) của từng BU và toàn công ty:
 * **Tài khoản hạch toán đầu vào:** Trích xuất từ các phát sinh của tài khoản đầu **`641`** (Chi phí bán hàng) và **`642`** (Chi phí quản lý doanh nghiệp) trong sổ chi tiết tài khoản `AccountDetail`.
-* **Cấu hình đồng bộ từ MISA:** Khi xuất Sổ chi tiết tài khoản (`TAI_KHOAN_CT`), hệ thống Playwright tự động chọn thêm tài khoản `641` và `642` vào danh sách xuất khẩu để đồng bộ đầy đủ dữ liệu (tổng danh sách gồm `['111', '112', '341', '641', '642']`).
-* **Công thức tính toán Thực tế (`opex_actual`):**
-  $$opex\_actual = \sum (debit\_amount)$$
+* **Cấu hình đồng bộ từ MISA:** Khi xuất Sổ chi tiết tài khoản (`TAI_KHOAN_CT`), hệ thống Playwright tự động chọn thêm các tài khoản cấu hình trong `settings.py` (`MISA_SO_CHI_TIET_ACCOUNTS` mặc định gồm `['111', '112', '341', '641', '642']`).
+* **Công thức tính toán Thực tế lũy kế tháng (`opex_actual`):**
+  $$opex\_actual = \sum_{d=1}^{D_{target}} \text{daily\_opex\_plan}(d) + \sum_{d=1}^{D_{target}} \text{daily\_opex\_actual}(d)$$
   *Trong đó:*
-  * Chỉ cộng dồn các bản ghi trong bảng `AccountDetail` có `account_number` bắt đầu bằng **`641`** hoặc **`642`**.
-  * Lọc theo mã đơn vị kinh doanh tương ứng (`business_unit_id`) và thời gian hạch toán (`posting_date`) thuộc kỳ tháng/năm báo cáo.
+  * `daily_opex_plan` (Kế hoạch ngày - CPVHKHMN): Phân bổ từ kế hoạch tháng chia số ngày trong tháng, hoặc chỉnh sửa thủ công riêng cho từng ngày.
+  * `daily_opex_actual` (Thực tế ngày - CPVHTTMN): Tổng phát sinh Nợ của các tài khoản `641` và `642` trong ngày đó từ bảng `AccountDetail`.
+  * $D_{target}$: Số ngày từ ngày 1 đến ngày hạch toán mục tiêu (`target_date`).
+* **Đồng bộ kế hoạch hai chiều (Django Admin):**
+  * Khi lưu Kế hoạch tháng (`opex_plan`): Tự động chia đều cho số ngày trong tháng để điền kế hoạch ngày (`daily_opex_plan`).
+  * Khi lưu chi tiết Kế hoạch ngày (`daily_opex_plan`): Tự động cộng dồn tất cả các ngày con để cập nhật ngược lại kế hoạch tháng (`opex_plan`).
 * **Lũy kế năm (YTD):** Chi phí opex lũy kế thực tế (`ytd_opex_actual`) và kế hoạch (`ytd_opex_plan`) được cộng dồn lũy kế qua các tháng và lan truyền tự động đến hết năm tài chính.
