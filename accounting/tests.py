@@ -493,4 +493,51 @@ class BankBalanceTestCase(TestCase):
         self.assertEqual(perf.cash_balance_actual, 480000000)
 
 
+class SalesTransactionImportTests(TestCase):
+    def test_customer_group_auto_creation_during_import(self):
+        from accounting.resources import SalesTransactionResource
+        from accounting.models import Customer, CustomerGroup
+        
+        resource = SalesTransactionResource()
+        row = {
+            'Ngày hạch toán': '2026-07-15',
+            'Số chứng từ': 'HD001',
+            'Mã khách hàng': 'CUST_TEST_001',
+            'Tên khách hàng': 'Khách hàng Test',
+            'Mã hàng': 'PROD_TEST_001',
+            'Tên hàng': 'Hàng hóa Test',
+            'Mã nhóm khách hàng': 'GRP_TEST_001',
+            'Tên nhóm khách hàng': 'Nhóm KH Test',
+            'Mã nhóm VTHH': 'VTHH_TEST',
+            'Tên nhóm VTHH': 'Nhóm VTHH Test',
+            'Mã kho': 'KHO_TEST',
+            'Tên kho': 'Kho Test',
+            'Chi nhánh': 'Chi nhánh Test',
+            'Mã nhân viên bán hàng': 'NV_TEST',
+            'Tên nhân viên bán hàng': 'Nhân viên Test',
+            'Mã thống kê': 'BU_TEST',
+            'Tên thống kê': 'BU Test',
+            'Tổng số lượng bán': 10,
+            'Đơn giá': 1000,
+            'Doanh số bán': 10000,
+            'TK Nợ': '131',
+            'TK Có': '511',
+            'Doanh số thực tế': 10000
+        }
+        
+        # Chạy before_import_row
+        resource.before_import_row(row)
+        
+        # Kiểm tra xem CustomerGroup đã được tự động tạo chưa
+        group = CustomerGroup.objects.filter(code='GRP_TEST_001').first()
+        self.assertIsNotNone(group)
+        self.assertEqual(group.name, 'Nhóm KH Test')
+        
+        # Kiểm tra xem Customer đã được tạo và liên kết với CustomerGroup chưa
+        customer = Customer.objects.filter(code='CUST_TEST_001').first()
+        self.assertIsNotNone(customer)
+        self.assertEqual(customer.name, 'Khách hàng Test')
+        self.assertEqual(customer.group, group)
+
+
 

@@ -145,11 +145,30 @@ class SalesTransactionResource(BulkCreateResource):
                 defaults={'name': row.get('Tên nhóm VTHH') or 'N/A'}
             )
 
-        # 3.2. Tạo Khách hàng
-        Customer.objects.get_or_create(
+        # 3.2. Tự động tạo Nhóm khách hàng (CustomerGroup) nếu có thông tin trong Excel
+        cust_group_code = row.get('Mã nhóm khách hàng')
+        cust_group = None
+        if cust_group_code:
+            cust_group, _ = CustomerGroup.objects.get_or_create(
+                code=cust_group_code,
+                defaults={'name': row.get('Tên nhóm khách hàng') or 'N/A'}
+            )
+
+        # 3.3. Tự động tạo và móc nối Khách hàng (Customer) với Nhóm khách hàng
+        customer_defaults = {'name': row.get('Tên khách hàng') or 'N/A'}
+        if cust_group:
+            customer_defaults['group'] = cust_group  # Gán nhóm vào defaults để áp dụng khi tạo mới
+            
+        customer_obj, created = Customer.objects.get_or_create(
             code=cust_code,
-            defaults={'name': row.get('Tên khách hàng') or 'N/A'}
+            defaults=customer_defaults
         )
+        
+        # Hỗ trợ tương thích: Nếu khách hàng đã tồn tại từ trước (created=False) 
+        # nhưng chưa có nhóm (group=None), thực hiện cập nhật móc nối nhóm ngay lập tức.
+        if not created and cust_group and not customer_obj.group:
+            customer_obj.group = cust_group
+            customer_obj.save(update_fields=['group'])
 
         # 3.3. Tạo Sản phẩm
         Product.objects.get_or_create(
