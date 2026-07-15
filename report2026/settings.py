@@ -207,4 +207,7 @@ MISA_REPORTS = {
 EXCLUDED_BU_CODES = ['ĐTCT']
 EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']
 
+# Cấu hình nhóm khách hàng Oversea để tính doanh thu tách biệt
+OVERSEA_CUSTOMER_GROUP_CODES = ['Oversea']
+
 

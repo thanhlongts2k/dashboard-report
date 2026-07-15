@@ -117,3 +117,33 @@ Hệ thống cung cấp 2 lệnh Django Management Command để kế toán ho�
      python manage.py calculate_bu_performance --bu_id 70 --month 6 --year 2026
      ```
    * **Mô tả:** Chạy tính toán KPI cho đơn vị kinh doanh có ID = 70 (và các đơn vị con của nó) trong kỳ tháng 6/2026 (đã loại bỏ các BU/Khách hàng loại trừ).
+
+---
+
+## 5. Doanh thu khách hàng Oversea & Doanh thu không bao gồm Oversea
+Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hàng nước ngoài (Oversea) để phục vụ báo cáo cơ cấu doanh thu:
+* **Cấu hình nhóm:** Nhóm khách hàng được định nghĩa qua biến `OVERSEA_CUSTOMER_GROUP_CODES` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (mặc định là `['Oversea']`).
+* **Các trường dữ liệu mới (bảng `BUPerformance`):**
+  * `mtd_revenue_oversea_actual`: Doanh thu Oversea thực tế trong tháng (MTD).
+  * `mtd_revenue_exclude_oversea_actual`: Doanh thu thực tế trong tháng không bao gồm Oversea (MTD).
+  * `ytd_revenue_oversea_actual`: Doanh thu Oversea thực tế lũy kế năm (YTD).
+  * `ytd_revenue_exclude_oversea_actual`: Doanh thu thực tế lũy kế năm không bao gồm Oversea (YTD).
+* **Công thức tính toán:**
+  * `mtd_revenue_oversea_actual` = Tổng doanh thu của các khách hàng có nhóm thuộc `OVERSEA_CUSTOMER_GROUP_CODES` trong tháng.
+  * `mtd_revenue_exclude_oversea_actual` = Tổng doanh thu tháng (`mtd_revenue_actual`) - Doanh thu Oversea tháng.
+  * Các chỉ số lũy kế YTD tương ứng được tự động cộng dồn qua từng tháng và lan truyền đến hết tháng 12 của năm đó.
+
+---
+
+## 6. Quy trình xuất Báo cáo bán hàng (BAN_HANG) từ MISA
+Để đảm bảo số liệu xuất từ MISA là chính xác, hệ thống Playwright thực hiện các bước sau (áp dụng khi sử dụng xuất thủ công từng bước):
+1. Truy cập trực tiếp vào URL báo cáo bán hàng.
+2. Click nút **"Chọn tham số"**.
+3. Tích chọn checkbox **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+4. Loại bỏ các chi nhánh phụ thuộc có chứa ký tự `_Nhật`.
+5. Chọn kỳ báo cáo là **"Tháng này"**.
+6. Tích chọn checkbox **"Chọn tất cả"**.
+7. Click nút **"Xem báo cáo"** và chờ 10 giây để báo cáo hiển thị kết quả.
+8. Click chọn biểu tượng **Bánh răng** (Cài đặt) ở góc trên bên phải grid hiển thị báo cáo $\rightarrow$ Chọn mẫu **"Mẫu chuẩn."** (có dấu chấm ở cuối).
+9. Click vào biểu tượng **Excel** trên thanh công cụ và chọn **"Xuất Excel (dạng dữ liệu)"**.
+10. Chờ 50 giây để hệ thống MISA kết xuất, mở khay download và click **"Tải tệp"** để lưu về máy.

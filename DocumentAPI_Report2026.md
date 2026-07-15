@@ -122,6 +122,7 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
     > [!IMPORTANT]
     > **Đồng bộ hóa công thức Doanh thu:**
     > - Cả Doanh thu lũy kế tháng (`mtd_revenue_actual`) và Doanh thu phát sinh hàng ngày (`daily_revenue`) đều được đồng bộ hóa sử dụng chung cột **`actual_sales`** (Doanh số thực tế sau giảm trừ) từ bảng `SalesTransaction` để đảm bảo tính nhất quán tuyệt đối của dữ liệu báo cáo.
+    > - **Tách biệt Doanh thu Oversea:** Hệ thống lọc tách riêng doanh thu của nhóm khách hàng nước ngoài được cấu hình trong `settings.OVERSEA_CUSTOMER_GROUP_CODES` (lưu vào `mtd_revenue_oversea_actual`), và phần doanh thu còn lại lưu vào `mtd_revenue_exclude_oversea_actual` (bằng tổng doanh thu trừ đi doanh thu Oversea).
 *   **Thực thu tiền mặt/ngân hàng (Collection - Quy tắc Kế toán)**: 
     - Lọc từ sổ chi tiết tài khoản `AccountDetail` các bút toán có:
       - Tài khoản của mình bắt đầu bằng `111` (tiền mặt) hoặc `112` (tiền gửi ngân hàng) (`account_number__startswith`).

@@ -501,6 +501,12 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     sales_qs = SalesTransaction.objects.filter(base_filter)
     rev_actual = sales_qs.aggregate(total=Sum('actual_sales'))['total'] or 0
 
+    # Doanh thu Oversea & Doanh thu không bao gồm Oversea
+    oversea_cust_group_codes = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+    sales_oversea_qs = sales_qs.filter(customer__group__code__in=oversea_cust_group_codes)
+    rev_oversea_actual = sales_oversea_qs.aggregate(total=Sum('actual_sales'))['total'] or 0
+    rev_exclude_oversea_actual = rev_actual - rev_oversea_actual
+
     # Thực thu tháng
     account_qs = AccountDetail.objects.filter(base_filter)
     cash_cond = Q(account_number__startswith='111') | Q(account_number__startswith='112')
@@ -584,6 +590,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             'inventory_value_actual': inventory_actual,        # Giá trị tồn kho thực tế cuối kỳ báo cáo
             'cash_balance_actual': cash_balance_actual,        # Tổng số dư tiền mặt và tiền gửi ngân hàng thực tế cuối kỳ
             'bank_debt_actual': bank_debt_actual,              # Tổng số dư nợ vay ngân hàng (TK 341) thực tế cuối kỳ
+            'mtd_revenue_oversea_actual': rev_oversea_actual,  # Doanh thu Oversea MTD (Thực tế)
+            'mtd_revenue_exclude_oversea_actual': rev_exclude_oversea_actual, # Doanh thu không bao gồm Oversea MTD (Thực tế)
         }
     )
 
@@ -602,6 +610,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     performance.ytd_collection_plan = (prev_perf.ytd_collection_plan if prev_perf else 0) + performance.mtd_collection_plan
     performance.ytd_opex_actual = (prev_perf.ytd_opex_actual if prev_perf else 0) + performance.opex_actual
     performance.ytd_opex_plan = (prev_perf.ytd_opex_plan if prev_perf else 0) + performance.opex_plan
+    performance.ytd_revenue_oversea_actual = (prev_perf.ytd_revenue_oversea_actual if prev_perf else 0) + performance.mtd_revenue_oversea_actual
+    performance.ytd_revenue_exclude_oversea_actual = (prev_perf.ytd_revenue_exclude_oversea_actual if prev_perf else 0) + performance.mtd_revenue_exclude_oversea_actual
     performance.save()
 
     # Lan truyền sang các tháng tiếp theo của năm đó
@@ -625,6 +635,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
                 next_perf.ytd_collection_plan = curr_perf.ytd_collection_plan + next_perf.mtd_collection_plan
                 next_perf.ytd_opex_actual = curr_perf.ytd_opex_actual + next_perf.opex_actual
                 next_perf.ytd_opex_plan = curr_perf.ytd_opex_plan + next_perf.opex_plan
+                next_perf.ytd_revenue_oversea_actual = curr_perf.ytd_revenue_oversea_actual + next_perf.mtd_revenue_oversea_actual
+                next_perf.ytd_revenue_exclude_oversea_actual = curr_perf.ytd_revenue_exclude_oversea_actual + next_perf.mtd_revenue_exclude_oversea_actual
                 next_perf.save()
             next_month += 1
         else:

@@ -27,7 +27,7 @@ class SalesTransactionAdmin(ImportExportModelAdmin):
     resource_class = SalesTransactionResource
     # 1. Các cột hiển thị ngoài danh sách
     list_display = (
-        'doc_id', 'posting_date', 'business_unit', 'customer', 'product', 
+        'doc_id', 'posting_date', 'customer', 'product', 
         'quantity', 'sales_amount', 'actual_sales', 'employee'
     )
     

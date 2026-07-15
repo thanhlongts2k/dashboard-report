@@ -924,6 +924,57 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             # Wait 10 seconds as requested
             logger.info("Waiting 10s for the report to load...")
             await asyncio.sleep(10)
+
+            # Chọn bánh răng -> Chọn mẫu chuẩn. (Chỉ áp dụng cho báo cáo bán hàng BAN_HANG)
+            if prefix == 'BAN_HANG':
+                logger.info("[BAN_HANG] Selecting 'Mẫu chuẩn.' template...")
+                gear_selectors = [
+                    ".mi-setting__list-bold", # Cụ thể nút bánh răng cài đặt của lưới báo cáo MISA (mi-24 mi-setting__list-bold)
+                    "div.mi-setting__list-bold",
+                    "xpath=//div[contains(@class, 'mi-setting__list-bold')]",
+                    "xpath=//div[contains(@class, 'mi-setting') and not(contains(@class, 'header-icon')) and not(contains(@class, 'mi-setting-2__nav'))]"
+                ]
+                # Chờ bảng báo cáo tải xong (ẩn loading panel)
+                for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading"]:
+                    try:
+                        await page.locator(loading_sel).first.wait_for(state="hidden", timeout=10000)
+                    except Exception:
+                        pass
+                
+                # Chờ nút bánh răng xuất hiện (timeout tăng lên 30s)
+                gear_btn, frame = await find_locator_in_any_frame(page, gear_selectors, timeout=30000)
+                if gear_btn:
+                    logger.info("Clicking gear settings button...")
+                    await gear_btn.click(force=True)
+                    await asyncio.sleep(1.5)
+                    
+                    mau_chuan_item = None
+                    for sel in ["text=Mẫu chuẩn.", "xpath=//span[contains(text(), 'Mẫu chuẩn.')]"]:
+                        loc = page.locator(sel).first
+                        try:
+                            if await loc.is_visible(timeout=1000):
+                                mau_chuan_item = loc
+                                break
+                        except Exception:
+                            continue
+                            
+                    if not mau_chuan_item:
+                        # Fallback: đợi tối đa 4 giây cho bộ chọn text xuất hiện
+                        mau_chuan_item = page.locator("text=Mẫu chuẩn.").first
+                        try:
+                            await mau_chuan_item.wait_for(state="visible", timeout=4000)
+                        except Exception:
+                            mau_chuan_item = None
+                            
+                    if mau_chuan_item:
+                        logger.info("Selecting 'Mẫu chuẩn.' template option...")
+                        await mau_chuan_item.click(force=True)
+                        await asyncio.sleep(5.0)  # Chờ 5 giây để tải lại mẫu chuẩn
+                    else:
+                        logger.warning("Could not find 'Mẫu chuẩn.' option in settings menu.")
+                else:
+                    logger.warning("Could not find gear settings button.")
+        
         
         # Step 7: Click the Excel icon dropdown button
         excel_btn_selectors = [

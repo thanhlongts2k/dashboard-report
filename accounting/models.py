@@ -382,6 +382,12 @@ class BUPerformance(models.Model):
     ytd_opex_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Chi phí opex YTD (Thực tế)")
     ytd_opex_plan = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Chi phí opex YTD (Kế hoạch)")
 
+    # 9. DOANH THU OVERSEA & KHÔNG BAO GỒM OVERSEA ---
+    mtd_revenue_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu Oversea MTD (Thực tế)")
+    mtd_revenue_exclude_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu không bao gồm Oversea MTD (Thực tế)")
+    ytd_revenue_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu Oversea YTD (Thực tế)")
+    ytd_revenue_exclude_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu không bao gồm Oversea YTD (Thực tế)")
+
     class Meta:
         verbose_name = "Chỉ số hiệu suất BU"
         verbose_name_plural = "Bảng theo dõi hiệu suất BU"
