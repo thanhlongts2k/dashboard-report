@@ -402,8 +402,8 @@ class OPEXTestCase(TestCase):
         # 4. Kiểm chứng kết quả
         perf.refresh_from_db()
         
-        # Kiểm tra chi phí vận hành tháng thực tế opex_actual = 80 triệu (50tr + 30tr)
-        self.assertEqual(perf.opex_actual, 80000000)
+        # Kiểm tra chi phí vận hành tháng thực tế opex_actual = Kế hoạch 15 ngày (1.5 tỷ) + Thực tế giao dịch (80 triệu) = 1.58 tỷ
+        self.assertEqual(perf.opex_actual, 1580000000)
         
         # Kiểm tra các ngày con:
         # Số ngày tháng 6 = 30 ngày. Kế hoạch mỗi ngày = 3 tỷ / 30 = 100 triệu

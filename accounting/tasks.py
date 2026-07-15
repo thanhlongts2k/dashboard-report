@@ -516,19 +516,47 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     sums = match_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
     coll_actual = (sums['d'] or 0) - (sums['c'] or 0)
 
-    # Chi phí vận hành tháng thực tế (OPEX Actual - Tổng phát sinh Nợ TK 641 và 642)
-    # Lọc theo ngày và BU, không áp dụng bộ lọc khách hàng
-    opex_filter = Q(posting_date__month=month, posting_date__year=year)
+    # Chi phí vận hành tháng thực tế (OPEX Actual)
+    # 1. Tính thực tế từ giao dịch phát sinh Nợ TK 641 và 642 trong tháng (lên đến target_date)
+    opex_trans_filter = Q(posting_date__month=month, posting_date__year=year, posting_date__lte=target_date)
     if is_global:
         if excluded_bu_ids:
-            opex_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+            opex_trans_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
     else:
-        opex_filter &= Q(business_unit_id__in=bu_ids)
+        opex_trans_filter &= Q(business_unit_id__in=bu_ids)
 
-    opex_qs = AccountDetail.objects.filter(opex_filter).filter(
+    opex_trans_qs = AccountDetail.objects.filter(opex_trans_filter).filter(
         Q(account_number__startswith='641') | Q(account_number__startswith='642')
     )
-    opex_actual = opex_qs.aggregate(total=Sum('debit_amount'))['total'] or 0
+    opex_trans_actual = opex_trans_qs.aggregate(total=Sum('debit_amount'))['total'] or 0
+
+    # 2. Tính số Kế hoạch phân bổ lũy kế đến target_date (Kế hoạch ngày * số ngày đã qua)
+    existing_perf = BUPerformance.objects.filter(
+        business_unit_id=bu_id,
+        month=month,
+        year=year
+    ).first()
+    curr_opex_plan = existing_perf.opex_plan if existing_perf else 0
+
+    last_day_val = calendar.monthrange(year, month)[1]
+    
+    # Kiểm tra xem có sử dụng phân bổ đều hay sum từ các dòng con hiện có
+    existing_daily = BUPerformanceDaily.objects.filter(performance_month=existing_perf) if existing_perf else None
+    existing_sum = existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0 if existing_daily else 0
+    
+    redistribute_plan = False
+    if not existing_daily or existing_daily.count() != last_day_val:
+        redistribute_plan = True
+    elif abs(existing_sum - curr_opex_plan) > 0.01:
+        redistribute_plan = True
+        
+    if redistribute_plan:
+        plan_elapsed = (curr_opex_plan / last_day_val) * target_date.day
+    else:
+        plan_elapsed = existing_daily.filter(date__lte=target_date).aggregate(total=Sum('daily_opex_plan'))['total'] or 0
+
+    # Tổng opex_actual của tháng (lũy kế đến target_date) = Kế hoạch phân bổ ngày + Thực tế phát sinh
+    opex_actual = plan_elapsed + opex_trans_actual
 
     # --- BỔ SUNG TÍNH TOÁN CÔNG NỢ & THU TIỀN ---
     # Lọc Ageing theo kỳ báo cáo cụ thể
