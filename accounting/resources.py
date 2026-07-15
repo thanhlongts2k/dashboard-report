@@ -6,7 +6,7 @@ from .models import (
     Product, BusinessUnit, SalesTransaction, MaterialGroup, AccountDetail,
     CustomerGroup
 )
-from .models import Supplier, SupplierDebt, SupplierGroup, ReceivablesAgeing, InventorySummary
+from .models import Supplier, SupplierDebt, SupplierGroup, ReceivablesAgeing, InventorySummary, BankBalance
 
 class BulkCreateResource(resources.ModelResource):
     def __init__(self, *args, **kwargs):
@@ -15,15 +15,14 @@ class BulkCreateResource(resources.ModelResource):
 
     def save_instance(self, *args, **kwargs):
         dry_run = kwargs.get('dry_run', False)
-        if len(args) >= 4:
-            dry_run = args[3]
         if not dry_run:
             instance = kwargs.get('instance')
             if len(args) >= 1:
                 instance = args[0]
             self.instances_to_create.append(instance)
 
-    def after_import(self, dataset, result, using_transactions, dry_run, **kwargs):
+    def after_import(self, dataset, result, *args, **kwargs):
+        dry_run = kwargs.get('dry_run', False)
         if not dry_run and self.instances_to_create:
             self.Meta.model.objects.bulk_create(self.instances_to_create, batch_size=1000)
             self.instances_to_create.clear()
@@ -848,3 +847,62 @@ class CustomerResource(BulkCreateResource):
         for key in ['Mã khách hàng', 'Tên khách hàng', 'Địa điểm giao hàng']:
             if row.get(key) and isinstance(row[key], str):
                 row[key] = row[key].strip()
+
+
+class BankBalanceResource(BulkCreateResource):
+    bank_account_number = fields.Field(attribute='bank_account_number', column_name='Số tài khoản')
+    bank_name = fields.Field(attribute='bank_name', column_name='Tên ngân hàng')
+    opening_balance = fields.Field(attribute='opening_balance', column_name='Số dư đầu kỳ', widget=DecimalWidget())
+    debit_amount = fields.Field(attribute='debit_amount', column_name='Phát sinh Nợ', widget=DecimalWidget())
+    credit_amount = fields.Field(attribute='credit_amount', column_name='Phát sinh Có', widget=DecimalWidget())
+    balance = fields.Field(attribute='balance', column_name='Số dư cuối kỳ', widget=DecimalWidget())
+    reporting_month = fields.Field(attribute='reporting_month', column_name='reporting_month')
+
+    class Meta:
+        model = BankBalance
+        import_id_fields = []
+        skip_unchanged = False
+
+    def before_import(self, dataset, **kwargs):
+        # 1. Chuẩn hóa dataset.headers trực tiếp để ánh xạ đúng cột của model
+        if dataset.headers:
+            normalized_headers = []
+            for h in dataset.headers:
+                h_norm = str(h).strip().lower()
+                if 'tài khoản' in h_norm or 'số tài khoản' in h_norm or 'stk' in h_norm:
+                    normalized_headers.append('Số tài khoản')
+                elif 'tên ngân hàng' in h_norm or 'tên tài khoản' in h_norm:
+                    normalized_headers.append('Tên ngân hàng')
+                elif 'dư đầu kỳ' in h_norm or 'số dư đầu kỳ' in h_norm:
+                    normalized_headers.append('Số dư đầu kỳ')
+                elif 'phát sinh nợ' in h_norm:
+                    normalized_headers.append('Phát sinh Nợ')
+                elif 'phát sinh có' in h_norm:
+                    normalized_headers.append('Phát sinh Có')
+                elif 'dư cuối kỳ' in h_norm or 'số dư cuối kỳ' in h_norm or 'số dư quy đổi' in h_norm or 'số dư' in h_norm:
+                    normalized_headers.append('Số dư cuối kỳ')
+                else:
+                    normalized_headers.append(h)
+            dataset.headers = normalized_headers
+
+        # 2. Lọc sạch các hàng không phải là tài khoản ngân hàng hợp lệ
+        idx = len(dataset) - 1
+        while idx >= 0:
+            row_dict = dict(zip(dataset.headers, dataset[idx]))
+            acc_num = str(row_dict.get('Số tài khoản') or '').strip()
+            
+            is_valid = True
+            if not acc_num or acc_num == 'None':
+                is_valid = False
+            else:
+                # Một tài khoản ngân hàng hợp lệ phải chứa ít nhất 3 chữ số liên tiếp
+                if not re.search(r'\d{3,}', acc_num):
+                    is_valid = False
+            
+            if not is_valid:
+                del dataset[idx]
+            idx -= 1
+
+    def before_import_row(self, row, **kwargs):
+        reporting_period = kwargs.get('reporting_period')
+        row['reporting_month'] = reporting_period

@@ -5,12 +5,12 @@ import logging
 import pandas as pd
 from celery import shared_task
 from django.db.models import Sum, Q
-from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer
+from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer, BankBalance
 from datetime import datetime, timedelta
 import calendar
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
-    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource, CustomerResource
+    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource, CustomerResource, BankBalanceResource
 )
 from django.conf import settings
 from django.db import transaction
@@ -113,6 +113,8 @@ def load_and_clean_excel(file_path, prefix):
         required_cols = ['Mã nhà cung cấp']
     elif prefix == 'TUOI_NO_KH':
         required_cols = ['Mã khách hàng']
+    elif prefix == 'SO_DU_NH':
+        required_cols = ['Tên ngân hàng']
 
     for idx, row in df.iterrows():
         row_str = [str(cell).strip() if pd.notna(cell) else "" for cell in row.values]
@@ -221,6 +223,7 @@ def auto_import_excel_from_folder():
         'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource()},
         'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
         'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource()},
+        'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource()},
     }
 
     # Quét tất cả các file excel trong thư mục auto_imports
@@ -281,12 +284,18 @@ def auto_import_excel_from_folder():
                     deleted_count = 0
                     # BƯỚC A: XÓA SẠCH DỮ LIỆU CŨ THEO PHÂN ĐOẠN (nếu không có skip_delete)
                     if not config.get('skip_delete', False):
-                        is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing]
+                        is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing, BankBalance]
                         if is_snapshot:
-                            # Xóa phân đoạn của kỳ hiện tại và bất kỳ dữ liệu cũ bị NULL
-                            deleted_count = config['model'].objects.filter(
-                                Q(reporting_period=reporting_period) | Q(reporting_period__isnull=True)
-                            ).delete()[0]
+                            if config['model'] == BankBalance:
+                                # Xóa theo tháng báo cáo cho số dư ngân hàng
+                                deleted_count = config['model'].objects.filter(
+                                    Q(reporting_month=reporting_period) | Q(reporting_month__isnull=True)
+                                ).delete()[0]
+                            else:
+                                # Xóa phân đoạn của kỳ hiện tại và bất kỳ dữ liệu cũ bị NULL
+                                deleted_count = config['model'].objects.filter(
+                                    Q(reporting_period=reporting_period) | Q(reporting_period__isnull=True)
+                                ).delete()[0]
                         else:
                             deleted_count = config['model'].objects.filter(
                                 posting_date__range=[start_date, end_date]
@@ -329,7 +338,11 @@ def auto_import_excel_from_folder():
                             err_msg = "\n".join(error_details)
                             break
                         else:
-                            imported_count += len(chunk_data)
+                            imported_count += result.totals.get('new', 0) + result.totals.get('update', 0)
+                            
+                    if not has_error and imported_count == 0:
+                        has_error = True
+                        err_msg = "Không có dòng dữ liệu hợp lệ nào được import vào database."
 
                     if not has_error:
                         # BƯỚC D: DI CHUYỂN FILE VÀO THƯ MỤC SUCCESS
@@ -608,7 +621,18 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     
     cash_bal_111 = last_111.balance_debit if last_111 else 0
     cash_bal_112 = last_112.balance_debit if last_112 else 0
-    cash_balance_actual = cash_bal_111 + cash_bal_112
+    
+    # Trừ số dư các tài khoản ngân hàng loại trừ lấy từ bảng BankBalance
+    reporting_period = f"{year:04d}-{month:02d}"
+    excluded_accs = getattr(settings, 'MISA_EXCLUDED_BANK_ACCOUNTS', ['113611393939'])
+    excluded_balance = 0
+    if excluded_accs:
+        excluded_balance = BankBalance.objects.filter(
+            reporting_month=reporting_period,
+            bank_account_number__in=excluded_accs
+        ).aggregate(total=Sum('balance'))['total'] or 0
+        
+    cash_balance_actual = (cash_bal_111 + cash_bal_112) - excluded_balance
 
     # Nợ ngân hàng thực tế: Dư Có dòng cuối cùng tài khoản 341
     last_341 = AccountDetail.objects.filter(ledger_filter, account_number='341').order_by('posting_date', 'id').last()

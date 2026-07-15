@@ -1388,6 +1388,31 @@ async def run_misa_automation():
                     logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
                     failed_details.append(f"{prefix}: {str(e)}")
             
+            # 1.1. Download SO_DU_NH directly (excluded from saved reports list)
+            so_du_nh_url = settings.MISA_REPORTS.get('SO_DU_NH')
+            if so_du_nh_url:
+                prefix = 'SO_DU_NH'
+                filename = f"{prefix}_{timestamp}.xlsx"
+                output_path = os.path.join(auto_imports_dir, filename)
+                logger.info(f"Downloading {prefix} via step-by-step export flow...")
+                try:
+                    success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                    if not success:
+                        logger.info("Retrying SO_DU_NH download after re-logging in...")
+                        await login_to_misa(page, context, email, password)
+                        success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                        
+                    if success:
+                        downloaded_count += 1
+                    else:
+                        failed_count += 1
+                        logger.error(f"Failed to download report for prefix {prefix}")
+                        failed_details.append(f"{prefix}: Failed to download/login expired")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
+                    failed_details.append(f"{prefix}: {str(e)}")
+            
             # 2. Go to Saved Reports URL
             logger.info(f"Navigating to MISA Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
             try:

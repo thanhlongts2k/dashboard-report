@@ -441,3 +441,21 @@ class ImportLog(models.Model):
         local_time = timezone.localtime(self.start_time) if self.start_time else None
         start_str = local_time.strftime('%Y-%m-%d %H:%M:%S') if local_time else 'N/A'
         return f"{self.file_name} - {self.status} - {start_str}"
+
+
+class BankBalance(models.Model):
+    bank_account_number = models.CharField(max_length=50, verbose_name="Số tài khoản ngân hàng")
+    bank_name = models.CharField(max_length=255, verbose_name="Tên ngân hàng")
+    opening_balance = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Số dư đầu kỳ")
+    debit_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Phát sinh Nợ")
+    credit_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Phát sinh Có")
+    balance = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Số dư cuối kỳ")
+    reporting_month = models.CharField(max_length=7, db_index=True, verbose_name="Tháng báo cáo")
+
+    class Meta:
+        verbose_name = "Bảng kê số dư ngân hàng"
+        verbose_name_plural = "Bảng kê số dư ngân hàng"
+        unique_together = ('bank_account_number', 'reporting_month')
+
+    def __str__(self):
+        return f"{self.bank_account_number} - {self.reporting_month}: {self.balance:,.2f}"

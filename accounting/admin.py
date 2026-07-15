@@ -3,7 +3,7 @@ from import_export.admin import ImportExportModelAdmin
 from .models import (
     BUPerformance, BUPerformanceDaily, Branch, PurchaseDetail, Warehouse, Customer, Employee, 
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
-    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup
+    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup, BankBalance
 )
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
@@ -328,3 +328,10 @@ class CustomTaskResultAdmin(TaskResultAdmin):
         if len(result_str) > 100:
             return result_str[:100] + "..."
         return result_str
+
+
+@admin.register(BankBalance)
+class BankBalanceAdmin(admin.ModelAdmin):
+    list_display = ('bank_account_number', 'bank_name', 'balance', 'reporting_month')
+    list_filter = ('reporting_month', 'bank_name')
+    search_fields = ('bank_account_number', 'bank_name')

@@ -489,7 +489,7 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 5. **Đồng bộ hóa công thức tính Doanh thu**:
    - Đã đồng bộ hóa công thức cho cả doanh thu ngày và doanh thu lũy kế tháng sử dụng cột `actual_sales` thay vì `sales_amount`, loại bỏ chênh lệch số liệu.
 6. **Bổ sung tính toán các chỉ số thực tế về tài chính từ Sổ chi tiết**:
-   - Tiền cuối kỳ thực tế (`cash_balance_actual`): Tự động trích xuất từ số dư tài khoản `111` và `112`.
+   - Tiền cuối kỳ thực tế (`cash_balance_actual`): Tự động trích xuất từ số dư tài khoản `111` và `112`, loại trừ số dư của các tài khoản ngân hàng bị loại bỏ (ví dụ tài khoản `"113611393939"`) được truy vấn từ bảng `BankBalance`.
    - Nợ ngân hàng thực tế (`bank_debt_actual`): Tự động trích xuất từ số dư tài khoản `341`.
 7. **Tối ưu hóa API bất đồng bộ**:
    - Đã nâng cấp API cập nhật hiệu suất (`POST /api/update-performance/`) sang chạy ngầm thông qua hàng chờ Celery, loại bỏ lỗi HTTP 504 Gateway Timeout.
@@ -497,6 +497,12 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
    - Đã tính toán tự động chi phí opex thực tế (`opex_actual`) từ phát sinh Nợ tài khoản `641` và `642` trong bảng `AccountDetail`.
    - Bổ sung cấu hình danh sách tài khoản đồng bộ từ MISA vào `settings.py` (`MISA_SO_CHI_TIET_ACCOUNTS`).
    - Cập nhật chỉ số opex ngày (`daily_opex_plan`, `daily_opex_actual`) trong bảng `BUPerformanceDaily` và hỗ trợ cơ chế đồng bộ kế hoạch hai chiều linh hoạt trong Django Admin.
+9. **Tích hợp Bảng kê số dư ngân hàng (`BAListOfBalance`) & Điều chỉnh Tiền cuối kỳ**:
+   - Thêm model `BankBalance` lưu trữ chi tiết số dư tài khoản ngân hàng thực tế.
+   * Tự động tải từ MISA qua Playwright (bỏ chọn chi nhánh `_Nhật`, kỳ báo cáo `Tháng này`).
+   * Hỗ trợ import tự động từ tệp Excel có tiền tố `SO_DU_NH` và tự động dọn dẹp dữ liệu cũ của tháng báo cáo trước khi nạp mới.
+   * Cập nhật logic tính toán `cash_balance_actual` bằng cách lấy tổng số dư 111 và 112 từ sổ chi tiết trừ đi số dư của tài khoản ngân hàng cần loại trừ (`settings.MISA_EXCLUDED_BANK_ACCOUNTS`) truy vấn từ bảng `BankBalance`.
+
 
 ### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)
 1. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
@@ -506,6 +512,19 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 ---
 
 ## 10. Nhật ký Cập nhật & Thay đổi (Change Logs)
+
+### Ngày 15/07/2026
+
+#### 🛠️ Đã sửa đổi & Cập nhật:
+- **Tích hợp Bảng kê số dư ngân hàng & Điều chỉnh Tiền cuối kỳ**:
+  - Tạo model `BankBalance` lưu trữ số dư tài khoản ngân hàng chi tiết từ báo cáo `BAListOfBalance`.
+  - Cập nhật kịch bản Playwright để tự động tải báo cáo `BAListOfBalance` (bỏ chọn chi nhánh `_Nhật`, chọn kỳ báo cáo `Tháng này`).
+  - Viết resource và logic import tệp Excel có tiền tố `SO_DU_NH` với cơ chế phân đoạn và dọn dẹp theo tháng báo cáo (`reporting_month`).
+  - Cập nhật logic tính toán `cash_balance_actual` cuối tháng: lấy tổng 111 và 112 từ sổ chi tiết trừ đi số dư của tài khoản bị loại trừ (mặc định `"113611393939"` cấu hình trong `settings.MISA_EXCLUDED_BANK_ACCOUNTS`).
+- **Tích hợp Chi phí Vận hành (OPEX)**:
+  - Khai báo các cột `daily_opex_plan` và `daily_opex_actual` trong bảng `BUPerformanceDaily`.
+  - Triển khai công thức Hybrid tính OPEX thực tế của tháng dựa trên Kế hoạch lũy kế ngày + Thực tế phát sinh ngày.
+  - Cấu hình đồng bộ hai chiều linh hoạt kế hoạch OPEX giữa tổng tháng và lưới ngày con trên giao diện Django Admin.
 
 ### Ngày 10/07/2026
 

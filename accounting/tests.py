@@ -421,4 +421,76 @@ class OPEXTestCase(TestCase):
         self.assertEqual(day20.daily_opex_actual, 0)
 
 
+class BankBalanceTestCase(TestCase):
+    def setUp(self):
+        from accounting.models import BusinessUnit, Customer
+        self.bu = BusinessUnit.objects.create(code="TEST_BU_BAL", name="BU Test Balance")
+        self.cust = Customer.objects.create(code="TEST_CUST_BAL", name="Cust Test Balance", has_revenue=True)
+
+    def test_cash_balance_actual_with_excluded_bank_account(self):
+        from datetime import datetime
+        from accounting.models import AccountDetail, BankBalance, BUPerformance
+        from accounting.tasks import update_single_bu_performance
+        
+        # 1. Tạo các bút toán Sổ chi tiết
+        # TK 111 có số dư 100 triệu
+        AccountDetail.objects.create(
+            posting_date=datetime(2026, 7, 10).date(),
+            doc_id="PC001",
+            account_number="111",
+            debit_amount=100000000,
+            credit_amount=0,
+            balance_debit=100000000,
+            business_unit=self.bu,
+            customer=self.cust
+        )
+        
+        # TK 112 có số dư 500 triệu
+        AccountDetail.objects.create(
+            posting_date=datetime(2026, 7, 11).date(),
+            doc_id="UNC001",
+            account_number="112",
+            debit_amount=500000000,
+            credit_amount=0,
+            balance_debit=500000000,
+            business_unit=self.bu,
+            customer=self.cust
+        )
+        
+        # 2. Tạo số dư ngân hàng trong BankBalance
+        # Có tài khoản loại trừ '113611393939' có số dư 120 triệu
+        BankBalance.objects.create(
+            bank_account_number="113611393939",
+            bank_name="Vietcombank",
+            balance=120000000,
+            reporting_month="2026-07"
+        )
+        
+        # Có tài khoản bình thường khác có số dư 380 triệu
+        BankBalance.objects.create(
+            bank_account_number="9999999999",
+            bank_name="Techcombank",
+            balance=380000000,
+            reporting_month="2026-07"
+        )
+
+        # 3. Chạy tính toán hiệu suất BU cho tháng 7/2026
+        # opex_plan = 0
+        perf = BUPerformance.objects.create(
+            business_unit=self.bu,
+            month=7,
+            year=2026,
+            opex_plan=0
+        )
+        
+        update_single_bu_performance(self.bu.id, month=7, year=2026, target_date_str="2026-07-15")
+        
+        # 4. Kiểm chứng kết quả
+        perf.refresh_from_db()
+        
+        # Tổng Ledger: 111 (100tr) + 112 (500tr) = 600tr
+        # Trừ đi tài khoản loại trừ (120tr) = 480tr
+        self.assertEqual(perf.cash_balance_actual, 480000000)
+
+
 

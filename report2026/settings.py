@@ -201,6 +201,7 @@ MISA_REPORTS = {
     'CONG_NO_NCC': env('MISA_URL_CONG_NO_NCC', default=''),
     'TUOI_NO_KH': env('MISA_URL_TUOI_NO_KH', default=''),
     'TAI_KHOAN_CT': env('MISA_URL_TAI_KHOAN_CT', default=''),
+    'SO_DU_NH': env('MISA_URL_BALISTOFBALANCE', default='https://actapp.misa.vn/app/BA/ReportAnalysis/RPDynamicViewer/BAListOfBalance'),
 }
 
 # Cấu hình loại trừ khi tính toán hiệu suất BU
@@ -212,5 +213,8 @@ OVERSEA_CUSTOMER_GROUP_CODES = ['Oversea']
 
 # Danh sách các tài khoản xuất chi tiết từ MISA (Sổ chi tiết tài khoản TAI_KHOAN_CT)
 MISA_SO_CHI_TIET_ACCOUNTS = ['111', '112', '341', '641', '642']
+
+# Danh sách số tài khoản ngân hàng loại trừ khi tính Tiền cuối kỳ
+MISA_EXCLUDED_BANK_ACCOUNTS = ['113611393939']
 
 

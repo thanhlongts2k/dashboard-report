@@ -164,3 +164,16 @@ Hệ thống hỗ trợ tính toán và theo dõi Chi phí vận hành thực t�
   * Khi lưu Kế hoạch tháng (`opex_plan`): Tự động chia đều cho số ngày trong tháng để điền kế hoạch ngày (`daily_opex_plan`).
   * Khi lưu chi tiết Kế hoạch ngày (`daily_opex_plan`): Tự động cộng dồn tất cả các ngày con để cập nhật ngược lại kế hoạch tháng (`opex_plan`).
 * **Lũy kế năm (YTD):** Chi phí opex lũy kế thực tế (`ytd_opex_actual`) và kế hoạch (`ytd_opex_plan`) được cộng dồn lũy kế qua các tháng và lan truyền tự động đến hết năm tài chính.
+
+---
+
+## 8. Số dư ngân hàng & Tiền cuối kỳ (Cash Balance)
+Hệ thống tính toán Tiền cuối kỳ thực tế (`cash_balance_actual`) bằng cách kết hợp số liệu từ Sổ chi tiết tài khoản và Bảng kê số dư ngân hàng:
+* **Công thức tính toán:**
+  $$\text{cash\_balance\_actual} = (\text{cash\_bal\_111 (sổ chi tiết)} + \text{cash\_bal\_112 (sổ chi tiết)}) - \text{Số dư ngân hàng loại trừ}$$
+  *Trong đó:*
+  * `cash_bal_111` và `cash_bal_112`: Dư Nợ dòng cuối cùng của tài khoản `111` và `112` tương ứng trong bảng `AccountDetail` của kỳ báo cáo.
+  * `Số dư ngân hàng loại trừ`: Tổng số dư (`balance`) của các tài khoản ngân hàng nằm trong danh sách cấu hình loại trừ (ví dụ tài khoản `"113611393939"` cấu hình trong `settings.MISA_EXCLUDED_BANK_ACCOUNTS`), được trích xuất từ bảng `BankBalance` thuộc tháng báo cáo đó (`reporting_month`).
+* **Cấu hình đồng bộ từ MISA:** Khi tải báo cáo Bảng kê số dư ngân hàng (`BAListOfBalance`), hệ thống Playwright tự động loại bỏ các chi nhánh có chứa `_Nhật`, chọn kỳ báo cáo là "Tháng này", bấm xem báo cáo và xuất Excel tải về thư mục `media/auto_imports` dưới tiền tố `SO_DU_NH`.
+* **Cơ chế Import & Xóa:** Dữ liệu từ tệp `SO_DU_NH*.xlsx` được import thông qua `BankBalanceResource`. Trước khi import, hệ thống tự động xóa toàn bộ các bản ghi `BankBalance` có `reporting_month` trùng với tháng báo cáo hiện tại (`reporting_period`) để tránh trùng lặp dữ liệu.
+
