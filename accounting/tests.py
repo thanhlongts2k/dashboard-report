@@ -540,4 +540,114 @@ class SalesTransactionImportTests(TestCase):
         self.assertEqual(customer.group, group)
 
 
+class BUOverseaFilterTests(TestCase):
+    def setUp(self):
+        from accounting.models import BusinessUnit, Customer, CustomerGroup, Product, MaterialGroup
+        
+        # 1. Tạo BU
+        self.hpc = BusinessUnit.objects.create(code='HPC', name='Hạo Phương', is_main=False)
+        self.bu_elevator = BusinessUnit.objects.create(code='BU_ELEVATOR', name='Thang máy', is_main=True, parent=self.hpc)
+        self.bu_oversea = BusinessUnit.objects.create(code='Oversea', name='Oversea', is_main=True, parent=self.hpc)
+        
+        # 2. Tạo Nhóm khách hàng
+        self.grp_dom = CustomerGroup.objects.create(code='DOM', name='Trong nước')
+        self.grp_ovs = CustomerGroup.objects.create(code='Oversea', name='Oversea')
+        
+        # 3. Tạo Khách hàng và liên kết với BU để thỏa mãn bộ lọc công nợ/doanh thu
+        self.cust_dom = Customer.objects.create(code='C_DOM', name='Khách Trong nước', group=self.grp_dom, business_unit=self.bu_elevator)
+        self.cust_ovs = Customer.objects.create(code='C_OVS', name='Khách Oversea', group=self.grp_ovs, business_unit=self.bu_oversea)
+        
+        # 4. Tạo sản phẩm để tránh lỗi FK
+        self.mat_grp = MaterialGroup.objects.create(code='VTHH_TEST', name='Nhóm VTHH')
+        self.prod = Product.objects.create(code='PROD_TEST', name='Sản phẩm test', group=self.mat_grp)
+
+    def test_oversea_customer_filtering_in_bu_performance(self):
+        from datetime import date
+        from accounting.models import SalesTransaction, BUPerformance, ReceivablesAgeing
+        from accounting.tasks import update_single_bu_performance
+        
+        # 5. Tạo các giao dịch bán hàng (Tháng 7/2026)
+        # Tx1: Giao dịch của Khách trong nước thuộc BU ELEVATOR
+        SalesTransaction.objects.create(
+            posting_date=date(2026, 7, 15),
+            doc_id='HD001',
+            customer=self.cust_dom,
+            product=self.prod,
+            business_unit=self.bu_elevator,
+            actual_sales=1000000
+        )
+        # Tx2: Giao dịch của Khách Oversea thuộc BU ELEVATOR (Phải bị LOẠI TRỪ khỏi ELEVATOR)
+        SalesTransaction.objects.create(
+            posting_date=date(2026, 7, 15),
+            doc_id='HD002',
+            customer=self.cust_ovs,
+            product=self.prod,
+            business_unit=self.bu_elevator,
+            actual_sales=2000000
+        )
+        # Tx3: Giao dịch của Khách Oversea thuộc BU Oversea (Phải được tính cho BU Oversea)
+        SalesTransaction.objects.create(
+            posting_date=date(2026, 7, 15),
+            doc_id='HD003',
+            customer=self.cust_ovs,
+            product=self.prod,
+            business_unit=self.bu_oversea,
+            actual_sales=3000000
+        )
+        # Tx4: Giao dịch của Khách trong nước thuộc BU Oversea (Phải bị LOẠI TRỪ khỏi BU Oversea)
+        SalesTransaction.objects.create(
+            posting_date=date(2026, 7, 15),
+            doc_id='HD004',
+            customer=self.cust_dom,
+            product=self.prod,
+            business_unit=self.bu_oversea,
+            actual_sales=4000000
+        )
+
+        # 6. Tạo tuổi nợ để kiểm thử lọc ageing
+        ReceivablesAgeing.objects.create(
+            customer=self.cust_dom,
+            reporting_period='2026-07',
+            total_debt=100000,
+            overdue_total=10000
+        )
+        ReceivablesAgeing.objects.create(
+            customer=self.cust_ovs,
+            reporting_period='2026-07',
+            total_debt=200000,
+            overdue_total=20000
+        )
+
+        # Chạy tính toán cho BU_ELEVATOR
+        update_single_bu_performance(self.bu_elevator.id, month=7, year=2026, target_date_str='2026-07-15')
+        perf_elevator = BUPerformance.objects.get(business_unit=self.bu_elevator, month=7, year=2026)
+        
+        # Kiểm tra BU_ELEVATOR: Doanh thu = 1M (Tx1), Loại trừ Tx2 (2M)
+        self.assertEqual(perf_elevator.mtd_revenue_actual, 1000000)
+        # Kiểm tra BU_ELEVATOR: Công nợ = 100k (khách DOM), Loại trừ khách OVS (200k)
+        self.assertEqual(perf_elevator.receivable_total, 100000)
+        self.assertEqual(perf_elevator.receivable_overdue, 10000)
+
+        # Chạy tính toán cho BU Oversea
+        update_single_bu_performance(self.bu_oversea.id, month=7, year=2026, target_date_str='2026-07-15')
+        perf_oversea = BUPerformance.objects.get(business_unit=self.bu_oversea, month=7, year=2026)
+        
+        # Kiểm tra BU Oversea: Doanh thu = 3M (Tx3), Loại trừ Tx4 (4M)
+        self.assertEqual(perf_oversea.mtd_revenue_actual, 3000000)
+        # Kiểm tra BU Oversea: Công nợ = 200k (khách OVS), Loại trừ khách DOM (100k)
+        self.assertEqual(perf_oversea.receivable_total, 200000)
+        self.assertEqual(perf_oversea.receivable_overdue, 20000)
+
+        # Chạy tính toán cho Global (Tổng công ty)
+        update_single_bu_performance(None, month=7, year=2026, target_date_str='2026-07-15')
+        perf_global = BUPerformance.objects.get(business_unit__isnull=True, month=7, year=2026)
+        
+        # Tổng công ty: Tính tất cả = 1M + 2M + 3M + 4M = 10M
+        self.assertEqual(perf_global.mtd_revenue_actual, 10000000)
+        # Tổng công ty: Công nợ = 100k + 200k = 300k
+        self.assertEqual(perf_global.receivable_total, 300000)
+        self.assertEqual(perf_global.receivable_overdue, 30000)
+
+
+
 

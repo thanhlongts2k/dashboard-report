@@ -440,6 +440,14 @@ def move_to_processed(file_path, status):
     if os.path.exists(dest_path): os.remove(dest_path)
     os.rename(file_path, dest_path)
 
+def is_under_oversea(bu):
+    curr = bu
+    while curr:
+        if curr.code == 'Oversea':
+            return True
+        curr = curr.parent
+    return False
+
 @shared_task
 def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=None):
     # --- 1. XỬ LÝ THỜI GIAN ---
@@ -466,6 +474,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             excluded_bu_ids.extend(ex_bu.get_all_descendant_ids())
 
     is_global = False
+    is_under_oversea_branch = False
     bu_ids = []
     if bu_id is None:
         is_global = True
@@ -473,6 +482,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
         bu = BusinessUnit.objects.filter(id=bu_id).first()
         if bu:
             is_global = False
+            is_under_oversea_branch = is_under_oversea(bu)
             bu_ids = bu.get_all_descendant_ids()
             # Loại bỏ các BU bị loại trừ khỏi danh sách bu_ids
             bu_ids = [bid for bid in bu_ids if bid not in excluded_bu_ids]
@@ -482,6 +492,17 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     customer_rev_filter = Q(customer__has_revenue=True)
     if excluded_cust_group_codes:
         customer_rev_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
+
+    # Phân tách nhóm khách hàng Oversea:
+    # - Cấp tổng công ty (is_global=True): Lấy tất cả (không loại trừ oversea)
+    # - Cấp nhánh Oversea (is_under_oversea_branch=True): CHỈ tính toán khách hàng thuộc nhóm oversea
+    # - Cấp các BU khác: LOẠI TRỪ khách hàng thuộc nhóm oversea
+    oversea_cust_group_codes = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+    if not is_global:
+        if is_under_oversea_branch:
+            customer_rev_filter &= Q(customer__group__code__in=oversea_cust_group_codes)
+        else:
+            customer_rev_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
 
     # --- 3. TÍNH DOANH THU & THỰC THU (LŨY KẾ THÁNG) ---
     base_filter = Q(posting_date__month=month, posting_date__year=year) & customer_rev_filter
@@ -576,6 +597,13 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     ageing_filter = Q(reporting_period=f"{year:04d}-{month:02d}")
     if excluded_cust_group_codes:
         ageing_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
+
+    # Lọc công nợ nhóm khách hàng Oversea:
+    if not is_global:
+        if is_under_oversea_branch:
+            ageing_filter &= Q(customer__group__code__in=oversea_cust_group_codes)
+        else:
+            ageing_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
 
     if is_global:
         if excluded_bu_ids:
