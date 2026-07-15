@@ -360,4 +360,65 @@ class ImportPeriodDetectionTests(TestCase):
         self.assertEqual(perf_june.ytd_collection_actual, perf_may.ytd_collection_actual + perf_june.mtd_collection_actual)
 
 
+class OPEXTestCase(TestCase):
+    def setUp(self):
+        self.bu = BusinessUnit.objects.create(code="TEST_BU", name="Test Business Unit")
+
+    def test_opex_calculation_and_sync(self):
+        from datetime import datetime
+        from accounting.models import BUPerformanceDaily
+        
+        # 1. Tạo BUPerformance tháng 6/2026 với opex_plan = 3.0 tỷ
+        perf = BUPerformance.objects.create(
+            business_unit=self.bu,
+            month=6,
+            year=2026,
+            opex_plan=3000000000
+        )
+        
+        # 2. Tạo bút toán thực tế cho ngày 01/06 và 02/06
+        # Tài khoản 641 (Nợ 50 triệu)
+        AccountDetail.objects.create(
+            posting_date=datetime(2026, 6, 1).date(),
+            doc_id="PC001",
+            account_number="6411",
+            debit_amount=50000000,
+            credit_amount=0,
+            business_unit=self.bu
+        )
+        # Tài khoản 642 (Nợ 30 triệu)
+        AccountDetail.objects.create(
+            posting_date=datetime(2026, 6, 2).date(),
+            doc_id="PC002",
+            account_number="6422",
+            debit_amount=30000000,
+            credit_amount=0,
+            business_unit=self.bu
+        )
+        
+        # 3. Chạy tính toán hiệu suất BU cho ngày 15/06/2026
+        update_single_bu_performance(self.bu.id, month=6, year=2026, target_date_str="2026-06-15")
+        
+        # 4. Kiểm chứng kết quả
+        perf.refresh_from_db()
+        
+        # Kiểm tra chi phí vận hành tháng thực tế opex_actual = 80 triệu (50tr + 30tr)
+        self.assertEqual(perf.opex_actual, 80000000)
+        
+        # Kiểm tra các ngày con:
+        # Số ngày tháng 6 = 30 ngày. Kế hoạch mỗi ngày = 3 tỷ / 30 = 100 triệu
+        day1 = BUPerformanceDaily.objects.get(performance_month=perf, date=datetime(2026, 6, 1).date())
+        self.assertEqual(day1.daily_opex_plan, 100000000)
+        self.assertEqual(day1.daily_opex_actual, 50000000)
+        
+        day2 = BUPerformanceDaily.objects.get(performance_month=perf, date=datetime(2026, 6, 2).date())
+        self.assertEqual(day2.daily_opex_plan, 100000000)
+        self.assertEqual(day2.daily_opex_actual, 30000000)
+        
+        # Một ngày tương lai (ví dụ 20/06) - opex_plan vẫn có nhưng opex_actual = 0 vì vượt quá target_date
+        day20 = BUPerformanceDaily.objects.get(performance_month=perf, date=datetime(2026, 6, 20).date())
+        self.assertEqual(day20.daily_opex_plan, 100000000)
+        self.assertEqual(day20.daily_opex_actual, 0)
+
+
 

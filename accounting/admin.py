@@ -125,9 +125,9 @@ admin.site.register(Employee)
 
 class BUPerformanceDailyInline(admin.TabularInline):
     model = BUPerformanceDaily
-    # Thiết kế chỉ cho xem, không cho sửa/xóa trực tiếp ở đây (tùy chọn)
     extra = 0 # Không hiện các dòng trống để thêm mới
-    readonly_fields = ('date', 'daily_revenue', 'daily_collection')
+    fields = ('date', 'daily_revenue', 'daily_collection', 'daily_opex_plan', 'daily_opex_actual')
+    readonly_fields = ('date', 'daily_revenue', 'daily_collection', 'daily_opex_actual')
     can_delete = False
     
     # Sắp xếp ngày mới nhất lên đầu
@@ -135,9 +135,41 @@ class BUPerformanceDailyInline(admin.TabularInline):
 
 @admin.register(BUPerformance)
 class BUPerformanceAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'mtd_revenue_actual', 'mtd_collection_actual', 'year', 'month')
+    list_display = ('__str__', 'opex_plan', 'opex_actual', 'mtd_revenue_actual', 'mtd_collection_actual', 'year', 'month')
     list_filter = ('year', 'month', 'business_unit')
     inlines = [BUPerformanceDailyInline]
+    
+    def save_related(self, request, form, formsets, change):
+        # 1. Lưu formset của các ngày trước để cập nhật DB
+        super().save_related(request, form, formsets, change)
+        
+        obj = form.instance
+        daily_formset = formsets[0]  # BUPerformanceDailyInline
+        
+        # Đếm số ngày trong tháng
+        import calendar
+        days_in_month = calendar.monthrange(obj.year, obj.month)[1]
+        
+        # 2. Xử lý đồng bộ 2 chiều:
+        # TH 1: Người dùng chỉnh sửa chi tiết Kế hoạch ngày (daily_opex_plan) trong Formset
+        daily_changed = False
+        for f in daily_formset.forms:
+            if f.has_changed() and 'daily_opex_plan' in f.changed_data:
+                daily_changed = True
+                break
+                
+        if daily_changed:
+            # Cộng dồn tất cả các ngày con để cập nhật ngược lại opex_plan của dòng cha
+            total_plan = sum(d.daily_opex_plan for d in obj.daily_logs.all())
+            if obj.opex_plan != total_plan:
+                obj.opex_plan = total_plan
+                obj.save(update_fields=['opex_plan'])
+                
+        # TH 2: Người dùng sửa Kế hoạch tháng (opex_plan) trên bảng cha
+        elif 'opex_plan' in form.changed_data:
+            # Chia đều kế hoạch tháng cho số ngày
+            daily_plan_val = obj.opex_plan / days_in_month
+            obj.daily_logs.all().update(daily_opex_plan=daily_plan_val)
     actions = ['trigger_update_data']
 
     @admin.action(description='🚀 Cập nhật số liệu thực tế (Tháng & Ngày)')

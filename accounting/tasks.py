@@ -516,6 +516,20 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     sums = match_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
     coll_actual = (sums['d'] or 0) - (sums['c'] or 0)
 
+    # Chi phí vận hành tháng thực tế (OPEX Actual - Tổng phát sinh Nợ TK 641 và 642)
+    # Lọc theo ngày và BU, không áp dụng bộ lọc khách hàng
+    opex_filter = Q(posting_date__month=month, posting_date__year=year)
+    if is_global:
+        if excluded_bu_ids:
+            opex_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+    else:
+        opex_filter &= Q(business_unit_id__in=bu_ids)
+
+    opex_qs = AccountDetail.objects.filter(opex_filter).filter(
+        Q(account_number__startswith='641') | Q(account_number__startswith='642')
+    )
+    opex_actual = opex_qs.aggregate(total=Sum('debit_amount'))['total'] or 0
+
     # --- BỔ SUNG TÍNH TOÁN CÔNG NỢ & THU TIỀN ---
     # Lọc Ageing theo kỳ báo cáo cụ thể
     ageing_filter = Q(reporting_period=f"{year:04d}-{month:02d}")
@@ -592,6 +606,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             'bank_debt_actual': bank_debt_actual,              # Tổng số dư nợ vay ngân hàng (TK 341) thực tế cuối kỳ
             'mtd_revenue_oversea_actual': rev_oversea_actual,  # Doanh thu Oversea MTD (Thực tế)
             'mtd_revenue_exclude_oversea_actual': rev_exclude_oversea_actual, # Doanh thu không bao gồm Oversea MTD (Thực tế)
+            'opex_actual': opex_actual,                        # Chi phí vận hành thực tế (Thực tế)
         }
     )
 
@@ -642,27 +657,58 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
         else:
             break
 
-    # --- 5. TÍNH VÀ CẬP NHẬT CHO TẤT CẢ CÁC NGÀY TRONG THÁNG (DAILY ACTUAL) ---
-    # Chạy vòng lặp từ ngày 1 đến target_date
-    current_date = datetime(year, month, 1).date()
+    # --- 5. TÍNH VÀ CẬP NHẬT CHO TẤT CẢ CÁC NGÀY TRONG THÁNG (DAILY ACTUAL & PLAN) ---
+    last_day_val = calendar.monthrange(year, month)[1]
+    last_day_of_month = datetime(year, month, last_day_val).date()
     
-    while current_date <= target_date:
+    # Xác định xem có cần phân bổ lại kế hoạch opex không
+    existing_daily = BUPerformanceDaily.objects.filter(performance_month=performance)
+    existing_sum = existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0
+    
+    redistribute_plan = False
+    if existing_daily.count() != last_day_val:
+        redistribute_plan = True
+    elif abs(existing_sum - performance.opex_plan) > 0.01:
+        redistribute_plan = True
+        
+    daily_plan_val = performance.opex_plan / last_day_val
+    
+    current_date = datetime(year, month, 1).date()
+    while current_date <= last_day_of_month:
         daily_filter = Q(posting_date=current_date)
         if is_global:
             if excluded_bu_ids:
                 daily_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
         else:
             daily_filter &= Q(business_unit_id__in=bu_ids)
-        
-        # Doanh thu ngày (áp dụng actual_sales thay vì sales_amount để đồng bộ dữ liệu)
-        daily_rev = SalesTransaction.objects.filter(daily_filter & customer_rev_filter).aggregate(
-            total=Sum('actual_sales')
-        )['total'] or 0
+            
+        # Lấy daily_opex_plan hiện tại hoặc chia đều
+        if redistribute_plan:
+            d_opex_plan = daily_plan_val
+        else:
+            existing_d = existing_daily.filter(date=current_date).first()
+            d_opex_plan = existing_d.daily_opex_plan if existing_d else daily_plan_val
 
-        # Thực thu ngày
-        daily_acc_qs = AccountDetail.objects.filter(daily_filter & customer_rev_filter).filter(cash_cond & offset_cond)
-        daily_sums = daily_acc_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
-        daily_coll = (daily_sums['d'] or 0) - (daily_sums['c'] or 0)
+        # Nếu ngày hạch toán vượt quá target_date (ngày chạy cập nhật), các phát sinh thực tế mặc định bằng 0
+        if current_date <= target_date:
+            # Doanh thu ngày (áp dụng actual_sales thay vì sales_amount để đồng bộ dữ liệu)
+            daily_rev = SalesTransaction.objects.filter(daily_filter & customer_rev_filter).aggregate(
+                total=Sum('actual_sales')
+            )['total'] or 0
+
+            # Thực thu ngày
+            daily_acc_qs = AccountDetail.objects.filter(daily_filter & customer_rev_filter).filter(cash_cond & offset_cond)
+            daily_sums = daily_acc_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
+            daily_coll = (daily_sums['d'] or 0) - (daily_sums['c'] or 0)
+            
+            # Chi phí vận hành thực tế ngày
+            daily_opex_act = AccountDetail.objects.filter(daily_filter).filter(
+                Q(account_number__startswith='641') | Q(account_number__startswith='642')
+            ).aggregate(total=Sum('debit_amount'))['total'] or 0
+        else:
+            daily_rev = 0
+            daily_coll = 0
+            daily_opex_act = 0
 
         # Cập nhật bảng Daily
         BUPerformanceDaily.objects.update_or_create(
@@ -671,6 +717,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             defaults={
                 'daily_revenue': daily_rev,
                 'daily_collection': daily_coll,
+                'daily_opex_plan': d_opex_plan,
+                'daily_opex_actual': daily_opex_act,
             }
         )
         current_date += timedelta(days=1)

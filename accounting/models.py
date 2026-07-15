@@ -409,6 +409,8 @@ class BUPerformanceDaily(models.Model):
     # Chỉ lưu phát sinh thực tế của riêng ngày đó
     daily_revenue = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu trong ngày")
     daily_collection = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thực thu trong ngày")
+    daily_opex_plan = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Chi phí opex ngày (Kế hoạch)")
+    daily_opex_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Chi phí opex ngày (Thực tế)")
 
     class Meta:
         verbose_name = "Hiệu suất BU theo ngày"

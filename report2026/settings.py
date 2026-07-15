@@ -210,4 +210,7 @@ EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']
 # Cấu hình nhóm khách hàng Oversea để tính doanh thu tách biệt
 OVERSEA_CUSTOMER_GROUP_CODES = ['Oversea']
 
+# Danh sách các tài khoản xuất chi tiết từ MISA (Sổ chi tiết tài khoản TAI_KHOAN_CT)
+MISA_SO_CHI_TIET_ACCOUNTS = ['111', '112', '341', '641', '642']
+
 

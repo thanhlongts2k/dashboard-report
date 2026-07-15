@@ -142,9 +142,10 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 
 *   Tất cả số liệu sau khi tính toán xong được lưu vào bảng `BUPerformance` (theo tháng) và `BUPerformanceDaily` (theo ngày).
 
-> [!WARNING]
-> **Các trường số liệu thực tế chưa được tính toán:**
-> Hiện tại, chỉ còn trường `opex_actual` (Chi phí vận hành thực tế) trong bảng `BUPerformance` **chưa có logic tính toán** trong backend và luôn mang giá trị mặc định là `0`. Các trường `bank_debt_actual` (Nợ ngân hàng thực tế) và `cash_balance_actual` (Tiền cuối kỳ thực tế) đã được tính toán tự động lấy số dư từ sổ chi tiết tài khoản `AccountDetail`.
+> [!NOTE]
+> **Tính toán Chi phí Vận hành (OPEX):**
+> Trường `opex_actual` (Chi phí vận hành thực tế tháng) và các chỉ số ngày (`daily_opex_plan`, `daily_opex_actual`) đã được tự động tính toán từ các tài khoản chi phí đầu `641` và `642` trong bảng `AccountDetail` (đồng bộ tự động từ MISA).
+
 
 > [!NOTE]
 > **Các bảng độc lập:**
@@ -492,12 +493,15 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
    - Nợ ngân hàng thực tế (`bank_debt_actual`): Tự động trích xuất từ số dư tài khoản `341`.
 7. **Tối ưu hóa API bất đồng bộ**:
    - Đã nâng cấp API cập nhật hiệu suất (`POST /api/update-performance/`) sang chạy ngầm thông qua hàng chờ Celery, loại bỏ lỗi HTTP 504 Gateway Timeout.
+8. **Tích hợp Chi phí Vận hành (OPEX)**:
+   - Đã tính toán tự động chi phí opex thực tế (`opex_actual`) từ phát sinh Nợ tài khoản `641` và `642` trong bảng `AccountDetail`.
+   - Bổ sung cấu hình danh sách tài khoản đồng bộ từ MISA vào `settings.py` (`MISA_SO_CHI_TIET_ACCOUNTS`).
+   - Cập nhật chỉ số opex ngày (`daily_opex_plan`, `daily_opex_actual`) trong bảng `BUPerformanceDaily` và hỗ trợ cơ chế đồng bộ kế hoạch hai chiều linh hoạt trong Django Admin.
 
 ### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)
-1. **Bổ sung tính toán Chi phí vận hành (OPEX)**: (Ưu tiên Cao) Trường chi phí vận hành thực tế (`opex_actual`) đang mang giá trị `0`. Cần trích xuất từ các tài khoản đầu 6 (như 641, 642) trong Sổ chi tiết tài khoản để tổng hợp.
-2. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
-3. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
-4. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
+1. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
+2. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
+3. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
 
 ---
 
