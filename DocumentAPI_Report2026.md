@@ -123,9 +123,9 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
     > **Đồng bộ hóa công thức Doanh thu:**
     > - Cả Doanh thu lũy kế tháng (`mtd_revenue_actual`) và Doanh thu phát sinh hàng ngày (`daily_revenue`) đều được đồng bộ hóa sử dụng chung cột **`actual_sales`** (Doanh số thực tế sau giảm trừ) từ bảng `SalesTransaction` để đảm bảo tính nhất quán tuyệt đối của dữ liệu báo cáo.
     > - **Tách biệt Doanh thu Oversea:** Hệ thống lọc tách riêng doanh thu của nhóm khách hàng nước ngoài được cấu hình trong `settings.OVERSEA_CUSTOMER_GROUP_CODES` (lưu vào `mtd_revenue_oversea_actual`), và phần doanh thu còn lại lưu vào `mtd_revenue_exclude_oversea_actual` (bằng tổng doanh thu trừ đi doanh thu Oversea).
-    > - **Phân tách Nhóm khách hàng Oversea theo BU (Mới cập nhật):**
+    > - **Phân tách Nhóm khách hàng Oversea theo BU:**
     >   - **Tổng công ty (Global)**: Không loại trừ nhóm khách hàng Oversea (bao gồm cả dữ liệu trong nước và Oversea) để có tổng doanh số đầy đủ.
-    >   - **Nhánh Oversea** (BU có mã thống kê `Oversea` hoặc trực thuộc `Oversea`): Chỉ bao gồm các khách hàng thuộc nhóm khách hàng Oversea (`settings.OVERSEA_CUSTOMER_GROUP_CODES`, mặc định là `['Oversea']`).
+    >   - **Nhánh Oversea** (BU có mã `Oversea` hoặc trực thuộc `Oversea`): Tính **TẤT CẢ giao dịch của khách hàng thuộc nhóm Oversea** (`settings.OVERSEA_CUSTOMER_GROUP_CODES`), bất kể giao dịch đó được ghi nhận tại BU nào trong MISA. **Không** filter theo `business_unit_id`. Áp dụng nhất quán cho Doanh thu, Thực thu và Công nợ/Tuổi nợ.
     >   - **Các BU trong nước khác**: Loại bỏ hoàn toàn các khách hàng thuộc nhóm khách hàng Oversea khi tính toán Doanh thu, Thực thu và Công nợ/Tuổi nợ để tránh sai lệch số liệu trong nước.
 *   **Thực thu tiền mặt/ngân hàng (Collection - Quy tắc Kế toán)**: 
     - Lọc từ sổ chi tiết tài khoản `AccountDetail` các bút toán có:

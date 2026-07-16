@@ -622,9 +622,11 @@ class BUOverseaFilterTests(TestCase):
         update_single_bu_performance(self.bu_elevator.id, month=7, year=2026, target_date_str='2026-07-15')
         perf_elevator = BUPerformance.objects.get(business_unit=self.bu_elevator, month=7, year=2026)
         
-        # Kiểm tra BU_ELEVATOR: Doanh thu = 1M (Tx1), Loại trừ Tx2 (2M)
+        # BU_ELEVATOR: Chỉ tính giao dịch của khách hàng TRONG NƯỚC được ghi nhận vào BU Elevator
+        # Tx1 (1M, khách DOM, BU Elevator) → Tính
+        # Tx2 (2M, khách OVS, BU Elevator) → Loại trừ (khách Oversea, không phải BU Oversea)
         self.assertEqual(perf_elevator.mtd_revenue_actual, 1000000)
-        # Kiểm tra BU_ELEVATOR: Công nợ = 100k (khách DOM), Loại trừ khách OVS (200k)
+        # Công nợ: chỉ khách hàng trong nước (DOM) → 100k
         self.assertEqual(perf_elevator.receivable_total, 100000)
         self.assertEqual(perf_elevator.receivable_overdue, 10000)
 
@@ -632,9 +634,13 @@ class BUOverseaFilterTests(TestCase):
         update_single_bu_performance(self.bu_oversea.id, month=7, year=2026, target_date_str='2026-07-15')
         perf_oversea = BUPerformance.objects.get(business_unit=self.bu_oversea, month=7, year=2026)
         
-        # Kiểm tra BU Oversea: Doanh thu = 3M (Tx3), Loại trừ Tx4 (4M)
-        self.assertEqual(perf_oversea.mtd_revenue_actual, 3000000)
-        # Kiểm tra BU Oversea: Công nợ = 200k (khách OVS), Loại trừ khách DOM (100k)
+        # BU Oversea (Cách B): Tính TẤT CẢ giao dịch của khách hàng thuộc nhóm Oversea,
+        # BẤT KỂ giao dịch đó được ghi nhận ở BU nào trong MISA.
+        # Tx2 (2M, khách OVS, BU Elevator) → Tính (khách Oversea)
+        # Tx3 (3M, khách OVS, BU Oversea)  → Tính (khách Oversea)
+        # Tx4 (4M, khách DOM, BU Oversea)  → Loại trừ (khách trong nước)
+        self.assertEqual(perf_oversea.mtd_revenue_actual, 5000000)  # 2M + 3M
+        # Công nợ: chỉ khách Oversea (OVS) → 200k
         self.assertEqual(perf_oversea.receivable_total, 200000)
         self.assertEqual(perf_oversea.receivable_overdue, 20000)
 
@@ -644,7 +650,7 @@ class BUOverseaFilterTests(TestCase):
         
         # Tổng công ty: Tính tất cả = 1M + 2M + 3M + 4M = 10M
         self.assertEqual(perf_global.mtd_revenue_actual, 10000000)
-        # Tổng công ty: Công nợ = 100k + 200k = 300k
+        # Tổng công ty: Công nợ = 100k (DOM) + 200k (OVS) = 300k
         self.assertEqual(perf_global.receivable_total, 300000)
         self.assertEqual(perf_global.receivable_overdue, 30000)
 

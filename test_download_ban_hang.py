@@ -65,12 +65,21 @@ async def test_download():
         print(f"Starting download to: {output_path}")
         success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix='BAN_HANG')
         
+        await browser.close()
+
         if success:
             print(f"SUCCESS: Report downloaded and saved to: {output_path}")
+            print("------------------------------------------------------------")
+            print("🚀 BẮT ĐẦU IMPORT VÀ CẬP NHẬT DỮ LIỆU KPI...")
+            print("------------------------------------------------------------")
+            from asgiref.sync import sync_to_async
+            from import_specific_file import import_file
+            await sync_to_async(import_file)(output_path)
+            print("------------------------------------------------------------")
+            print("✅ QUÁ TRÌNH IMPORT VÀ UPDATE KPI HOÀN TẤT!")
+            print("------------------------------------------------------------")
         else:
             print("FAILED to download report.")
-            
-        await browser.close()
 
 if __name__ == '__main__':
     asyncio.run(test_download())

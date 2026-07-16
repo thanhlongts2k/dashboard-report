@@ -528,6 +528,11 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     if is_global:
         if excluded_bu_ids:
             base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+    elif is_under_oversea_branch:
+        # BU Oversea: giao dịch được ghi nhận ở các BU khác, không filter theo business_unit_id.
+        # Chỉ dùng filter nhóm khách hàng Oversea (đã áp dụng trong customer_rev_filter).
+        if excluded_bu_ids:
+            base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
     else:
         base_filter &= Q(business_unit_id__in=bu_ids)
 
@@ -606,6 +611,11 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             ageing_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
 
     if is_global:
+        if excluded_bu_ids:
+            ageing_filter &= ~Q(customer__business_unit_id__in=excluded_bu_ids)
+    elif is_under_oversea_branch:
+        # BU Oversea: không filter theo customer.business_unit_id vì khách Oversea
+        # có thể được quản lý ở nhiều BU khác nhau.
         if excluded_bu_ids:
             ageing_filter &= ~Q(customer__business_unit_id__in=excluded_bu_ids)
     else:
