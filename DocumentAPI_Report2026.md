@@ -132,6 +132,8 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
       - Tài khoản của mình bắt đầu bằng `111` (tiền mặt) hoặc `112` (tiền gửi ngân hàng) (`account_number__startswith`).
       - Tài khoản đối ứng bắt đầu bằng `1311` hoặc `1312` (các tài khoản phải thu khách hàng) (`offset_account__startswith`).
     - **Công thức tính thực thu**: `coll_actual = debit_amount - credit_amount` (Phát sinh Nợ trừ Phát sinh Có).
+    - **Tách biệt Thực thu Oversea:** Hệ thống lọc tách riêng thực thu của nhóm khách hàng nước ngoài được cấu hình trong `settings.OVERSEA_CUSTOMER_GROUP_CODES` (lưu vào `mtd_collection_oversea_actual`), và phần thực thu còn lại lưu vào `mtd_collection_exclude_oversea_actual` (bằng tổng thực thu trừ đi thực thu Oversea).
+    - **Phân tách Nhóm khách hàng Oversea theo BU:** Bộ lọc áp dụng nhất quán theo BU tương tự như Doanh thu (Nhánh Oversea tính tất cả khách Oversea trên toàn hệ thống không lọc BU; các BU trong nước loại bỏ khách Oversea).
 *   **Tuổi nợ & Công nợ (Receivables Ageing)**:
     - Lọc từ bảng `ReceivablesAgeing`.
     - **Dư nợ cần thu** (`receivable_total`): Tính bằng tổng cột `total_debt`.

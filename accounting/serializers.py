@@ -91,8 +91,8 @@ class PurchaseDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class BUPerformanceSerializer(serializers.ModelSerializer):
-    bu_name = serializers.ReadOnlyField(source='business_unit.name')
-    bu_code = serializers.ReadOnlyField(source='business_unit.code')
+    bu_name = serializers.SerializerMethodField()
+    bu_code = serializers.SerializerMethodField()
     
     # Tính % hoàn thành kế hoạch
     revenue_kpi = serializers.SerializerMethodField()
@@ -107,6 +107,12 @@ class BUPerformanceSerializer(serializers.ModelSerializer):
         if plan and plan > 0:
             return round((actual / plan) * 100, 2)
         return 0
+
+    def get_bu_name(self, obj):
+        return obj.business_unit.name if obj.business_unit else "Tổng công ty"
+
+    def get_bu_code(self, obj):
+        return obj.business_unit.code if obj.business_unit else "Global"
 
     def get_revenue_kpi(self, obj):
         return self._calculate_ratio(obj.mtd_revenue_actual, obj.mtd_revenue_plan)

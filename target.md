@@ -128,9 +128,15 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   * `mtd_revenue_exclude_oversea_actual`: Doanh thu thực tế trong tháng không bao gồm Oversea (MTD).
   * `ytd_revenue_oversea_actual`: Doanh thu Oversea thực tế lũy kế năm (YTD).
   * `ytd_revenue_exclude_oversea_actual`: Doanh thu thực tế lũy kế năm không bao gồm Oversea (YTD).
+  * `mtd_collection_oversea_actual`: Thực thu Oversea thực tế trong tháng (MTD).
+  * `mtd_collection_exclude_oversea_actual`: Thực thu thực tế trong tháng không bao gồm Oversea (MTD).
+  * `ytd_collection_oversea_actual`: Thực thu Oversea thực tế lũy kế năm (YTD).
+  * `ytd_collection_exclude_oversea_actual`: Thực thu thực tế lũy kế năm không bao gồm Oversea (YTD).
 * **Công thức tính toán:**
   * `mtd_revenue_oversea_actual` = Tổng doanh thu của các khách hàng có nhóm thuộc `OVERSEA_CUSTOMER_GROUP_CODES` trong tháng.
   * `mtd_revenue_exclude_oversea_actual` = Tổng doanh thu tháng (`mtd_revenue_actual`) - Doanh thu Oversea tháng.
+  * `mtd_collection_oversea_actual` = Tổng thực thu của các khách hàng có nhóm thuộc `OVERSEA_CUSTOMER_GROUP_CODES` trong tháng.
+  * `mtd_collection_exclude_oversea_actual` = Tổng thực thu tháng (`mtd_collection_actual`) - Thực thu Oversea tháng.
   * Các chỉ số lũy kế YTD tương ứng được tự động cộng dồn qua từng tháng và lan truyền đến hết tháng 12 của năm đó.
 * **Bộ lọc phân tách theo BU:**
   * **Tổng công ty (Global - `bu_id is None`)**: Tính toán bao gồm cả trong nước và Oversea (không loại trừ).

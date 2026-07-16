@@ -388,6 +388,12 @@ class BUPerformance(models.Model):
     ytd_revenue_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu Oversea YTD (Thực tế)")
     ytd_revenue_exclude_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Doanh thu không bao gồm Oversea YTD (Thực tế)")
 
+    # 10. THỰC THU OVERSEA & KHÔNG BAO GỒM OVERSEA ---
+    mtd_collection_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thực thu Oversea MTD (Thực tế)")
+    mtd_collection_exclude_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thực thu không bao gồm Oversea MTD (Thực tế)")
+    ytd_collection_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thực thu Oversea YTD (Thực tế)")
+    ytd_collection_exclude_oversea_actual = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Thực thu không bao gồm Oversea YTD (Thực tế)")
+
     class Meta:
         verbose_name = "Chỉ số hiệu suất BU"
         verbose_name_plural = "Bảng theo dõi hiệu suất BU"

@@ -563,7 +563,7 @@ class BUOverseaFilterTests(TestCase):
 
     def test_oversea_customer_filtering_in_bu_performance(self):
         from datetime import date
-        from accounting.models import SalesTransaction, BUPerformance, ReceivablesAgeing
+        from accounting.models import SalesTransaction, BUPerformance, ReceivablesAgeing, AccountDetail
         from accounting.tasks import update_single_bu_performance
         
         # 5. Tạo các giao dịch bán hàng (Tháng 7/2026)
@@ -618,6 +618,52 @@ class BUOverseaFilterTests(TestCase):
             overdue_total=20000
         )
 
+        # 7. Tạo bút toán sổ chi tiết để kiểm thử lọc thực thu (collection)
+        # Coll1: Khách trong nước thuộc BU Elevator (Phải được tính cho Elevator)
+        AccountDetail.objects.create(
+            posting_date=date(2026, 7, 10),
+            doc_id='PT001',
+            account_number='1121',
+            offset_account='1311',
+            debit_amount=150000,
+            credit_amount=0,
+            business_unit=self.bu_elevator,
+            customer=self.cust_dom
+        )
+        # Coll2: Khách Oversea thuộc BU Elevator (Phải bị loại trừ khỏi Elevator, tính cho Oversea)
+        AccountDetail.objects.create(
+            posting_date=date(2026, 7, 11),
+            doc_id='PT002',
+            account_number='1121',
+            offset_account='1311',
+            debit_amount=250000,
+            credit_amount=0,
+            business_unit=self.bu_elevator,
+            customer=self.cust_ovs
+        )
+        # Coll3: Khách Oversea thuộc BU Oversea (Phải được tính cho Oversea)
+        AccountDetail.objects.create(
+            posting_date=date(2026, 7, 12),
+            doc_id='PT003',
+            account_number='1121',
+            offset_account='1311',
+            debit_amount=350000,
+            credit_amount=0,
+            business_unit=self.bu_oversea,
+            customer=self.cust_ovs
+        )
+        # Coll4: Khách trong nước thuộc BU Oversea (Phải bị loại trừ khỏi Oversea)
+        AccountDetail.objects.create(
+            posting_date=date(2026, 7, 13),
+            doc_id='PT004',
+            account_number='1121',
+            offset_account='1311',
+            debit_amount=450000,
+            credit_amount=0,
+            business_unit=self.bu_oversea,
+            customer=self.cust_dom
+        )
+
         # Chạy tính toán cho BU_ELEVATOR
         update_single_bu_performance(self.bu_elevator.id, month=7, year=2026, target_date_str='2026-07-15')
         perf_elevator = BUPerformance.objects.get(business_unit=self.bu_elevator, month=7, year=2026)
@@ -629,6 +675,10 @@ class BUOverseaFilterTests(TestCase):
         # Công nợ: chỉ khách hàng trong nước (DOM) → 100k
         self.assertEqual(perf_elevator.receivable_total, 100000)
         self.assertEqual(perf_elevator.receivable_overdue, 10000)
+        # Thực thu: chỉ tính Coll1 (150k), loại trừ Coll2 (250k, khách Oversea)
+        self.assertEqual(perf_elevator.mtd_collection_actual, 150000)
+        self.assertEqual(perf_elevator.mtd_collection_oversea_actual, 0)
+        self.assertEqual(perf_elevator.mtd_collection_exclude_oversea_actual, 150000)
 
         # Chạy tính toán cho BU Oversea
         update_single_bu_performance(self.bu_oversea.id, month=7, year=2026, target_date_str='2026-07-15')
@@ -643,6 +693,10 @@ class BUOverseaFilterTests(TestCase):
         # Công nợ: chỉ khách Oversea (OVS) → 200k
         self.assertEqual(perf_oversea.receivable_total, 200000)
         self.assertEqual(perf_oversea.receivable_overdue, 20000)
+        # Thực thu: tính Coll2 (250k) và Coll3 (350k) = 600k, loại trừ Coll4 (450k, khách DOM)
+        self.assertEqual(perf_oversea.mtd_collection_actual, 600000)
+        self.assertEqual(perf_oversea.mtd_collection_oversea_actual, 600000)
+        self.assertEqual(perf_oversea.mtd_collection_exclude_oversea_actual, 0)
 
         # Chạy tính toán cho Global (Tổng công ty)
         update_single_bu_performance(None, month=7, year=2026, target_date_str='2026-07-15')
@@ -653,6 +707,10 @@ class BUOverseaFilterTests(TestCase):
         # Tổng công ty: Công nợ = 100k (DOM) + 200k (OVS) = 300k
         self.assertEqual(perf_global.receivable_total, 300000)
         self.assertEqual(perf_global.receivable_overdue, 30000)
+        # Tổng công ty: Thực thu = 150k + 250k + 350k + 450k = 1.2M
+        self.assertEqual(perf_global.mtd_collection_actual, 1200000)
+        self.assertEqual(perf_global.mtd_collection_oversea_actual, 600000)  # Coll2 + Coll3
+        self.assertEqual(perf_global.mtd_collection_exclude_oversea_actual, 600000)  # Coll1 + Coll4
 
 
 

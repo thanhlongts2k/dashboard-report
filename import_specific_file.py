@@ -14,8 +14,8 @@ from django.db import transaction
 from django.utils import timezone
 from django.db.models import Q
 from tablib import Dataset
-from accounting.models import Customer, SalesTransaction, PurchaseDetail, InventorySummary, SupplierDebt, ReceivablesAgeing, AccountDetail, ImportLog
-from accounting.resources import CustomerResource, SalesTransactionResource, PurchaseDetailResource, InventorySummaryResource, SupplierDebtResource, ReceivablesAgeingResource, AccountDetailResource
+from accounting.models import Customer, SalesTransaction, PurchaseDetail, InventorySummary, SupplierDebt, ReceivablesAgeing, AccountDetail, ImportLog, BankBalance
+from accounting.resources import CustomerResource, SalesTransactionResource, PurchaseDetailResource, InventorySummaryResource, SupplierDebtResource, ReceivablesAgeingResource, AccountDetailResource, BankBalanceResource
 from accounting.tasks import (
     move_to_processed, 
     update_single_bu_performance, 
@@ -32,12 +32,13 @@ IMPORT_MAP = {
     'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource()},
     'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
     'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource()},
+    'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource()},
 }
 
-def import_file(file_path):
+def import_file(file_path, recalculate=True):
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist.")
-        return
+        return False
         
     filename = os.path.basename(file_path)
     
@@ -51,7 +52,7 @@ def import_file(file_path):
             
     if not matched_prefix:
         print(f"Error: File name '{filename}' does not match any prefix (e.g. BAN_HANG, MUA_HANG, TON_KHO, etc.).")
-        return
+        return False
         
     config = IMPORT_MAP[matched_prefix]
     start_time = timezone.now()
@@ -69,11 +70,16 @@ def import_file(file_path):
             deleted_count = 0
             # 2. Xóa phân đoạn dữ liệu cũ
             if not config.get('skip_delete', False):
-                is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing]
+                is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing, BankBalance]
                 if is_snapshot:
-                    deleted_count = config['model'].objects.filter(
-                        Q(reporting_period=reporting_period) | Q(reporting_period__isnull=True)
-                    ).delete()[0]
+                    if config['model'] == BankBalance:
+                        deleted_count = config['model'].objects.filter(
+                            Q(reporting_month=reporting_period) | Q(reporting_month__isnull=True)
+                        ).delete()[0]
+                    else:
+                        deleted_count = config['model'].objects.filter(
+                            Q(reporting_period=reporting_period) | Q(reporting_period__isnull=True)
+                        ).delete()[0]
                 else:
                     deleted_count = config['model'].objects.filter(
                         posting_date__range=[start_date, end_date]
@@ -148,22 +154,36 @@ def import_file(file_path):
             except Exception as fe:
                 print(f"Warning: Failed to move file to success folder: {fe}")
                 
-            # Recalculate KPIs (run outside transaction)
-            try:
-                print("Recalculating KPI performance for all Business Units...")
-                from accounting.models import BusinessUnit
-                update_single_bu_performance(None)
-                for bu in BusinessUnit.objects.all():
-                    update_single_bu_performance(bu.id)
-                print("KPI calculation completed.")
-                
-                # Tự động đồng bộ tồn kho vào Warehouse sau khi tính KPI
-                print("Syncing warehouse inventory data...")
-                from accounting.tasks import sync_warehouse_inventory_data
-                sync_warehouse_inventory_data()
-                print("Warehouse sync completed.")
-            except Exception as ke:
-                print(f"Warning: Failed to recalculate KPIs or sync Warehouse: {ke}")
+            if recalculate:
+                # Recalculate KPIs (run outside transaction)
+                try:
+                    from datetime import datetime
+                    current_dt = start_date
+                    imported_periods = set()
+                    while current_dt <= end_date:
+                        imported_periods.add((current_dt.month, current_dt.year))
+                        if current_dt.month == 12:
+                            current_dt = datetime(current_dt.year + 1, 1, 1).date()
+                        else:
+                            current_dt = datetime(current_dt.year, current_dt.month + 1, 1).date()
+
+                    for m, y in sorted(list(imported_periods)):
+                        print(f"Recalculating KPI performance for all Business Units for period {m}/{y}...")
+                        from accounting.models import BusinessUnit
+                        update_single_bu_performance(None, month=m, year=y)
+                        for bu in BusinessUnit.objects.all():
+                            update_single_bu_performance(bu.id, month=m, year=y)
+                    print("KPI calculation completed.")
+                    
+                    # Tự động đồng bộ tồn kho vào Warehouse sau khi tính KPI
+                    latest_m, latest_y = max(imported_periods)
+                    latest_period = f"{latest_y:04d}-{latest_m:02d}"
+                    print(f"Syncing warehouse inventory data for period {latest_period}...")
+                    from accounting.tasks import sync_warehouse_inventory_data
+                    sync_warehouse_inventory_data(latest_period)
+                    print("Warehouse sync completed.")
+                except Exception as ke:
+                    print(f"Warning: Failed to recalculate KPIs or sync Warehouse: {ke}")
                 
     except Exception as e:
         msg = f"⚠️ Lỗi hệ thống: {str(e)}"
@@ -175,6 +195,9 @@ def import_file(file_path):
             start_time=start_time,
             end_time=timezone.now()
         )
+        return False
+
+    return import_success
 
 
 if __name__ == '__main__':
