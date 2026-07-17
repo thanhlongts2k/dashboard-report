@@ -187,3 +187,17 @@ Hệ thống tính toán Tiền cuối kỳ thực tế (`cash_balance_actual`) 
 * **Cấu hình đồng bộ từ MISA:** Khi tải báo cáo Bảng kê số dư ngân hàng (`BAListOfBalance`), hệ thống Playwright tự động loại bỏ các chi nhánh có chứa `_Nhật`, chọn kỳ báo cáo là "Tháng này", bấm xem báo cáo và xuất Excel tải về thư mục `media/auto_imports` dưới tiền tố `SO_DU_NH`.
 * **Cơ chế Import & Xóa:** Dữ liệu từ tệp `SO_DU_NH*.xlsx` được import thông qua `BankBalanceResource`. Trước khi import, hệ thống tự động xóa toàn bộ các bản ghi `BankBalance` có `reporting_month` trùng với tháng báo cáo hiện tại (`reporting_period`) để tránh trùng lặp dữ liệu.
 
+---
+
+## 9. Endpoint gửi email backend (POST /api/reports/send-email/)
+Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend:
+* **Các tham số đầu vào (Multipart form-data):**
+  * `to_emails` (Bắt buộc): Chuỗi danh sách email nhận phân tách bằng dấu phẩy.
+  * `subject` (Bắt buộc): Tiêu đề email.
+  * `message` (Bắt buộc): Nội dung email.
+  * `file` (Tùy chọn): Tệp tin báo cáo đính kèm.
+  * `file_name` (Tùy chọn): Tên tệp đính kèm khi gửi đi.
+  * `from_email` (Tùy chọn): Địa chỉ email gửi.
+* **Cấu hình SMTP:** Các tham số SMTP được đọc động từ `.env` (EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL). Hệ thống hỗ trợ chế độ kiểm thử bằng cách đổi `EMAIL_BACKEND` thành `django.core.mail.backends.console.EmailBackend`.
+
+

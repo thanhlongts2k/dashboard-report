@@ -148,3 +148,44 @@ class InventorySummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = InventorySummary
         fields = '__all__'
+
+
+class SendEmailSerializer(serializers.Serializer):
+    file = serializers.FileField(required=False, allow_null=True)
+    file_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    from_email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    to_emails = serializers.CharField(required=True)
+    subject = serializers.CharField(required=True)
+    message = serializers.CharField(required=True)
+
+    def validate_to_emails(self, value):
+        if not value:
+            raise serializers.ValidationError("Danh sách email nhận không được để trống.")
+        
+        # Hỗ trợ phân tách nếu là chuỗi phân tách bằng dấu phẩy
+        if isinstance(value, str):
+            emails = [email.strip() for email in value.split(',') if email.strip()]
+        elif isinstance(value, list):
+            emails = [email.strip() for email in value if isinstance(email, str) and email.strip()]
+        else:
+            raise serializers.ValidationError("to_emails phải là dạng danh sách hoặc chuỗi phân tách bằng dấu phẩy.")
+            
+        if not emails:
+            raise serializers.ValidationError("Không tìm thấy địa chỉ email nhận hợp lệ.")
+            
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError
+        for email in emails:
+            try:
+                validate_email(email)
+            except ValidationError:
+                raise serializers.ValidationError(f"Địa chỉ email không hợp lệ: {email}")
+        return emails
+
+    def validate_file(self, value):
+        if value:
+            # Giới hạn 20MB = 20 * 1024 * 1024 bytes
+            max_size = 20 * 1024 * 1024
+            if value.size > max_size:
+                raise serializers.ValidationError("Kích thước file đính kèm không được vượt quá 20MB.")
+        return value

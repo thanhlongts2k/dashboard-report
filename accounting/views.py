@@ -377,3 +377,158 @@ class DashboardCollectionByBUAPIView(APIView):
                 "total_collected": sum_total,
             },
         })
+
+
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.core.mail import EmailMessage
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SendEmailAPIView(APIView):
+    """
+    POST /api/reports/send-email/
+    API hỗ trợ gửi email từ Frontend với tùy chọn tệp đính kèm.
+    Yêu cầu xác thực Token Knox mặc định (permission_classes = [permissions.IsAuthenticated]).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def post(self, request, *args, **kwargs):
+        import time
+        from datetime import datetime
+        import os
+        
+        start_time = time.time()
+        timing_steps = []
+        
+        def add_timing(step_name):
+            elapsed = time.time() - start_time
+            timing_steps.append(f"[{datetime.now().strftime('%H:%M:%S.%f')}] {step_name} (elapsed: {elapsed:.3f}s)")
+            
+        add_timing("1. Bắt đầu nhận request gửi email")
+        
+        # Giá trị mặc định phòng trường hợp validation thất bại không bị NameError ở block finally
+        subject = "N/A"
+        message = "N/A"
+        to_emails = []
+        from_email = "N/A"
+        requested_from = "None"
+        attachment_name = "None"
+        status_str = "SUCCESS"
+        
+        serializer = SendEmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            status_str = f"VALIDATION_FAILED: {serializer.errors}"
+            add_timing("Dữ liệu request không hợp lệ (Validation Failed)")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        add_timing("2. Kiểm tra/Validate dữ liệu xong")
+        
+        validated_data = serializer.validated_data
+        to_emails = validated_data['to_emails']
+        subject = validated_data['subject']
+        message = validated_data['message']
+        
+        # Lấy from_email từ request, nếu không có lấy từ settings
+        requested_from = validated_data.get('from_email')
+        smtp_from = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+        
+        if requested_from:
+            if smtp_from:
+                from_email = f'"{requested_from}" <{smtp_from}>'
+            else:
+                from_email = requested_from
+        else:
+            from_email = smtp_from
+            
+        uploaded_file = request.FILES.get('file')
+        file_name = validated_data.get('file_name')
+        
+        # Tên file đính kèm nếu có
+        attachment_name = (file_name or uploaded_file.name) if uploaded_file else 'None'
+        
+        error_msg = ""
+        
+        try:
+            add_timing("3. Bắt đầu khởi tạo đối tượng EmailMessage")
+            email = EmailMessage(
+                subject=subject,
+                body=message,
+                from_email=from_email,
+                to=to_emails,
+                reply_to=[requested_from] if requested_from else None
+            )
+            
+            if uploaded_file:
+                add_timing(f"4. Bắt đầu đọc file đính kèm từ bộ nhớ ({uploaded_file.size} bytes)")
+                file_content = uploaded_file.read()
+                add_timing("5. Đọc file xong, bắt đầu đính kèm (attach) vào EmailMessage")
+                email.attach(attachment_name, file_content, uploaded_file.content_type)
+                add_timing("6. Đính kèm file thành công")
+                
+            add_timing("7. Bắt đầu thực thi lệnh email.send() gửi qua máy chủ SMTP")
+            email.send(fail_silently=False)
+            add_timing("8. Máy chủ SMTP xác nhận gửi thư thành công")
+            
+            return Response({
+                "status": "success",
+                "message": "Gửi email thành công."
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            status_str = f"ERROR: {str(e)}"
+            error_msg = str(e)
+            add_timing(f"Lỗi gửi email: {str(e)}")
+            logger.error(f"Lỗi khi gửi email: {str(e)}", exc_info=True)
+            return Response({
+                "status": "error",
+                "message": f"Không thể gửi email: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        finally:
+            total_elapsed = time.time() - start_time
+            # Ghi nhật ký vào file email_send.log ở thư mục gốc
+            try:
+                log_file_path = os.path.join(settings.BASE_DIR, 'email_send.log')
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                to_str = ', '.join(to_emails) if isinstance(to_emails, list) else str(to_emails)
+                
+                log_entry = (
+                    f"[{timestamp}]\n"
+                    f"From: {from_email} (Requested: {requested_from or 'None'})\n"
+                    f"To: {to_str}\n"
+                    f"Subject: {subject}\n"
+                    f"Message: {message}\n"
+                    f"File: {attachment_name}\n"
+                    f"Status: {status_str}\n"
+                    f"{'-'*50}\n"
+                )
+                with open(log_file_path, 'a', encoding='utf-8') as f:
+                    f.write(log_entry)
+            except Exception as log_err:
+                logger.error(f"Lỗi ghi log file email_send.log: {str(log_err)}")
+                
+            # Ghi nhật ký chi tiết thời gian xử lý (Timing) vào file email_timing.log ở thư mục gốc
+            try:
+                timing_file_path = os.path.join(settings.BASE_DIR, 'email_timing.log')
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                timing_entry = (
+                    f"==================================================\n"
+                    f"THỜI GIAN GỬI EMAIL: {timestamp}\n"
+                    f"Chủ đề: {subject}\n"
+                    f"File đính kèm: {attachment_name}\n"
+                    f"Tổng thời gian xử lý: {total_elapsed:.3f}s\n"
+                    f"Trạng thái cuối cùng: {status_str}\n"
+                    f"Nhật ký chi tiết các bước thực hiện:\n"
+                    + "\n".join(timing_steps) + "\n"
+                    f"==================================================\n\n"
+                )
+                with open(timing_file_path, 'a', encoding='utf-8') as f:
+                    f.write(timing_entry)
+            except Exception as log_err:
+                logger.error(f"Lỗi ghi log file email_timing.log: {str(log_err)}")
+
+

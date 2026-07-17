@@ -5,7 +5,7 @@ from .views import (
     EmployeeViewSet, ProductViewSet, BusinessUnitViewSet,
     SalesTransactionViewSet, SupplierViewSet, SupplierDebtViewSet, SupplierGroupViewSet, AccountDetailViewSet, ReceivablesAgeingViewSet, PurchaseDetailViewSet
 )
-from .views import LoginAPI, BUReportAPIView, BUPerformanceDailyListView, DashboardCollectionByBUAPIView
+from .views import LoginAPI, BUReportAPIView, BUPerformanceDailyListView, DashboardCollectionByBUAPIView, SendEmailAPIView
 
 
 # Khởi tạo router của Django Rest Framework
@@ -34,4 +34,5 @@ urlpatterns = [
     path('performance/daily/', BUPerformanceDailyListView.as_view(), name='performance_daily_list'),
     path('update-performance/', BUPerformanceUpdateAPIView.as_view(), name='api_update_performance'),
     path('dashboard/collection-by-bu/', DashboardCollectionByBUAPIView.as_view(), name='dashboard_collection_by_bu'),
+    path('reports/send-email/', SendEmailAPIView.as_view(), name='send_email_api'),
 ]

@@ -1,6 +1,8 @@
 # Python
 __pycache__/
 *.py[cod]
+email_send.log
+email_timing.log
 
 # Virtual env
 venv/

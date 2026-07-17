@@ -345,7 +345,24 @@ py manage.py runserver
         ```
     *   **Cơ chế thực thi**: Tác vụ được thực hiện **bất đồng bộ (Asynchronous)** bằng cách xếp hàng tác vụ ngầm vào Celery để tránh lỗi 504 Gateway Timeout. API phản hồi ngay lập tức trạng thái `{"status": "success", "message": "..."}`.
 
-#### 7. Các API danh mục chi tiết (DRF ViewSets)
+#### 7. Gửi báo cáo qua email (Send Email API)
+*   `POST /api/reports/send-email/`:
+    *   **Tác dụng**: Cho phép gửi email từ Frontend kèm theo file đính kèm (báo cáo, Excel...).
+    *   **Authentication**: Yêu cầu Header `Authorization: Token <key>` (Knox Token).
+    *   **Request Format**: `multipart/form-data`.
+    *   **Các tham số dữ liệu (Form Fields)**:
+        *   `file` (File, Optional): Tệp tin đính kèm.
+        *   `file_name` (String, Optional): Tên hiển thị của file đính kèm (nếu để trống sẽ mặc định lấy tên file gốc tải lên).
+        *   `from_email` (String, Optional): Email người gửi (Nếu để trống sẽ sử dụng `DEFAULT_FROM_EMAIL` hoặc `EMAIL_HOST_USER` từ cấu hình hệ thống).
+        *   `to_emails` (String, Required): Danh sách địa chỉ email nhận, ngăn cách bởi dấu phẩy (Ví dụ: `nhanvienA@haophuong.com, nhanvienB@haophuong.com`).
+        *   `subject` (String, Required): Tiêu đề của email.
+        *   `message` (String, Required): Nội dung email (body).
+    *   **Dữ liệu phản hồi (JSON)**:
+        *   Thành công: `{"status": "success", "message": "Gửi email thành công."}` (Mã 200 OK).
+        *   Lỗi tham số: `{"to_emails": ["Danh sách email nhận không được để trống."]}` (Mã 400 Bad Request).
+        *   Lỗi hệ thống/SMTP: `{"status": "error", "message": "Không thể gửi email: <chi tiết lỗi>"}` (Mã 500 Internal Server Error).
+
+#### 8. Các API danh mục chi tiết (DRF ViewSets)
 Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh sách (`GET`), chi tiết (`GET [id]`), tạo (`POST`), sửa (`PUT`), xóa (`DELETE`) dữ liệu:
 *   `/api/branches/` (Chi nhánh)
 *   `/api/warehouses/` (Kho hàng)
@@ -508,6 +525,11 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
    * Tự động tải từ MISA qua Playwright (bỏ chọn chi nhánh `_Nhật`, kỳ báo cáo `Tháng này`).
    * Hỗ trợ import tự động từ tệp Excel có tiền tố `SO_DU_NH` và tự động dọn dẹp dữ liệu cũ của tháng báo cáo trước khi nạp mới.
    * Cập nhật logic tính toán `cash_balance_actual` bằng cách lấy tổng số dư 111 và 112 từ sổ chi tiết trừ đi số dư của tài khoản ngân hàng cần loại trừ (`settings.MISA_EXCLUDED_BANK_ACCOUNTS`) truy vấn từ bảng `BankBalance`.
+
+
+10. **Endpoint gửi email backend (POST /api/reports/send-email/)**:
+    - Đã phát triển thành công API hỗ trợ gửi email từ Frontend với xác thực Token và hỗ trợ multipart để đính kèm file báo cáo.
+    - Hỗ trợ cấu hình SMTP linh hoạt từ môi trường `.env` và chế độ kiểm thử in ra Console (`ConsoleBackend`).
 
 
 ### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)

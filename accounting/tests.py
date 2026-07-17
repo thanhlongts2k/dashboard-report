@@ -713,5 +713,143 @@ class BUOverseaFilterTests(TestCase):
         self.assertEqual(perf_global.mtd_collection_exclude_oversea_actual, 600000)  # Coll1 + Coll4
 
 
+from rest_framework.test import APITestCase
+from django.contrib.auth.models import User
+from knox.models import AuthToken
+from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+class SendEmailAPITests(APITestCase):
+    def setUp(self):
+        # Create a user and get Knox token
+        self.user = User.objects.create_user(username='testuser', password='password123')
+        _, self.token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+        
+        # URL
+        self.url = '/api/reports/send-email/'
+
+    def test_send_email_unauthorized_fails(self):
+        # Clear credentials
+        self.client.credentials()
+        response = self.client.post(self.url, {
+            'to_emails': 'recipient@example.com',
+            'subject': 'Test Subject',
+            'message': 'Test Message'
+        })
+        self.assertEqual(response.status_code, 401)
+
+    def test_send_email_missing_required_fields_fails(self):
+        # Missing to_emails
+        response = self.client.post(self.url, {
+            'subject': 'Test Subject',
+            'message': 'Test Message'
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('to_emails', response.data)
+
+        # Missing subject
+        response = self.client.post(self.url, {
+            'to_emails': 'recipient@example.com',
+            'message': 'Test Message'
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('subject', response.data)
+
+    def test_send_email_invalid_to_emails_fails(self):
+        response = self.client.post(self.url, {
+            'to_emails': 'invalid-email',
+            'subject': 'Test Subject',
+            'message': 'Test Message'
+        })
+        self.assertEqual(response.status_code, 400)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_send_email_success_without_attachment(self):
+        mail.outbox = []
+        response = self.client.post(self.url, {
+            'to_emails': 'recipient1@example.com, recipient2@example.com',
+            'subject': 'Test Subject',
+            'message': 'Test Message',
+            'from_email': 'sender@example.com'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'success')
+        
+        # Verify email was sent
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.subject, 'Test Subject')
+        self.assertEqual(sent_email.body, 'Test Message')
+        self.assertIn('sender@example.com', sent_email.from_email)
+        self.assertEqual(sent_email.to, ['recipient1@example.com', 'recipient2@example.com'])
+        self.assertEqual(len(sent_email.attachments), 0)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_send_email_success_with_attachment(self):
+        mail.outbox = []
+        # Create a simple file
+        test_file = SimpleUploadedFile("report.xlsx", b"excel_content", content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        
+        response = self.client.post(self.url, {
+            'to_emails': 'recipient@example.com',
+            'subject': 'Test Attachment Subject',
+            'message': 'Test Message with file',
+            'file': test_file,
+            'file_name': 'custom_report_name.xlsx'
+        }, format='multipart')
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'success')
+        
+        # Verify email was sent with attachment
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.subject, 'Test Attachment Subject')
+        self.assertEqual(sent_email.to, ['recipient@example.com'])
+        self.assertEqual(len(sent_email.attachments), 1)
+        
+        attachment = sent_email.attachments[0]
+        # attachment is a tuple: (filename, content, mimetype)
+        self.assertEqual(attachment[0], 'custom_report_name.xlsx')
+        self.assertEqual(attachment[1], b'excel_content')
+        self.assertEqual(attachment[2], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_send_email_json_success(self):
+        mail.outbox = []
+        response = self.client.post(self.url, {
+            'to_emails': 'json_recipient@example.com',
+            'subject': 'Test JSON Subject',
+            'message': 'Test JSON Message'
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'success')
+        
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.subject, 'Test JSON Subject')
+        self.assertEqual(sent_email.body, 'Test JSON Message')
+        self.assertEqual(sent_email.to, ['json_recipient@example.com'])
+
+    def test_send_email_oversized_file_fails(self):
+        # Create a file larger than 20MB (21MB)
+        large_file = SimpleUploadedFile("huge_report.xlsx", b"0" * (21 * 1024 * 1024))
+        
+        response = self.client.post(self.url, {
+            'to_emails': 'recipient@example.com',
+            'subject': 'Oversized Subject',
+            'message': 'Test Message',
+            'file': large_file
+        }, format='multipart')
+        
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('file', response.data)
+        self.assertEqual(response.data['file'][0], "Kích thước file đính kèm không được vượt quá 20MB.")
+
+
+
+
+
 
 
