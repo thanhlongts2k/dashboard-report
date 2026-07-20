@@ -55,9 +55,9 @@ def detect_period_from_filename(filename, file_path):
             logger.info(f"Detected monthly period from filename {filename}: {start_date} to {end_date}, period: {reporting_period}")
             return start_date, end_date, reporting_period, False
 
-    # 4. Fallback: Đọc lướt nội dung file tìm cột ngày hạch toán/chứng từ
+    # 4. Fallback: Đọc nội dung file tìm cột ngày hạch toán/chứng từ để lấy chính xác dải ngày min-max
     try:
-        df = pd.read_excel(file_path, nrows=50, header=None)
+        df = pd.read_excel(file_path, header=None)
         header_row_idx = -1
         date_col_idx = -1
         
@@ -72,24 +72,19 @@ def detect_period_from_filename(filename, file_path):
                 break
 
         if header_row_idx >= 0 and date_col_idx >= 0:
-            for r_idx in range(header_row_idx + 1, len(df)):
-                val = df.iloc[r_idx, date_col_idx]
-                if pd.notna(val):
-                    try:
-                        dt = pd.to_datetime(val)
-                        if not pd.isna(dt):
-                            start_date = datetime(dt.year, dt.month, 1).date()
-                            last_day = calendar.monthrange(dt.year, dt.month)[1]
-                            end_date = datetime(dt.year, dt.month, last_day).date()
-                            reporting_period = f"{dt.year:04d}-{dt.month:02d}"
-                            logger.info(f"Detected period by peeking excel {filename}: {start_date} to {end_date}, period: {reporting_period}")
-                            return start_date, end_date, reporting_period, False
-                    except Exception:
-                        pass
+            s_dates = pd.to_datetime(df.iloc[header_row_idx + 1:, date_col_idx], errors='coerce').dropna()
+            if not s_dates.empty:
+                min_dt = s_dates.min()
+                max_dt = s_dates.max()
+                start_date = min_dt.date()
+                end_date = max_dt.date()
+                reporting_period = f"{max_dt.year:04d}-{max_dt.month:02d}"
+                logger.info(f"Detected exact date range from excel content {filename}: {start_date} to {end_date}, period: {reporting_period}")
+                return start_date, end_date, reporting_period, True
     except Exception as e:
         logger.error(f"Error peeking excel file {filename}: {e}")
 
-    # 4. Fallback cuối cùng: Lấy tháng hiện tại
+    # 5. Fallback cuối cùng: Lấy tháng hiện tại
     today = datetime.now()
     start_date = datetime(today.year, today.month, 1).date()
     last_day = calendar.monthrange(today.year, today.month)[1]

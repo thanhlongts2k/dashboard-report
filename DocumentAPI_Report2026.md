@@ -608,3 +608,19 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 - Tất cả 23 unit tests pass (`Ran 23 tests in 4.376s - OK`).
 - Đã commit: `fix: rewrite checkbox detection using MISA span class (checked-true/false) + add debug screenshot` (`4627f27`).
 
+---
+
+### Cập nhật bổ sung 20/07/2026 (Khử trùng lặp Doanh thu & Cải tiến Nhận diện Kỳ Báo cáo)
+
+#### 🐛 Lỗi đã khắc phục:
+- **Lỗi số liệu Doanh thu bị gấp đôi (x2) trong Cơ sở dữ liệu**:
+  - **Nguyên nhân gốc**: Do khi re-import nhiều file Excel bán hàng test (ví dụ `BAN_HANG_202601-202605.xlsx`, `BAN_HANG_test_group.xlsx`), hàm `detect_period_from_filename` fallback về xóa dữ liệu tháng hiện tại, nhưng file lại chứa toàn bộ chứng từ các tháng cũ (từ Tháng 1 đến Tháng 6). Việc này dẫn đến chèn lặp lại dữ liệu nhiều lần mà không xóa phân đoạn tương ứng, tích tụ 55,991 bản ghi (gấp 2.3 lần so với 24,349 bản ghi chứng từ thực tế).
+  - **Giải pháp**:
+    1. Cải tiến hàm `detect_period_from_filename` trong `accounting/tasks.py`: Đọc lướt toàn bộ cột `Ngày hạch toán`/`Ngày chứng từ` trong file Excel để trích xuất dải ngày thực tế `min_date` và `max_date`. Việc xóa phân đoạn trước khi nạp mới luôn đảm bảo xóa đúng dải ngày thực tế có trong file, triệt tiêu hoàn toàn khả năng nhân bản.
+    2. Đã dọn dẹp (Deduplicate) 31,642 bản ghi trùng lặp trong CSDL `SalesTransaction`, đưa tổng số dòng về đúng 24,349 dòng chứng từ duy nhất.
+    3. Chạy tính toán lại KPI cho toàn bộ 22 Business Units và Global, đưa số liệu Doanh thu Oversea YTD về **20.12 tỷ VNĐ** (khớp **99.7%** với số liệu 20.17 tỷ VNĐ của Kế toán).
+
+#### ✅ Kết quả kiểm thử xác nhận:
+- Tất cả 34 unit tests trong `accounting` pass 100% (`Ran 34 tests in 7.624s - OK`).
+
+
