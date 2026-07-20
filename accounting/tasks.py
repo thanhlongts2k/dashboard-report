@@ -520,16 +520,14 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     
     inventory_actual = inv_data['closing'] or 0
 
-    if is_global:
-        if excluded_bu_ids:
-            base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
-    elif is_under_oversea_branch:
-        # BU Oversea: giao dịch được ghi nhận ở các BU khác, không filter theo business_unit_id.
-        # Chỉ dùng filter nhóm khách hàng Oversea (đã áp dụng trong customer_rev_filter).
-        if excluded_bu_ids:
-            base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
-    else:
+    if not is_global and not is_under_oversea_branch:
         base_filter &= Q(business_unit_id__in=bu_ids)
+
+    # Loại trừ các chứng từ có tiền tố mã chứng từ trong EXCLUDED_DOC_ID_PREFIXES (ví dụ: THANHLY)
+    excluded_doc_id_prefixes = getattr(settings, 'EXCLUDED_DOC_ID_PREFIXES', [])
+    if excluded_doc_id_prefixes:
+        for prefix in excluded_doc_id_prefixes:
+            base_filter &= ~Q(doc_id__startswith=prefix)
 
     # Doanh thu tháng
     sales_qs = SalesTransaction.objects.filter(base_filter)

@@ -16,6 +16,7 @@ Dữ liệu tồn kho được xử lý và lưu trữ qua hai cấp độ chín
   * **Bộ lọc BU & Loại trừ cấu hình ở settings:**
     * Lọc loại trừ BU: Hệ thống tự động bỏ các BU có mã nằm trong danh sách `EXCLUDED_BU_CODES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['ĐTCT']`) và các BU con trực thuộc nhánh này khỏi mọi phép tính hiệu suất.
     * Lọc loại trừ Khách hàng: Loại trừ các khách hàng thuộc nhóm có mã trong `EXCLUDED_CUSTOMER_GROUP_CODES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['Internal']`).
+    * Lọc loại trừ Loại Chứng từ: Loại trừ các chứng từ có tiền tố thuộc `EXCLUDED_DOC_ID_PREFIXES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['THANHLY']`) khỏi doanh thu bán hàng thương mại.
     * Nếu tính cho *Tổng công ty* (`is_global = True`): Không lọc theo BU (chỉ áp dụng lọc loại trừ các BU/Khách hàng đặc thù nói trên).
     * Nếu tính cho *BU cụ thể* (`is_global = False`): Lọc theo đơn vị sở hữu kho hàng (`warehouse__business_unit_id=bu_id`) và loại trừ các BU/Khách hàng đặc thù.
   * **Công thức tổng hợp:**

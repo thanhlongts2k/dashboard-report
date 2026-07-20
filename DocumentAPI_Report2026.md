@@ -623,4 +623,18 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
 #### ✅ Kết quả kiểm thử xác nhận:
 - Tất cả 34 unit tests trong `accounting` pass 100% (`Ran 34 tests in 7.624s - OK`).
 
+---
+
+### Cập nhật bổ sung 20/07/2026 (Cấu hình loại trừ chứng từ Thanh lý & Đồng bộ Doanh thu Global Tháng 1-7)
+
+#### 📝 Nội dung thay đổi:
+1. **Thêm Cấu hình `EXCLUDED_DOC_ID_PREFIXES` trong `settings.py`**:
+   - Khai báo danh sách tiền tố mã chứng từ bị loại trừ khỏi doanh thu thương mại: `EXCLUDED_DOC_ID_PREFIXES = ['THANHLY']` (dạng `list` giúp dễ dàng mở rộng thêm các loại tiền tố chứng từ khác sau này).
+   - Tích hợp logic lọc loại trừ trong `accounting/tasks.py`: Sử dụng `~Q(doc_id__startswith=prefix)` áp dụng tự động cho toàn bộ phép tính doanh thu MTD/YTD ở tất cả các cấp BU và Global.
+
+2. **Khắc phục & Đồng bộ Doanh thu Global (Tháng 1 đến Tháng 7/2026)**:
+   - Đã đồng bộ số liệu `mtd_revenue_actual`, `ytd_revenue_actual`, `ytd_revenue_oversea_actual` cho cấp Tổng công ty (Global) từ Tháng 1 đến Tháng 7/2026.
+   - Doanh thu Tháng 07/2026 Global được điều chỉnh về **29,240,493,137 VNĐ** (~29.24 tỷ VNĐ), chênh lệch với Báo cáo Kế toán (**29,232,127,573 VNĐ**) chỉ còn **+8.37 triệu VNĐ** (**+0.03%**).
+   - Doanh thu Oversea YTD lũy kế đạt **20.12 tỷ VNĐ** (khớp **99.7%** so với số liệu 20.17 tỷ VNĐ của Kế toán).
+
 
