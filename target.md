@@ -143,6 +143,7 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   * **Tổng công ty (Global - `bu_id is None`)**: Tính toán bao gồm cả trong nước và Oversea (không loại trừ).
   * **Nhánh Oversea** (BU có code `Oversea` hoặc trực thuộc `Oversea`): Tính **TẤT CẢ giao dịch của khách hàng thuộc nhóm Oversea**, bất kể giao dịch đó được ghi nhận ở BU nào trong MISA. Không filter theo `business_unit_id`. Áp dụng cho cả Doanh thu, Thực thu và Công nợ.
   * **Các BU trong nước khác**: Loại bỏ hoàn toàn các khách hàng thuộc nhóm khách hàng Oversea khi tính toán Doanh thu, Thực thu và Công nợ/Tuổi nợ.
+* **Nhật ký đối soát thu tiền (Accounting Tracking History)**: Xem chi tiết toàn bộ lịch sử đối soát số liệu thu tiền giữa Kế toán và Database tại [Accounting_Tracking_History.md](file:///d:/Sources/dashboard-report/Accounting_Tracking_History.md).
 
 ---
 
@@ -200,5 +201,30 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
   * `file_name` (Tùy chọn): Tên tệp đính kèm khi gửi đi.
   * `from_email` (Tùy chọn): Địa chỉ email gửi.
 * **Cấu hình SMTP:** Các tham số SMTP được đọc động từ `.env` (EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL). Hệ thống hỗ trợ chế độ kiểm thử bằng cách đổi `EMAIL_BACKEND` thành `django.core.mail.backends.console.EmailBackend`.
+
+---
+
+## 10. Phân tích chênh lệch Thu tiền Mảng Thang máy (BU_ELEVATOR) & Hướng khắc phục nhanh
+* **Bối cảnh phát hiện (Tháng 7/2026):**
+  * Báo cáo Kế toán (Excel chốt 20/07/2026): Thực thu mảng Elevator là **26,976,316,588 VNĐ** (gồm 3 mục con: *Elevator các KH khác* = 18.85B, *Hisa* = 7.26B, *5EX* = 0.87B).
+  * Hệ thống Database (`BUPerformance` cho `BU_ELEVATOR`): Ghi nhận **18,649,562,243 VNĐ** (Chênh lệch ~8.33 tỷ VNĐ so với Kế toán).
+* **Nguyên nhân cốt lõi:**
+  1. **Bản chất con số 18.65 tỷ trên DB:** Dữ liệu thực thu của khách hàng **HISA (`PAR2019/000883`)** trị giá **7,255,800,099 VNĐ** ĐÃ NẰM TRONG con số 18.65 tỷ này (18.65B = 7.26B HISA + 11.39B của 111 KH Thang máy khác). Con số 18.65B **không bị thiếu HISA**.
+  2. **Vấn đề lệch 7.46 tỷ VNĐ từ các KH Thang máy khác:** Trực thuộc nhóm *"Elevator các KH khác"* (18.85 tỷ Kế toán). Trên phần mềm MISA, các chứng từ thu tiền của nhóm KH này bị nhập nhầm mã chi nhánh hạch toán thành **`HPC` (ID 70)** thay vì **`BU_ELEVATOR` (ID 44)**.
+  3. **Vấn đề 5EX (0.87 tỷ VNĐ):** Khách hàng `5EX` (`PAR2025/000694`) hiện đang gán thuộc BU `VHC_BOD` trên DB.
+  4. **Cơ chế lọc của hệ thống (`accounting/tasks.py`):** Hàm `update_single_bu_performance` lọc chứng từ `AccountDetail` bằng `base_filter &= Q(business_unit_id__in=bu_ids)` (lọc theo chi nhánh chứng từ MISA). Do đó, chứng từ nào của KH Thang máy bị nhập nhầm chi nhánh `HPC` sẽ bị đẩy về Total Corp (`HPC`) chứ không về `BU_ELEVATOR`.
+* **Hướng khắc phục nhanh cho Agent (Refactoring Guide):**
+  * **File cần sửa:** [accounting/tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py#L523-L525)
+  * **Vị trí code cũ (Line 523-525):**
+    ```python
+    if not is_global and not is_under_oversea_branch:
+        base_filter &= Q(business_unit_id__in=bu_ids)
+    ```
+  * **Giải pháp sửa code (Chuyển sang lọc kép theo BU Chi Nhánh HOẶC BU Khách Hàng):**
+    ```python
+    if not is_global and not is_under_oversea_branch:
+        base_filter &= (Q(business_unit_id__in=bu_ids) | Q(customer__business_unit_id__in=bu_ids))
+    ```
+  * **Tác động sau khi sửa:** Toàn bộ giao dịch thu tiền của các Khách hàng được gán mã BU `BU_ELEVATOR` (bao gồm cả các chứng từ bị kế toán nhập nhầm chi nhánh `HPC` trên MISA) sẽ tự động quy gom chính xác 100% về `BU_ELEVATOR` trên Dashboard.
 
 
