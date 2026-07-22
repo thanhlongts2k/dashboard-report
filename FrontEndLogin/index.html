@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report2026 - Test Login SSO Google & Auth API</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-box">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>Report2026 <span>Auth Tester</span></h1>
+                    <p>Hệ thống Kiểm thử Giao diện API Đăng nhập Backend HP Co.</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="server-config">
+                    <span class="pulse-dot"></span>
+                    <label for="api-base-url">API Host:</label>
+                    <input type="text" id="api-base-url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Grid Layout -->
+        <main class="main-content">
+            <!-- Left Panel: Authentication Forms -->
+            <section class="card auth-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-right-to-bracket"></i> Phương Thức Đăng Nhập</h2>
+                    <div class="tab-navigation">
+                        <button class="tab-btn active" data-tab="tab-google">
+                            <i class="fa-brands fa-google"></i> Google SSO
+                        </button>
+                        <button class="tab-btn" data-tab="tab-credentials">
+                            <i class="fa-solid fa-key"></i> Tài Khoản
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- TAB 1: Google SSO Login -->
+                    <div class="tab-content active" id="tab-google">
+                        <div class="info-banner">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <div>
+                                <strong>Đăng nhập Google SSO (OAuth2)</strong>
+                                <p>Hệ thống hỗ trợ cả đăng nhập bằng nút Google Sign-In SDK trực tiếp hoặc dán chuỗi ID Token (JWT) từ Google OAuth Playground.</p>
+                            </div>
+                        </div>
+
+                        <!-- Google Client ID Setup -->
+                        <div class="form-group">
+                            <label for="google-client-id">
+                                <i class="fa-solid fa-id-card"></i> Google Client ID (Frontend SDK):
+                            </label>
+                            <div class="input-with-button">
+                                <input type="text" id="google-client-id" placeholder="Nhập GOOGLE_CLIENT_ID (ví dụ: 123456-xxx.apps.googleusercontent.com)">
+                                <button type="button" id="btn-init-gsi" class="btn btn-secondary">
+                                    <i class="fa-solid fa-sync"></i> Nạp SDK
+                                </button>
+                            </div>
+                            <small class="help-text">Để trống nếu muốn test bằng cách dán thủ công <code>id_token</code> bên dưới.</small>
+                        </div>
+
+                        <!-- Render Google Sign-In Button SDK -->
+                        <div class="gsi-container-box">
+                            <div id="gsi-button-wrapper">
+                                <p class="gsi-placeholder"><i class="fa-brands fa-google"></i> Bấm "Nạp SDK" hoặc đăng nhập trực tiếp qua Google OAuth Playground</p>
+                            </div>
+                        </div>
+
+                        <div class="divider">
+                            <span>HOẶC TEST BẰNG ID TOKEN CÓ SẴN</span>
+                        </div>
+
+                        <!-- Manual ID Token Input -->
+                        <form id="form-google-manual" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="manual-id-token">
+                                    <i class="fa-solid fa-code"></i> Paste Google ID Token (JWT):
+                                </label>
+                                <textarea id="manual-id-token" rows="4" placeholder="Dán chuỗi id_token từ Google OAuth Playground (eyJhbGciOiJSUzI1...) vào đây..."></textarea>
+                            </div>
+                            <button type="submit" id="btn-test-google-token" class="btn btn-primary btn-block">
+                                <i class="fa-solid fa-paper-plane"></i> Gửi Request API (/api/google-login/)
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- TAB 2: Standard Username/Password Login -->
+                    <div class="tab-content" id="tab-credentials">
+                        <div class="info-banner">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <div>
+                                <strong>Đăng nhập Truyền Thống</strong>
+                                <p>Đăng nhập bằng Username và Password của tài khoản Django/Report2026 (`POST /api/login/`).</p>
+                            </div>
+                        </div>
+
+                        <form id="form-credentials" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="cred-username"><i class="fa-solid fa-user"></i> Username / Email:</label>
+                                <input type="text" id="cred-username" placeholder="Nhập tên tài khoản (ví dụ: admin)" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="cred-password"><i class="fa-solid fa-lock"></i> Mật khẩu:</label>
+                                <input type="password" id="cred-password" placeholder="Nhập mật khẩu..." required>
+                            </div>
+                            <button type="submit" id="btn-test-credentials" class="btn btn-primary btn-block">
+                                <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập (/api/login/)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Response Inspector & Session -->
+            <section class="card response-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-terminal"></i> Bảng Phản Hồi API (Response Inspector)</h2>
+                    <div class="response-meta" id="response-status-badge">
+                        <span class="status-pill status-idle">Sẵn sàng</span>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Session Card (If Logged In) -->
+                    <div class="session-box" id="session-box" style="display: none;">
+                        <div class="session-header">
+                            <div class="session-title">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Đã xác thực thành công (Active Session)</span>
+                            </div>
+                            <button type="button" id="btn-clear-session" class="btn btn-danger btn-sm">
+                                <i class="fa-solid fa-power-off"></i> Đăng xuất
+                            </button>
+                        </div>
+                        <div class="session-details">
+                            <div class="detail-item">
+                                <span class="label">Knox Auth Token:</span>
+                                <div class="token-copy-group">
+                                    <code id="session-token-display">...</code>
+                                    <button type="button" id="btn-copy-token" class="btn-icon" title="Sao chép Token">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Thời hạn Token (Expiry):</span>
+                                <span id="session-expiry-display" class="val">...</span>
+                            </div>
+                        </div>
+
+                        <!-- Authenticated API Test Button -->
+                        <div class="authenticated-test-bar">
+                            <button type="button" id="btn-test-bu-api" class="btn btn-success btn-sm btn-block">
+                                <i class="fa-solid fa-network-wired"></i> Test Gọi API Bảo Mật (`GET /api/business-units/`)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- API Response Output Display -->
+                    <div class="response-display-container">
+                        <div class="display-header">
+                            <span><i class="fa-solid fa-code"></i> Request & Response Data:</span>
+                            <span class="time-elapsed" id="time-elapsed-display">0 ms</span>
+                        </div>
+                        <pre id="json-response-output" class="code-block"><code>// Kết quả phản hồi từ API Backend sẽ được hiển thị ở đây...</code></pre>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Report2026 Framework • Powered by Django REST Framework & Knox Auth • HP Co.</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -409,6 +409,8 @@ py manage.py runserver
            -H "Content-Type: application/json" \
            -d "{\"id_token\": \"<CHUỖI_ID_TOKEN_VỪA_COPY>\"}"
          ```
+       - **Giao diện Web Frontend Tester**: Khởi chạy `python FrontEndLogin/server.py` và truy cập `http://127.0.0.1:3000` để thực hiện test trực tiếp trên UI giao diện web.
+
 
 
 

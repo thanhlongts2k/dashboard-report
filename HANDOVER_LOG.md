@@ -47,7 +47,22 @@ Rà soát toàn bộ các tệp tài liệu trong dự án (`DocumentAPI_Report2
 ### 3. Current Status
 - **Completed**: Rà soát 100% tệp tài liệu trong workspace. Đã tích hợp hướng dẫn kiểm thử Google Login API qua Google OAuth2 Playground trực tiếp vào mục [7.1 trong DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L366). Đã `git commit` (`6ac52ae`) và `git push` thành công lên `origin/main`.
 
+---
 
+## [2026-07-22 16:35:00] Task: FrontEndLogin UI Test Suite Implementation
 
+### 1. Current Objective
+Build a modern, interactive web frontend application in `FrontEndLogin/` for testing both Google SSO Login (`POST /api/google-login/`) and Username/Password Login (`POST /api/login/`), featuring Google Sign-In SDK button integration, manual ID Token tester, API inspector, Knox token manager, and test execution runner.
+
+### 2. Planned Modifications
+- `report2026/settings.py`: Enable `CORS_ALLOW_ALL_ORIGINS = True` to permit CORS requests from local frontend test runners.
+- `FrontEndLogin/index.html`: Build glassmorphic single-page test dashboard with Google Identity Services SDK, tabbed authentication forms, response inspector, and Knox token tools.
+- `FrontEndLogin/style.css`: Modern dark-theme glassmorphism CSS design system with Outfit/Inter typography, glowing borders, code formatting, and toast notifications.
+- `FrontEndLogin/app.js`: Interactive JS logic for Google OAuth callback, DRF login endpoints communication, token storage, and response rendering.
+- `FrontEndLogin/server.py`: Python HTTP server script for 1-click launching on `http://127.0.0.1:3000`.
+- `DocumentAPI_Report2026.md`: Add FrontEndLogin testing guide notes.
+
+### 3. Current Status
+- **Completed**: Built `FrontEndLogin/` test suite (`index.html`, `style.css`, `app.js`, `server.py`, `README.md`), enabled `CORS_ALLOW_ALL_ORIGINS = True` in `settings.py`, and updated `DocumentAPI_Report2026.md`.
 
 
