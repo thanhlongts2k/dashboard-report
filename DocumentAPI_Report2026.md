@@ -353,7 +353,8 @@ py manage.py runserver
     *   **Các tham số dữ liệu (Form Fields)**:
         *   `file` (File, Optional): Tệp tin đính kèm.
         *   `file_name` (String, Optional): Tên hiển thị của file đính kèm (nếu để trống sẽ mặc định lấy tên file gốc tải lên).
-        *   `from_email` (String, Optional): Email người gửi (Nếu để trống sẽ sử dụng `DEFAULT_FROM_EMAIL` hoặc `EMAIL_HOST_USER` từ cấu hình hệ thống).
+        *   `from_name` (String, Optional): Tên hiển thị người gửi (Alias/Display Name, ví dụ: `Hao Phuong Reporting System`).
+        *   `from_email` (String, Optional): Địa chỉ email người gửi / phản hồi (Reply-To).
         *   `to_emails` (String, Required): Danh sách địa chỉ email nhận, ngăn cách bởi dấu phẩy (Ví dụ: `nhanvienA@haophuong.com, nhanvienB@haophuong.com`).
         *   `subject` (String, Required): Tiêu đề của email.
         *   `message` (String, Required): Nội dung email (body).

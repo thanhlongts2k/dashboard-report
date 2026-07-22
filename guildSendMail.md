@@ -116,7 +116,8 @@ Thiết lập request trên Postman hoặc Client gửi HTTP của bạn như sa
     | **`message`** | Text | **Có** | Nội dung chi tiết của email.<br>Ví dụ: `Chào anh/chị, gửi kèm báo cáo.` |
     | **`file`** | File | Không | Chọn file đính kèm từ máy tính của bạn (Excel, PDF, PNG...). |
     | **`file_name`** | Text | Không | Đặt tên mới cho file đính kèm khi gửi đi.<br>Ví dụ: `Bao_Cao_Moi_Nhat.xlsx` (Nếu không truyền, hệ thống sẽ lấy tên gốc của file tải lên). |
-    | **`from_email`** | Text | Không | Địa chỉ người gửi (Nếu bỏ trống sẽ tự lấy email cấu hình trong hệ thống). |
+    | **`from_name`** | Text | Không | Tên hiển thị người gửi (Alias/Display Name).<br>Ví dụ: `Hao Phuong Reporting System`, `Board of Directors`. (Nếu để trống sẽ tự lấy `EMAIL_DISPLAY_NAME` trong cấu hình hệ thống). |
+    | **`from_email`** | Text | Không | Địa chỉ email phản hồi (Reply-To) khi người nhận bấm trả lời. |
 
 ---
 

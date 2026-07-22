@@ -431,17 +431,19 @@ class SendEmailAPIView(APIView):
         subject = validated_data['subject']
         message = validated_data['message']
         
-        # Lấy from_email từ request, nếu không có lấy từ settings
+        # Lấy from_name và from_email từ request
+        requested_name = validated_data.get('from_name')
         requested_from = validated_data.get('from_email')
-        smtp_from = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
         
-        if requested_from:
-            if smtp_from:
-                from_email = f'"{requested_from}" <{smtp_from}>'
-            else:
-                from_email = requested_from
-        else:
-            from_email = smtp_from
+        # Email SMTP gốc sử dụng để phát tin
+        smtp_user = getattr(settings, 'EMAIL_HOST_USER', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@example.com'
+        
+        # Xác định Tên Alias hiển thị (Display Name): Ưu tiên requested_name -> EMAIL_DISPLAY_NAME -> Tên mặc định
+        default_display_name = getattr(settings, 'EMAIL_DISPLAY_NAME', 'Hao Phuong Reporting System')
+        display_name = requested_name.strip() if (requested_name and requested_name.strip()) else default_display_name
+        
+        # Định dạng chuẩn RFC 5322: "Tên Hiển Thị (Alias)" <diachi_smtp@gmail.com>
+        from_email = f'"{display_name}" <{smtp_user}>'
             
         uploaded_file = request.FILES.get('file')
         file_name = validated_data.get('file_name')

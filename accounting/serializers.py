@@ -153,7 +153,8 @@ class InventorySummarySerializer(serializers.ModelSerializer):
 class SendEmailSerializer(serializers.Serializer):
     file = serializers.FileField(required=False, allow_null=True)
     file_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    from_email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    from_name = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text="Tên hiển thị người gửi (Alias/Display Name)")
+    from_email = serializers.EmailField(required=False, allow_blank=True, allow_null=True, help_text="Địa chỉ email phản hồi (Reply-To)")
     to_emails = serializers.CharField(required=True)
     subject = serializers.CharField(required=True)
     message = serializers.CharField(required=True)

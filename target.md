@@ -199,8 +199,9 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
   * `message` (Bắt buộc): Nội dung email.
   * `file` (Tùy chọn): Tệp tin báo cáo đính kèm.
   * `file_name` (Tùy chọn): Tên tệp đính kèm khi gửi đi.
-  * `from_email` (Tùy chọn): Địa chỉ email gửi.
-* **Cấu hình SMTP:** Các tham số SMTP được đọc động từ `.env` (EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL). Hệ thống hỗ trợ chế độ kiểm thử bằng cách đổi `EMAIL_BACKEND` thành `django.core.mail.backends.console.EmailBackend`.
+  * `from_name` (Tùy chọn): Tên hiển thị người gửi (Alias/Display Name, ví dụ: `"Hao Phuong Reporting System"`). Nếu không truyền sẽ lấy `EMAIL_DISPLAY_NAME` từ cấu hình hệ thống.
+  * `from_email` (Tùy chọn): Địa chỉ email phản hồi (Reply-To).
+* **Cấu hình SMTP & Alias:** Các tham số SMTP được đọc động từ `.env` (EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL, EMAIL_DISPLAY_NAME). Tiêu đề người gửi được chuẩn hóa theo chuẩn RFC 5322 `"Display Name" <email@gmail.com>` giúp hiển thị Tên Alias đẹp mắt trên hòm thư nhận. Hệ thống hỗ trợ chế độ kiểm thử bằng cách đổi `EMAIL_BACKEND` thành `django.core.mail.backends.console.EmailBackend`.
 
 ---
 
