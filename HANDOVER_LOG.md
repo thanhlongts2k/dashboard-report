@@ -30,4 +30,23 @@ Implement `POST /api/google-login/` endpoint for Single Sign-On (SSO) with Googl
 - `DocumentAPI_Report2026.md`, `target.md`: Document `POST /api/google-login/`
 
 ### 3. Current Status
-- **Completed**: `google-auth` installed, `GOOGLE_CLIENT_ID` added to `settings.py`, `GoogleLoginSerializer` and `GoogleLoginAPI` implemented in `views.py`/`urls.py`, syntax check passed 100%, and documentation (`DocumentAPI_Report2026.md`, `target.md`) updated. Ready for user commit approval.
+- **Completed**: `google-auth` installed, `GOOGLE_CLIENT_ID` added to `settings.py`, `GoogleLoginSerializer` and `GoogleLoginAPI` implemented in `views.py`/`urls.py`, syntax check passed 100%, and documentation ([DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L366)) consolidated in section 7.1 (removed duplicate section at bottom).
+
+---
+
+## [2026-07-22 16:08:00] Task: Workspace Documentation Audit & Deduplication
+
+### 1. Current Objective
+Rà soát toàn bộ các tệp tài liệu trong dự án (`DocumentAPI_Report2026.md`, `target.md`, `guildSendMail.md`, `database_mapping.md`, `Accounting_Tracking_History.md`, `CheckList.md`) để phát hiện và loại bỏ thông tin trùng lặp hoặc lỗi định dạng tiêu đề.
+
+### 2. Modifications Made
+- `DocumentAPI_Report2026.md`: Đã loại bỏ phần cập nhật dư thừa ở cuối file, gộp hướng dẫn kiểm thử vào mục [7.1. Đăng nhập qua Google](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L366).
+- `target.md`: Sắp xếp lại thứ tự tiêu đề Mục 10 (Chênh lệch Thang máy) và Mục 11 (Google Login API) theo đúng thứ tự tuyến tính (10 -> 11).
+- `guildSendMail.md`: Sửa lỗi lặp từ tiêu đề `"## 3. Hướng Dẫn Cấu Hướng Dẫn Cấu Hình SMTP..."` -> `"## 3. Hướng Dẫn Cấu Hình SMTP..."`.
+
+### 3. Current Status
+- **Completed**: Rà soát 100% tệp tài liệu trong workspace. Đã tích hợp hướng dẫn kiểm thử Google Login API qua Google OAuth2 Playground trực tiếp vào mục [7.1 trong DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L366).
+
+
+
+

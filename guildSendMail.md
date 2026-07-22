@@ -25,7 +25,7 @@ Chúng ta vừa xây dựng một **API Endpoint** tại đường dẫn:
 
 ---
 
-## 3. Hướng Dẫn Cấu Hướng Dẫn Cấu Hình SMTP Để Gửi Email (File `.env`)
+## 3. Hướng Dẫn Cấu Hình SMTP Để Gửi Email (File `.env`)
 
 Hệ thống sử dụng giao thức **SMTP** để gửi mail. Bạn cần mở file cấu hình môi trường `.env` ở thư mục gốc của dự án và bổ sung cấu hình sau:
 

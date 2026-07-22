@@ -388,6 +388,30 @@ py manage.py runserver
         }
         ```
 
+    ##### 🧪 Hướng dẫn Kiểm thử (Testing) qua Google OAuth2 Playground:
+    1. **Khởi chạy Server**: Đảm bảo Django Backend đang chạy (`python manage.py runserver 8000`).
+    2. **Lấy `id_token` từ Google**:
+       - Truy cập [Google OAuth2 Playground](https://developers.google.com/oauthplayground/).
+       - Tại cột bên trái **Step 1**, cuộn tìm mục **Google OAuth2 API v2** ➔ tích chọn `email` và `profile` (hoặc nhập `openid email profile`).
+       - Nhấn **Authorize APIs** và đăng nhập tài khoản Google.
+       - Tại **Step 2**, nhấn nút **Exchange authorization code for tokens**.
+       - Sao chép toàn bộ chuỗi tại trường **`id_token`** từ khung JSON kết quả bên phải (bắt đầu bằng `eyJhbGciOiJSUzI1...`).
+    3. **Gửi Request kiểm thử (Postman / cURL)**:
+       - **Postman**: Method `POST`, URL `http://127.0.0.1:8000/api/google-login/`, Header `Content-Type: application/json`, Body (raw JSON):
+         ```json
+         {
+           "id_token": "<CHUỖI_ID_TOKEN_VỪA_COPY>"
+         }
+         ```
+       - **cURL**:
+         ```bash
+         curl -X POST http://127.0.0.1:8000/api/google-login/ \
+           -H "Content-Type: application/json" \
+           -d "{\"id_token\": \"<CHUỖI_ID_TOKEN_VỪA_COPY>\"}"
+         ```
+
+
+
 #### 8. Các API danh mục chi tiết (DRF ViewSets)
 Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh sách (`GET`), chi tiết (`GET [id]`), tạo (`POST`), sửa (`PUT`), xóa (`DELETE`) dữ liệu:
 *   `/api/branches/` (Chi nhánh)
@@ -662,5 +686,3 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
    - Đã đồng bộ số liệu `mtd_revenue_actual`, `ytd_revenue_actual`, `ytd_revenue_oversea_actual` cho cấp Tổng công ty (Global) từ Tháng 1 đến Tháng 7/2026.
    - Doanh thu Tháng 07/2026 Global được điều chỉnh về **29,240,493,137 VNĐ** (~29.24 tỷ VNĐ), chênh lệch với Báo cáo Kế toán (**29,232,127,573 VNĐ**) chỉ còn **+8.37 triệu VNĐ** (**+0.03%**).
    - Doanh thu Oversea YTD lũy kế đạt **20.12 tỷ VNĐ** (khớp **99.7%** so với số liệu 20.17 tỷ VNĐ của Kế toán).
-
-
