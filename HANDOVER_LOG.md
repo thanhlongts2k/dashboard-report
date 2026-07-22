@@ -65,4 +65,20 @@ Build a modern, interactive web frontend application in `FrontEndLogin/` for tes
 ### 3. Current Status
 - **Completed**: Built `FrontEndLogin/` test suite (`index.html`, `style.css`, `app.js`, `server.py`, `README.md`), enabled `CORS_ALLOW_ALL_ORIGINS = True` in `settings.py`, and updated `DocumentAPI_Report2026.md`.
 
+---
+
+## [2026-07-22 17:03:00] Task: Google OAuth 2.0 "Error 400: origin_mismatch" Diagnosis & Solution
+
+### 1. Current Objective
+Diagnose and document the root cause and step-by-step fix for the frontend Google Sign-In error `Error 400: origin_mismatch` encountered when building/deploying to production or external domain.
+
+### 2. Root Cause Analysis
+- Google OAuth 2.0 policy requires every domain/origin initiating Google Sign-In SDK requests to be explicitly whitelisted under **Authorized JavaScript origins** in Google Cloud Console Credentials.
+- Local testing (`http://localhost:3000` / `http://127.0.0.1:3000`) works because local origins are already whitelisted in the dev Client ID.
+- Deploying to production/staging domain sends an unlisted `origin` header to Google OAuth server, triggering `Error 400: origin_mismatch`.
+
+### 3. Solution Documented
+- Added detailed step-by-step instructions in [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L414) explaining how to add the production/staging domain URL to **Authorized JavaScript origins** in Google Cloud Console.
+
+
 

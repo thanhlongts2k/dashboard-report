@@ -411,6 +411,11 @@ py manage.py runserver
          ```
        - **Giao diện Web Frontend Tester**: Khởi chạy `python FrontEndLogin/server.py` và truy cập `http://127.0.0.1:3000` để thực hiện test trực tiếp trên UI giao diện web.
 
+    ##### 🛠️ Xử lý lỗi thường gặp khi Build/Deploy Frontend (`Error 400: origin_mismatch`):
+    - **Nguyên nhân**: Lỗi xảy ra khi domain/port của trang Frontend sản phẩm (ví dụ: `https://report.haophuong.com` hoặc domain staging) **chưa được khai báo** trong danh sách cho phép của Google Cloud Console.
+    - **Giải pháp**: Truy cập [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials), chọn Client ID đang dùng ➔ tại mục **Authorized JavaScript origins**, nhấn **+ ADD URI** và nhập domain chính xác của Frontend (Ví dụ: `https://report.haophuong.com`). Sau khi lưu, chờ khoảng 5-10 phút để Google cập nhật.
+
+
 
 
 
