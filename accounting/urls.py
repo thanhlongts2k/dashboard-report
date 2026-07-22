@@ -5,7 +5,7 @@ from .views import (
     EmployeeViewSet, ProductViewSet, BusinessUnitViewSet,
     SalesTransactionViewSet, SupplierViewSet, SupplierDebtViewSet, SupplierGroupViewSet, AccountDetailViewSet, ReceivablesAgeingViewSet, PurchaseDetailViewSet
 )
-from .views import LoginAPI, BUReportAPIView, BUPerformanceDailyListView, DashboardCollectionByBUAPIView, SendEmailAPIView
+from .views import LoginAPI, GoogleLoginAPI, BUReportAPIView, BUPerformanceDailyListView, DashboardCollectionByBUAPIView, SendEmailAPIView
 
 
 # Khởi tạo router của Django Rest Framework
@@ -29,6 +29,7 @@ router.register(r'inventory-summaries', InventorySummaryViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('login/', LoginAPI.as_view()),
+    path('google-login/', GoogleLoginAPI.as_view(), name='google_login_api'),
     path('auth/', include('knox.urls')),
     path('bu-performance/', BUReportAPIView.as_view(), name='bu_performance_api'),
     path('performance/daily/', BUPerformanceDailyListView.as_view(), name='performance_daily_list'),

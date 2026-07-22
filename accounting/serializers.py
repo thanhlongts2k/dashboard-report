@@ -150,6 +150,10 @@ class InventorySummarySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class GoogleLoginSerializer(serializers.Serializer):
+    id_token = serializers.CharField(required=True, help_text="Google ID token (JWT) trả về từ Google Sign-In SDK trên Frontend")
+
+
 class SendEmailSerializer(serializers.Serializer):
     file = serializers.FileField(required=False, allow_null=True)
     file_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)

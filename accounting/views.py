@@ -18,6 +18,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from django.contrib.auth.models import User
+from django.conf import settings
+
 class LoginAPI(KnoxLoginView):
     permission_classes = [permissions.AllowAny]
 
@@ -31,6 +36,56 @@ class LoginAPI(KnoxLoginView):
 
         login(request, user)
         return super().post(request, format=None)
+
+class GoogleLoginAPI(KnoxLoginView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, format=None):
+        serializer = GoogleLoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        token = serializer.validated_data['id_token']
+        client_id = getattr(settings, 'GOOGLE_CLIENT_ID', None)
+
+        try:
+            # 1. Xác thực ID token trực tiếp với máy chủ Google
+            id_info = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                audience=client_id if client_id else None
+            )
+
+            email = id_info.get('email')
+            name = id_info.get('name', '')
+            given_name = id_info.get('given_name', '')
+            family_name = id_info.get('family_name', '')
+
+            if not email:
+                return Response({'error': 'Google ID token không chứa email hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 2. Tìm người dùng đã có hoặc tự động tạo User mới trong Django DB
+            user, created = User.objects.get_or_create(
+                username=email,
+                defaults={
+                    'email': email,
+                    'first_name': given_name or name,
+                    'last_name': family_name,
+                    'is_active': True
+                }
+            )
+
+            if not user.is_active:
+                return Response({'error': 'Tài khoản người dùng đã bị khóa.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 3. Đăng nhập session & tạo Knox Token
+            login(request, user)
+            return super().post(request, format=None)
+
+        except ValueError as e:
+            return Response({'error': f'Google ID token không hợp lệ hoặc đã hết hạn: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Lỗi hệ thống khi xác thực Google: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class BranchViewSet(viewsets.ModelViewSet):
     queryset = Branch.objects.all()

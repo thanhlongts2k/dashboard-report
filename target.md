@@ -205,6 +205,17 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
 
 ---
 
+## 11. Endpoint Đăng nhập bằng tài khoản Google (POST /api/google-login/)
+* **Tính năng:** Đăng nhập Single Sign-On (SSO) sử dụng tài khoản Google dành cho Frontend (React/Vite/Next.js).
+* **Luồng xử lý Backend:**
+  1. Nhận `id_token` (JWT) truyền lên từ Google Sign-In SDK phía Frontend.
+  2. Xác thực tính hợp lệ của Token trực tiếp với máy chủ xác thực Google (`google-auth` Python SDK) và đối chiếu `GOOGLE_CLIENT_ID`.
+  3. Lấy `email`, `first_name`, `last_name` từ payload Google.
+  4. Thực hiện `User.objects.get_or_create(username=email)` để tự động liên kết hoặc khởi tạo tài khoản User mới trong Django.
+  5. Cấp phát Token Knox (`AuthToken.objects.create(user)`) đồng bộ hoàn toàn với cơ chế bảo mật Knox của toàn bộ hệ thống API.
+
+---
+
 ## 10. Phân tích chênh lệch Thu tiền Mảng Thang máy (BU_ELEVATOR) & Hướng khắc phục nhanh
 * **Bối cảnh phát hiện (Tháng 7/2026):**
   * Báo cáo Kế toán (Excel chốt 20/07/2026): Thực thu mảng Elevator là **26,976,316,588 VNĐ** (gồm 3 mục con: *Elevator các KH khác* = 18.85B, *Hisa* = 7.26B, *5EX* = 0.87B).

@@ -363,6 +363,31 @@ py manage.py runserver
         *   Lỗi tham số: `{"to_emails": ["Danh sách email nhận không được để trống."]}` (Mã 400 Bad Request).
         *   Lỗi hệ thống/SMTP: `{"status": "error", "message": "Không thể gửi email: <chi tiết lỗi>"}` (Mã 500 Internal Server Error).
 
+#### 7.1. Đăng nhập qua Google (Single Sign-On Google OAuth2 API)
+*   `POST /api/google-login/`:
+    *   **Tác dụng**: Cho phép người dùng đăng nhập hệ thống thông qua tài khoản Google trên Frontend (React/Vite/Next.js). Backend xác thực `id_token` trực tiếp với máy chủ Google, tự động khởi tạo/tìm kiếm Django User, và phát hành Token Knox tương thích với toàn bộ hệ thống API.
+    *   **Authentication**: Không bắt buộc (`AllowAny`).
+    *   **Request Format**: `JSON`.
+    *   **Body (JSON)**:
+        ```json
+        {
+          "id_token": "<chuỗi_jwt_id_token_nhận_từ_Google_SDK>"
+        }
+        ```
+    *   **Dữ liệu phản hồi thành công (JSON - Mã 200 OK)**:
+        ```json
+        {
+          "expiry": "2026-07-23T06:00:00Z",
+          "token": "<chuỗi_knox_token_key_đã_mã_hóa>"
+        }
+        ```
+    *   **Lỗi xác thực (JSON - Mã 400 Bad Request)**:
+        ```json
+        {
+          "error": "Google ID token không hợp lệ hoặc đã hết hạn: ..."
+        }
+        ```
+
 #### 8. Các API danh mục chi tiết (DRF ViewSets)
 Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh sách (`GET`), chi tiết (`GET [id]`), tạo (`POST`), sửa (`PUT`), xóa (`DELETE`) dữ liệu:
 *   `/api/branches/` (Chi nhánh)

@@ -12,4 +12,22 @@ Support Email Display Name (Alias) (e.g. `"Hệ thống Báo cáo Hạo Phương
 - `DocumentAPI_Report2026.md`, `target.md`, `guildSendMail.md`: Update documentation to reflect `from_name` parameter and Display Name configuration.
 
 ### 3. Current Status
-- **Completed**: Code implementation, syntax check, and documentation (`DocumentAPI_Report2026.md`, `target.md`, `guildSendMail.md`) updated. Ready for user commit approval.
+- **Completed**: Code implementation, syntax check, and documentation (`DocumentAPI_Report2026.md`, `target.md`, `guildSendMail.md`) updated.
+
+---
+
+## [2026-07-22 13:06:00] Task: Google OAuth2 Login Endpoint Implementation
+
+### 1. Current Objective
+Implement `POST /api/google-login/` endpoint for Single Sign-On (SSO) with Google ID token, verifying token authenticity with Google's OAuth2 servers, auto-creating/fetching Django User, and issuing Knox AuthToken for DRF authentication.
+
+### 2. Planned Modifications
+- `requirements.txt`: Add `google-auth` library
+- `report2026/settings.py`: Add `GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')`
+- `accounting/serializers.py`: Add `GoogleLoginSerializer`
+- `accounting/views.py`: Add `GoogleLoginAPI` view verifying `id_token` and issuing Knox token
+- `accounting/urls.py`: Register `path('google-login/', GoogleLoginAPI.as_view())`
+- `DocumentAPI_Report2026.md`, `target.md`: Document `POST /api/google-login/`
+
+### 3. Current Status
+- **Completed**: `google-auth` installed, `GOOGLE_CLIENT_ID` added to `settings.py`, `GoogleLoginSerializer` and `GoogleLoginAPI` implemented in `views.py`/`urls.py`, syntax check passed 100%, and documentation (`DocumentAPI_Report2026.md`, `target.md`) updated. Ready for user commit approval.
