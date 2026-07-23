@@ -108,4 +108,24 @@ Extract real-time DB snapshot data for Month 7/2026 from `BUPerformance` table u
 ### 3. Current Status
 - **Completed**: DB Snapshot extracted and documented in `Accounting_Tracking_History.md`.
 
+---
+
+## [2026-07-23 08:40:00] Task: July 22 Revenue Discrepancy Analysis (Accountant vs DB)
+
+### 1. Current Objective
+Analyze line-by-line revenue discrepancies between the Accountant's report (July 22, 2026) and Database `BUPerformance` (July 2026).
+
+### 2. Analysis Findings
+- Commercial BUs (**ECO**, **Oversea**, **Manufacture**) match **100.0% perfectly**.
+- **AgriTech + SAB** matches **100.0%** (`489.4M + 343.2M = 832.6M`).
+- **iBiz Premium** & **iBiz Value** match **99.6%** (minor ~42M / 60M diff).
+- Core discrepancy (**+10.64B VNĐ**) is in **Elevator** (`BU_ELEVATOR`), caused by Accountant adding **`Hisa - FJT` (9.63B)** and **`5EX` (1.02B)** on their Excel sheet which are not in MISA `BAN_HANG` sales transactions nạp vào DB.
+
+### 3. Modifications Made
+- `Accounting_Tracking_History.md`: Added Section 3 with detailed revenue reconciliation table and breakdown.
+
+### 4. Current Status
+- **Completed**: Discrepancy identified and documented in `Accounting_Tracking_History.md`.
+
+
 

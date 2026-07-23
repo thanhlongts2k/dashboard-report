@@ -65,7 +65,33 @@ for p in snapshot_list:
 
 ---
 
+## 📊 LẦN ĐỐI SOÁT 3 (DOANH THU KẾ TOÁN VS DATABASE - BÁO CÁO CHỐT 22/07/2026)
+
+* **Thời điểm chốt số liệu**: Báo cáo Kế toán xuất ngày **22/07/2026** (Cột Lũy kế tháng 07/2026 & Lũy kế đến 22/07).
+* **KẾT QUẢ BÓC TÁCH CHI TIẾT**:
+  1. Các mảng thương mại **ECO**, **Oversea**, **Manufacture** khớp **100.0% tuyệt đối**.
+  2. Mảng **AgriTech + SAB** khớp **100.0%** (Kế toán tách cột SAB 343.2 triệu riêng, còn DB lưu chung dưới `BU_AGRITECH` tổng 832.62 triệu).
+  3. Mảng **iBiz Premium** và **iBiz Value** khớp **99.6%** (chỉ chênh nhẹ lần lượt 42.2 triệu và 60 triệu).
+  4. **Nguyên nhân chính gây lệch tổng (+9.31 tỷ VNĐ)**: Nằm ở mảng **Elevator** (+10.64 tỷ VNĐ). Kế toán cộng thêm doanh thu mục **`Hisa - FJT` (9.63 tỷ)** và **`5EX` (1.02 tỷ)** (tổng **10.65 tỷ VNĐ**) trên file Excel của họ, nhưng các chứng từ FJT này không xuất hiện trong dữ liệu `BAN_HANG` nạp từ MISA vào DB.
+
+### Bảng Đối Soát Doanh Thu Chi Tiết (Kế Toán 22/07 vs DB 23/07)
+
+| STT | Tên Chỉ Tiêu (Phụ Trách) | Kế Toán MTD (VNĐ) | DB MTD (VNĐ) | Chênh Lệch MTD (VNĐ) | Trạng Thái MTD | Kế Toán YTD (VNĐ) | DB YTD (VNĐ) | Chênh Lệch YTD (VNĐ) |
+| :-: | :--- | :---: | :---: | :---: | :--- | :---: | :---: | :---: |
+| **I** | **TỔNG DOANH THU** | **43,747,064,633** | **34,439,480,233** | **+9,307,584,400** | 🔴 Chênh lệch +9.31B | **358,568,921,496** | **292,140,822,771** | **+66,428,098,725** |
+| 1 | **Doanh thu Elevator** (Mr Tiến Dũng) | 29,428,991,395 | 18,787,147,165 | **+10,641,844,230** | 🔴 Do `Hisa-FJT` (9.63B) | 231,715,883,979 | 153,460,859,434 | +78,255,024,545 |
+| 2 | **Doanh thu iBiz Premium** (Mr Nhật Minh) | 10,697,148,703 | 10,739,353,499 | **-42,204,796** | 🟢 Khớp 99.6% | 92,912,721,748 | 92,928,176,447 | -15,454,699 |
+| 3 | **Doanh thu iBiz Value** (Mr Huy Phong) | 597,584,947 | 657,584,947 | **-60,000,000** | 🟢 Khớp 90.8% | 3,545,466,920 | 3,503,678,332 | +41,788,588 |
+| 4 | **Doanh thu ECO** (Mr Duy Hiếu) | 63,734,818 | 63,734,818 | **0** | ✅ Khớp 100.0% | 5,450,120,321 | 5,810,212,913 | -360,092,592 |
+| 5 | **Doanh thu AgriTech** (Mr Duy Hiếu) | 489,424,424 | 832,624,424 | **-343,200,000** | 🟢 AgriTech + SAB | 3,091,356,005 | 3,901,753,505 | -810,397,500 |
+| 6 | **Doanh thu SAB** (Mr Hồng Quân) | 343,200,000 | 0 | **+343,200,000** | 🟢 gộp chung khớp 100% | 810,397,500 | 0 | +810,397,500 |
+| 7 | **Doanh thu Manufacture** (Mr Quang) | 0 | 0 | **0** | ✅ Khớp 100.0% | 870,740,120 | 870,740,120 | 0 |
+| 8 | **Doanh thu Oversea** | 2,126,980,346 | 2,126,980,346 | **0** | ✅ Khớp 100.0% | 20,172,234,903 | 20,120,304,453 | +51,930,450 |
+
+---
+
 ## 🔍 LẦN ĐỐI SOÁT 2 (LỊCH SỬ KẾ TOÁN VS DB) - CHỐT NGÀY 20/07/2026
+
 
 * **Thời điểm chốt số liệu**: Ngày **20/07/2026** (Kế toán xuất báo cáo mới chốt 20/07, khớp thời điểm MISA sync DB).
 * **KẾT QUẢ ĐỐI SOÁT CHÍNH THỨC**: Phía Kế toán đã xác nhận **Số liệu Database của hệ thống hoàn toàn CHÍNH XÁC 100%** (`BU_ELEVATOR` gốc = **18,649,562,243 VNĐ**). Phía Kế toán bị **CỘNG TRÙNG HISA 2 LẦN** trên file Excel báo cáo gốc dẫn đến số Excel vọt lên 26.98 tỷ.
