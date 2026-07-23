@@ -2,7 +2,7 @@
 
 > **Mục đích tài liệu**: Lưu trữ toàn bộ lịch sử đối soát số liệu Thu tiền (Collection) và Doanh thu (Sales) giữa Báo cáo Kế toán (Excel) và Hệ thống Database (`BUPerformance`). Agent hoặc Lập trình viên có thể truy cập thẳng vào file này để lấy dữ liệu chính xác và giải trình nhanh nhất mà không tốn Token/Quota để query lại DB.
 >
-> **Lần cập nhật gần nhất**: `2026-07-21 15:15:00` (UTC+7)  
+> **Lần cập nhật gần nhất**: `2026-07-23 08:37:00` (UTC+7)  
 > **Người thực hiện**: Agent AI (Antigravity IDE)
 
 ---
@@ -42,25 +42,26 @@ for p in snapshot_list:
 
 ## 📸 BẢNG SNAPSHOT DỮ LIỆU DATABASE CHUẨN (THÁNG 07/2026 & LŨY KẾ 2026)
 
-* **Vết thời gian chốt snapshot**: Ngày **21/07/2026 15:00:00 (UTC+7)**
+* **Vết thời gian chốt snapshot**: Ngày **23/07/2026 08:37:00 (UTC+7)**
 * **Nguồn dữ liệu gốc**: Bảng `BUPerformance` (Đồng bộ trực tiếp từ cơ sở dữ liệu MISA).
 * **Mục đích**: Lưu giữ bản chụp số liệu thực tế hiện tại trên DB (thuần dữ liệu DB), giúp Agent và Người dùng tra cứu siêu tốc.
 
-### Chi Tiết Số Liệu Thực Thu (Collection) & Doanh Thu (Revenue) Trên DB
+### Chi Tiết Số Liệu Thực Thu (Collection) & Doanh Thu (Revenue) Trên DB (Cập nhật 23/07/2026)
 
 | STT | Mã BU | Tên Đơn Vị / BU | Thực Thu MTD (VNĐ) | Thực Thu YTD (VNĐ) | Doanh Thu MTD (VNĐ) | Doanh Thu YTD (VNĐ) |
 | :-: | :--- | :--- | :---: | :---: | :---: | :---: |
-| **-** | **TOTAL_CORP** | **TỔNG TOÀN CÔNG TY** | **33,747,204,321** | **362,567,969,703** | **31,508,220,702** | **289,209,563,240** |
-| **1** | `HPC` | CÔNG TY CỔ PHẦN HẠO PHƯƠNG | 31,025,115,489 | 311,822,106,156 | 29,381,240,356 | 258,791,929,236 |
-| **2** | `BU_ELEVATOR` | Thang máy (Đã có sẵn Hisa 7.26B) | 18,649,562,243 | 197,152,863,586 | 16,917,766,095 | 151,591,478,364 |
-| **3** | `BU_IBIZ PREMIUM` | Thiết bị điện cao cấp | 8,019,657,457 | 102,299,393,165 | 10,010,136,797 | 92,198,959,745 |
+| **-** | **TOTAL_CORP** | **TỔNG TOÀN CÔNG TY** | **37,863,487,250** | **351,339,132,454** | **34,439,480,233** | **292,140,822,771** |
+| **1** | `HPC` | CÔNG TY CỔ PHẦN HẠO PHƯƠNG | 33,874,087,974 | 314,671,078,641 | 31,082,344,853 | 260,493,033,733 |
+| **2** | `BU_ELEVATOR` | Thang máy | 19,594,333,655 | 198,097,634,998 | 18,787,147,165 | 153,460,859,434 |
+| **3** | `BU_IBIZ PREMIUM` | Thiết bị điện cao cấp | 8,799,840,195 | 103,079,575,903 | 10,739,353,499 | 92,928,176,447 |
 | **4** | `Oversea` | Oversea | 2,722,088,832 | 24,077,215,417 | 2,126,980,346 | 20,120,304,453 |
-| **5** | `BU_ECO` | ECO (Solar) | 1,480,346,049 | 4,941,616,419 | 63,734,818 | 5,810,212,913 |
-| **6** | `VHC_BOD` | Ban điều hành | 1,363,352,000 | 1,371,332,000 | 952,270,370 | 967,983,352 |
-| **7** | `BU_IBIZ VALUE` | Thiết bị điện phổ thông | 827,717,740 | 2,965,306,765 | 604,707,852 | 3,450,801,237 |
+| **5** | `VHC_BOD` | Ban điều hành | 2,363,690,958 | 2,371,670,958 | 1,900,000 | 17,612,982 |
+| **6** | `BU_ECO` | ECO (Solar) | 1,484,133,049 | 4,945,403,419 | 63,734,818 | 5,810,212,913 |
+| **7** | `BU_IBIZ VALUE` | Thiết bị điện phổ thông | 947,610,117 | 3,085,199,142 | 657,584,947 | 3,503,678,332 |
 | **8** | `BU_AGRITECH` | Nông nghiệp công nghệ cao | 684,480,000 | 2,591,099,321 | 832,624,424 | 3,901,753,505 |
 | **9** | `BU_MANUFACTURING` | Sản xuất - Nhà máy | 0 | 500,494,900 | 0 | 870,740,120 |
 | **10** | `BU_Agritech - Eco` | Nông nghiệp công nghệ cao & ECO | 0 | 392,319,438 | 0 | 0 |
+
 
 ---
 

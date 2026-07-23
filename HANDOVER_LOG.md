@@ -95,3 +95,17 @@ Fix browser CORS blocking error: `The 'Access-Control-Allow-Origin' header conta
 ### 4. Current Status
 - **Completed**: Fixed `settings.py` to prevent duplicate CORS headers on production Nginx proxy.
 
+---
+
+## [2026-07-23 08:37:00] Task: Real-time DB Snapshot Query & Update
+
+### 1. Current Objective
+Extract real-time DB snapshot data for Month 7/2026 from `BUPerformance` table using python query syntax documented in `Accounting_Tracking_History.md` and update `Accounting_Tracking_History.md`.
+
+### 2. Modifications Made
+- `Accounting_Tracking_History.md`: Updated real-time snapshot table with timestamp `2026-07-23 08:37:00 (UTC+7)` for TOTAL_CORP and all 23 Business Units.
+
+### 3. Current Status
+- **Completed**: DB Snapshot extracted and documented in `Accounting_Tracking_History.md`.
+
+
