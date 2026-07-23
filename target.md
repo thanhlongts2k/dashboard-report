@@ -237,7 +237,13 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
   2. Xác thực tính hợp lệ của Token trực tiếp với máy chủ xác thực Google (`google-auth` Python SDK) và đối chiếu `GOOGLE_CLIENT_ID`.
   3. Lấy `email`, `first_name`, `last_name` từ payload Google.
   4. Thực hiện `User.objects.get_or_create(username=email)` để tự động liên kết hoặc khởi tạo tài khoản User mới trong Django.
-  5. Cấp phát Token Knox (`AuthToken.objects.create(user)`) đồng bộ hoàn toàn với cơ chế bảo mật Knox của toàn bộ hệ thống API.
+---
+
+## 12. Ghi nhớ nghiệp vụ Bóc tách Doanh thu (July 2026 Reconciliation)
+* **Chi tiết mảng SAB (343.2 triệu VNĐ)**: Trong CSDL và MISA **không có mã BU độc lập tên SAB**. Giao dịch SAB được ghi nhận dưới chứng từ `NKBH26070847` ngày 20/07/2026 (Nhân viên: `TRẦN HỒNG QUÂN` - Mr. Hồng Quân) với giá trị **`343,200,000` VNĐ**. Tên dự án trong file Excel MISA ghi rõ: **`"Dự án sản xuất – kinh doanh thuộc BU Agritech – SAB Tôm 1 gram"`** (Cột Dự án), và mã BU Chi nhánh hạch toán MISA là **`BU_AGRITECH`**. Do đó trên DB toàn bộ 343.2M này được cộng tự động vào `BU_AGRITECH` (tổng `832.62M`), khớp 100.0% với `489.42M (AgriTech)` + `343.20M (SAB)` của Kế toán.
+* **Chênh lệch mảng Elevator (`BU_ELEVATOR`)**: Doanh thu Elevator trên DB (`18.79B`) lệch `+10.64B` so với Kế toán (`29.43B`) do Kế toán cộng thêm 2 mục `Hisa - FJT` (`9.63B`) và `5EX` (`1.02B`) trên Excel của họ mà dữ liệu MISA `BAN_HANG` nạp vào DB không chứa các chứng từ FJT này.
+
+
 
 
 

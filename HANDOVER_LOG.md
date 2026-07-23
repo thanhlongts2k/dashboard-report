@@ -127,5 +127,37 @@ Analyze line-by-line revenue discrepancies between the Accountant's report (July
 ### 4. Current Status
 - **Completed**: Discrepancy identified and documented in `Accounting_Tracking_History.md`.
 
+---
+
+## [2026-07-23 08:44:00] Task: SOP Compliance Verification & Diagnostic Script Reusability
+
+### 1. Current Objective
+Acknowledge strict adherence to `.agents/AGENTS.md` and `CheckList.md` SOP rules (specifically requiring explicit user approval before executing git commits), add Section 12 to `target.md` for memory persistence, and create reusable diagnostic script `scripts/reconcile_revenue.py`.
+
+### 2. Modifications Made
+- `scripts/reconcile_revenue.py`: Created reusable diagnostic script to query DB revenue and collection snapshot without inline code duplication.
+- `target.md`: Added Section 12 for revenue reconciliation memory persistence (SAB grouping & Elevator FJT analysis).
+- `HANDOVER_LOG.md`: Documented task status and SOP compliance.
+
+### 3. Current Status
+- **Completed**: Verified SOP compliance. All documentation updated. Ready for user feedback (awaiting explicit user instruction for any future git commit).
+
+---
+
+## [2026-07-23 08:56:00] Task: Search SAB BusinessUnit / Customer in Sales Data
+
+### 1. Current Objective
+Check `BusinessUnit` master data, `SalesTransaction` records, and imported sales Excel files for any BU code or name containing `SAB`.
+
+### 2. Planned Modifications
+- `scripts/check_sab_bu.py`: Reusable python diagnostic script to search database and Excel files for `SAB`.
+- `HANDOVER_LOG.md`: Document task objective and findings.
+
+### 3. Current Status
+- **Completed**: Diagnostics completed. Proved no independent `SAB` BU exists in MISA or DB. Identified SAB transaction `NKBH26070847` (343.2M VNĐ) under project `"Dự án sản xuất – kinh doanh thuộc BU Agritech – SAB Tôm 1 gram"` handled by `TRẦN HỒNG QUÂN` assigned to MISA branch `BU_AGRITECH`. Updated `target.md`. Awaiting user commit instructions if needed.
+
+
+
+
 
 
