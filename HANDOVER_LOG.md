@@ -78,7 +78,20 @@ Diagnose and document the root cause and step-by-step fix for the frontend Googl
 - Deploying to production/staging domain sends an unlisted `origin` header to Google OAuth server, triggering `Error 400: origin_mismatch`.
 
 ### 3. Solution Documented
-- Added detailed step-by-step instructions in [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L414) explaining how to add the production/staging domain URL to **Authorized JavaScript origins** in Google Cloud Console.
+- Added detailed step-by-step instructions in [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L414) explaining how to add the production/staging domain URL to **Authorized JavaScript origins** in Google Cloud Console.---
 
+## [2026-07-23 08:25:00] Task: Duplicate CORS Header Fix (`Access-Control-Allow-Origin` Multiple Values)
 
+### 1. Current Objective
+Fix browser CORS blocking error: `The 'Access-Control-Allow-Origin' header contains multiple values 'https://report.haophuong.com, https://report.haophuong.com', but only one is allowed.`
+
+### 2. Root Cause Analysis
+- On production/staging server (`api-vending.haophuong.com`), Nginx reverse proxy already has `add_header Access-Control-Allow-Origin ...` configured.
+- When `CORS_ALLOW_ALL_ORIGINS = True` was enabled in Django `settings.py`, Django's `CorsMiddleware` AND Nginx BOTH attached the `Access-Control-Allow-Origin` header, causing the browser to receive duplicate comma-separated values (`https://report.haophuong.com, https://report.haophuong.com`) and block the response.
+
+### 3. Modifications Made
+- `report2026/settings.py`: Commented out `CORS_ALLOW_ALL_ORIGINS = True` so Django does not duplicate the header that Nginx already provides on production.
+
+### 4. Current Status
+- **Completed**: Fixed `settings.py` to prevent duplicate CORS headers on production Nginx proxy.
 
