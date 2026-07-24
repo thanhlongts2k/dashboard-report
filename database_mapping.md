@@ -48,7 +48,8 @@ erDiagram
 
 Đây là những bảng chứa dữ liệu danh mục nền tảng, ít biến động. Các bảng giao dịch phát sinh luôn tham chiếu đến những bảng này để đảm bảo tính nhất quán dữ liệu.
 
-Các model được định nghĩa chi tiết tại file [models.py](file:///d:/Sources/dashboard-report/accounting/models.py).
+Các model được định nghĩa chi tiết tại gói [accounting/models/](file:///d:/Sources/dashboard-report/accounting/models/) (`organization.py`, `master_data.py`, `transactions.py`, `debt.py`, `performance.py`) và re-export tại [models.py](file:///d:/Sources/dashboard-report/accounting/models.py).
+
 
 ### 2.1. Đơn vị kinh doanh (`BusinessUnit`)
 * **Mục đích:** Quản lý cơ cấu tổ chức và các phòng ban kinh doanh (BU).
@@ -76,12 +77,13 @@ Dữ liệu của các bảng này được làm sạch và import tự động 
 
 | Tiền tố file Excel | Model đích | Mô tả dữ liệu & Nghiệp vụ |
 | :--- | :--- | :--- |
-| **`BAN_HANG`** | [SalesTransaction](file:///d:/Sources/dashboard-report/accounting/models.py#L100) | Lưu chi tiết từng dòng hóa đơn bán hàng, doanh số bán, chiết khấu và doanh số thực tế (`actual_sales`). |
-| **`MUA_HANG`** | [PurchaseDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L273) | Chi tiết các giao dịch mua hàng từ nhà cung cấp, giá trị mua và thuế VAT đầu vào. |
-| **`TON_KHO`** | [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models.py#L242) | Báo cáo nhập - xuất - tồn (số lượng & giá trị đầu kỳ, trong kỳ, cuối kỳ) cho từng cặp Sản phẩm - Kho hàng. |
-| **`CONG_NO_NCC`**| [SupplierDebt](file:///d:/Sources/dashboard-report/accounting/models.py#L150) | Theo dõi dư nợ và phát sinh công nợ đối với từng Nhà cung cấp. |
-| **`TUOI_NO_KH`** | [ReceivablesAgeing](file:///d:/Sources/dashboard-report/accounting/models.py#L209) | Phân tích chi tiết tuổi nợ của Khách hàng (trước hạn / quá hạn theo các mốc 7, 14, 30, 60, 90, 120 ngày). |
-| **`TAI_KHOAN_CT`** | [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L172) | Sổ chi tiết các tài khoản tiền mặt và ngân hàng (111, 112) đối ứng với tài khoản phải thu (131) nhằm xác định số tiền thực tế thu được từ khách hàng. |
+| **`BAN_HANG`** | [SalesTransaction](file:///d:/Sources/dashboard-report/accounting/models/transactions.py) | Lưu chi tiết từng dòng hóa đơn bán hàng, doanh số bán, chiết khấu và doanh số thực tế (`actual_sales`). |
+| **`MUA_HANG`** | [PurchaseDetail](file:///d:/Sources/dashboard-report/accounting/models/debt.py) | Chi tiết các giao dịch mua hàng từ nhà cung cấp, giá trị mua và thuế VAT đầu vào. |
+| **`TON_KHO`** | [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models/performance.py) | Báo cáo nhập - xuất - tồn (số lượng & giá trị đầu kỳ, trong kỳ, cuối kỳ) cho từng cặp Sản phẩm - Kho hàng. |
+| **`CONG_NO_NCC`**| [SupplierDebt](file:///d:/Sources/dashboard-report/accounting/models/debt.py) | Theo dõi dư nợ và phát sinh công nợ đối với từng Nhà cung cấp. |
+| **`TUOI_NO_KH`** | [ReceivablesAgeing](file:///d:/Sources/dashboard-report/accounting/models/debt.py) | Phân tích chi tiết tuổi nợ của Khách hàng (trước hạn / quá hạn theo các mốc 7, 14, 30, 60, 90, 120 ngày). |
+| **`TAI_KHOAN_CT`** | [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models/transactions.py) | Sổ chi tiết các tài khoản tiền mặt và ngân hàng (111, 112, 341) đối ứng với tài khoản phải thu (131) nhằm xác định số tiền thực tế thu được từ khách hàng. |
+| **`SO_DU_NH`** | [BankBalance](file:///d:/Sources/dashboard-report/accounting/models/transactions.py) | Bảng kê số dư tiền gửi ngân hàng từng tài khoản theo kỳ báo cáo. |
 
 ---
 

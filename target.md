@@ -9,16 +9,11 @@ Tài liệu này tổng hợp toàn bộ kết quả rà soát chi tiết về l
 Dữ liệu tồn kho được xử lý và lưu trữ qua hai cấp độ chính trong hệ thống:
 
 ### A. Cấp độ Báo cáo Hiệu suất BU (`BUPerformance`)
-* **Nguồn dữ liệu:** Nạp từ các file Excel có tiền tố `TON_KHO` (ví dụ: `TON_KHO*.xlsx`) vào bảng [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models.py#L255-L284).
+* **Nguồn dữ liệu:** Nạp từ các file Excel có tiền tố `TON_KHO` (ví dụ: `TON_KHO*.xlsx`) vào bảng [InventorySummary](file:///d:/Sources/dashboard-report/accounting/models/performance.py).
 * **Mối liên kết đơn vị (BU):** Bảng `InventorySummary` không lưu trực tiếp thông tin `business_unit_id` mà liên kết gián tiếp qua trường kho hàng `warehouse` (`warehouse__business_unit_id`).
-* **Logic tính toán tích lũy tháng:** Được thực hiện tự động trong Celery task [update_single_bu_performance](file:///d:/Sources/dashboard-report/accounting/tasks.py#L431):
-  * **Bộ lọc thời gian:** Lấy theo Snapshot hiện hành của bảng `InventorySummary` (không lọc theo thời gian cụ thể của trường `created_at` do bảng được xóa và nạp mới hoàn toàn mỗi lần import).
-  * **Bộ lọc BU & Loại trừ cấu hình ở settings:**
-    * Lọc loại trừ BU: Hệ thống tự động bỏ các BU có mã nằm trong danh sách `EXCLUDED_BU_CODES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['ĐTCT']`) và các BU con trực thuộc nhánh này khỏi mọi phép tính hiệu suất.
-    * Lọc loại trừ Khách hàng: Loại trừ các khách hàng thuộc nhóm có mã trong `EXCLUDED_CUSTOMER_GROUP_CODES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['Internal']`).
-    * Lọc loại trừ Loại Chứng từ: Loại trừ các chứng từ có tiền tố thuộc `EXCLUDED_DOC_ID_PREFIXES` ở [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (hiện tại là `['THANHLY']`) khỏi doanh thu bán hàng thương mại.
-    * Nếu tính cho *Tổng công ty* (`is_global = True`): Không lọc theo BU (chỉ áp dụng lọc loại trừ các BU/Khách hàng đặc thù nói trên).
-    * Nếu tính cho *BU cụ thể* (`is_global = False`): Lọc theo đơn vị sở hữu kho hàng (`warehouse__business_unit_id=bu_id`) và loại trừ các BU/Khách hàng đặc thù.
+* **Logic tính toán tích lũy tháng:** Được thực hiện tự động trong [update_single_bu_performance](file:///d:/Sources/dashboard-report/accounting/services/kpi_calculator.py):
+  * **Bộ lọc thời gian:** Lấy theo Snapshot hiện hành của bảng `InventorySummary`.
+  * **Bộ lọc BU & Loại trừ cấu hình ở settings:** Xem quy tắc chi tiết tại [Mục 4.1 của DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#1-logic-x%C3%A1c-%C4%91%E1%BB%8Bnh-ph%E1%BA%A1m-vi-global--sub-bu).
   * **Công thức tổng hợp:**
     * `inventory_opening_value` (Giá trị đầu kỳ) = Tổng cột `opening_value`
     * `inventory_in_value` (Giá trị nhập kho trong kỳ) = Tổng cột `in_value`
@@ -26,23 +21,23 @@ Dữ liệu tồn kho được xử lý và lưu trữ qua hai cấp độ chín
     * `inventory_value_actual` (Giá trị tồn kho thực tế cuối kỳ) = Tổng cột `closing_value`
 
 ### B. Cấp độ Chi tiết Kho hàng (`Warehouse`)
-* **Tác vụ đồng bộ:** Được thực hiện qua Celery task [sync_warehouse_inventory_data](file:///d:/Sources/dashboard-report/accounting/tasks.py#L303).
-* **Mô tả xử lý:** Tác vụ quét qua tất cả các kho hàng ([Warehouse](file:///d:/Sources/dashboard-report/accounting/models.py#L9)), thực hiện tính tổng (`opening_value`, `in_value`, `out_value`, `closing_value`) từ bảng `InventorySummary` của kho đó rồi lưu ngược lại vào các trường:
+* **Tác vụ đồng bộ:** Được thực hiện qua hàm [sync_warehouse_inventory_data_logic](file:///d:/Sources/dashboard-report/accounting/services/inventory_sync.py).
+* **Mô tả xử lý:** Tác vụ quét qua tất cả các kho hàng ([Warehouse](file:///d:/Sources/dashboard-report/accounting/models/organization.py)), thực hiện tính tổng (`opening_value`, `in_value`, `out_value`, `closing_value`) từ bảng `InventorySummary` của kho đó rồi lưu ngược lại vào các trường:
   * `wh.inventory_opening_value`
   * `wh.inventory_in_value`
   * `wh.inventory_out_value`
   * `wh.inventory_value_actual`
-* **Lưu ý vận hành:** Tiến trình này **không tự động kích hoạt** sau khi nạp file Excel tồn kho, mà bắt buộc phải chạy thủ công từ giao diện Admin (nút Action trong danh sách Kho hàng) hoặc qua lập lịch Celery Beat riêng.
+* **Lưu ý vận hành:** Tiến trình này tự động kích hoạt sau khi nạp file Excel tồn kho hoặc chạy thủ công từ giao diện Admin.
 
 ---
 
 ## 2. Logic Tính Nợ Ngân Hàng (Bank Debt)
 
 * **Thiết kế cơ sở dữ liệu:**
-  * Bảng [BUPerformance](file:///d:/Sources/dashboard-report/accounting/models.py#L319) đã định nghĩa sẵn 2 trường để theo dõi:
+  * Bảng [BUPerformance](file:///d:/Sources/dashboard-report/accounting/models/performance.py) đã định nghĩa sẵn 2 trường để theo dõi:
     * `bank_debt_plan` (Nợ ngân hàng - Kế hoạch)
     * `bank_debt_actual` (Nợ ngân hàng - Thực tế)
-  * Trong luồng nạp dữ liệu tự động từ Misa (sử dụng Playwright), hệ thống thiết lập tải về chi tiết tài khoản **`341`** (tiền vay và nợ thuê tài chính liên quan trực tiếp đến nợ ngân hàng) cùng tài khoản `111, 112` để nạp vào bảng [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models.py#L185).
+  * Trong luồng nạp dữ liệu tự động từ Misa (sử dụng Playwright), hệ thống thiết lập tải về chi tiết tài khoản **`341`** (tiền vay và nợ thuê tài chính liên quan trực tiếp đến nợ ngân hàng) cùng tài khoản `111, 112` để nạp vào bảng [AccountDetail](file:///d:/Sources/dashboard-report/accounting/models/transactions.py).
 * **Hiện trạng logic tính toán:**
   * **Hiện tại chưa có logic tính toán cho trường này**. Trong file xử lý nghiệp vụ [tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py), hệ thống hoàn toàn **chưa thực hiện bất kỳ phép cộng dồn hay tính toán nào** đối với trường `bank_debt_actual`.
   * Do đó, giá trị của `bank_debt_actual` trong DB và trên Dashboard luôn mang giá trị mặc định là `0`. Đây là một phần **nợ kỹ thuật (Technical Debt)** đã được ghi nhận rõ trong tài liệu hướng dẫn tổng quan của dự án.
@@ -351,7 +346,15 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
   3. Loop chờ nút "Tải tệp" 20 lần x 2s ([L1223-L1239](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L1223-L1239)): **40 giây timeout** — Chờ file mới xuất hiện trong panel Download Manager.
   4. `await asyncio.sleep(40)` ([L686](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L686)): **40 giây cố định** — Chờ báo cáo lưu sẵn tải hoàn tất (Saved Reports flow).
   5. `page.goto(report_url, timeout=30000)` ([L602](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L602)): **30 giây timeout** — Timeout điều hướng mở URL MISA.
-  6. Chờ nhập OTP email ([L108](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L108)): **180 giây (3 phút) timeout** — Cho người dùng nhập OTP khi xác thực thiết bị mới.
+## 48. Kiến Trúc Tái Cấu Trúc Module Nhỏ Gọn & Quản Lý Lệnh Đồng Bộ (`sync_misa`)
+* **Tệp tài liệu gốc**: [accounting/services/](file:///d:/Sources/dashboard-report/accounting/services/), [accounting/misa/](file:///d:/Sources/dashboard-report/accounting/misa/), [accounting/views/](file:///d:/Sources/dashboard-report/accounting/views/), [accounting/models/](file:///d:/Sources/dashboard-report/accounting/models/), [accounting/management/commands/sync_misa.py](file:///d:/Sources/dashboard-report/accounting/management/commands/sync_misa.py).
+* **Đặc điểm & Thiết kế**:
+  1. **Modular Services Package (`accounting/services/`)**: Tách logic tính toán KPI (`kpi_calculator.py`), đọc định dạng tệp (`period_parser.py`) và đồng bộ tồn kho (`inventory_sync.py`). `accounting/tasks.py` giữ Celery tasks và re-export 100% functions.
+  2. **Modular MISA Automation (`accounting/misa/`)**: Tách Playwright UI automation (`browser.py`, `locators.py`, `report_exporter.py`, `automation.py`). `accounting/misa_tasks.py` re-export 100% Celery tasks.
+  3. **Modular Views & Models Packages (`accounting/views/`, `accounting/models/`)**: Tách monolith `views.py` và `models.py` thành các submodule chuyên biệt (`dashboard_api.py`, `collection_api.py`, `organization.py`, `performance.py`...), giữ wrapper re-export 100% tương thích ngược.
+  4. **Django Custom Management Command (`sync_misa.py`)**: Gom toàn bộ các script bảo trì rải rác ngoài thư mục root thành câu lệnh Django chuẩn hóa: `python manage.py sync_misa --action=all|download|import --prefix=... --period=...`.
+
+
 
 
 
