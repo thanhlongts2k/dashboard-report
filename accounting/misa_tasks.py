@@ -595,7 +595,7 @@ async def click_saved_report_link(page, report_name, creator='NGUYỄN THÀNH LO
     return None, False
 
 
-async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False):
+async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None):
     if report_url:
         logger.info(f"Navigating to report URL: {report_url}")
         try:
@@ -856,32 +856,39 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception as e:
                     logger.debug(f"Failed to click combo arrow: {str(e)}")
                 
-                thang_nay_selectors = [
-                    "text='Tháng này'",
-                    ".dx-list-item-content:has-text('Tháng này')",
-                    ".ms-combo-item:has-text('Tháng này')",
-                    "div[role='option']:has-text('Tháng này')",
-                    "li:has-text('Tháng này')",
-                    "xpath=//div[contains(@class, 'dx-item-content') and text()='Tháng này']"
+                target_period = period_option if period_option else "Tháng này"
+                exact_period_selectors = [
+                    f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{target_period}']",
+                    f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{target_period}']",
+                    f"xpath=//div[contains(@class, 'dx-item-content') and normalize-space(text())='{target_period}']",
+                    f"xpath=//li[contains(@class, 'dx-list-item') and normalize-space(.)='{target_period}']",
+                    f"text='{target_period}'"
                 ]
-                thang_nay_item, option_frame = await find_locator_in_any_frame(page, thang_nay_selectors, timeout=3000)
+                thang_nay_item, option_frame = await find_locator_in_any_frame(page, exact_period_selectors, timeout=3000)
                 if thang_nay_item:
-                    logger.info("Selecting 'Thang nay' from dropdown list...")
+                    logger.info(f"Selecting exact item '{target_period}' from dropdown list...")
                     await thang_nay_item.click(force=True)
                 else:
-                    logger.warning("Could not find 'Thang nay' option in dropdown list. Trying keyboard search...")
+                    logger.warning(f"Could not find '{target_period}' option in dropdown list directly. Trying keyboard search...")
                     try:
                         await ky_input.click(click_count=3)
                         await page.keyboard.press("Backspace")
                         await asyncio.sleep(0.2)
-                        await ky_input.type("Tháng này")
+                        await ky_input.type(target_period)
                         await asyncio.sleep(0.5)
-                        await page.keyboard.press("ArrowDown")
-                        await asyncio.sleep(0.2)
-                        await page.keyboard.press("Enter")
-                        logger.info("Typed 'Tháng này' and pressed Enter.")
+                        
+                        # Thử tìm lại item khớp tuyệt đối vừa lọc được sau khi gõ
+                        filtered_item, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=1500)
+                        if filtered_item:
+                            logger.info(f"Clicking exact item '{target_period}' after typing...")
+                            await filtered_item.click(force=True)
+                        else:
+                            # Nhấn Enter trực tiếp (KHÔNG nhấn ArrowDown để tránh bị nhảy từ Tháng 1 sang Tháng 10)
+                            logger.info(f"Pressing Enter directly for '{target_period}'...")
+                            await page.keyboard.press("Enter")
+                        logger.info(f"Typed '{target_period}' and confirmed selection.")
                     except Exception as e:
-                        logger.error(f"Failed to fill 'Tháng này': {str(e)}")
+                        logger.error(f"Failed to fill '{target_period}': {str(e)}")
             else:
                 logger.warning("Could not find 'Ky bao cao' input combobox.")
             await asyncio.sleep(0.5)
@@ -1281,7 +1288,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         raise e
 
 
-async def run_misa_automation():
+async def run_misa_automation(period_option=None, custom_period_suffix=None):
     from playwright.async_api import async_playwright
     
     email = settings.MISA_EMAIL
@@ -1356,6 +1363,7 @@ async def run_misa_automation():
             
         # Download each configured report
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_suffix = custom_period_suffix if custom_period_suffix else timestamp
         downloaded_count = 0
         failed_count = 0
         failed_details = []
@@ -1367,15 +1375,15 @@ async def run_misa_automation():
             tuoi_no_kh_url = settings.MISA_REPORTS.get('TUOI_NO_KH')
             if tuoi_no_kh_url:
                 prefix = 'TUOI_NO_KH'
-                filename = f"{prefix}_{timestamp}.xlsx"
+                filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
                 logger.info(f"Downloading {prefix} via step-by-step export flow...")
                 try:
-                    success = await download_report_from_url(page, tuoi_no_kh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                    success = await download_report_from_url(page, tuoi_no_kh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
                     if not success:
                         logger.info("Retrying TUOI_NO_KH download after re-logging in...")
                         await login_to_misa(page, context, email, password)
-                        success = await download_report_from_url(page, tuoi_no_kh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                        success = await download_report_from_url(page, tuoi_no_kh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
                         
                     if success:
                         downloaded_count += 1
@@ -1392,15 +1400,15 @@ async def run_misa_automation():
             so_du_nh_url = settings.MISA_REPORTS.get('SO_DU_NH')
             if so_du_nh_url:
                 prefix = 'SO_DU_NH'
-                filename = f"{prefix}_{timestamp}.xlsx"
+                filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
                 logger.info(f"Downloading {prefix} via step-by-step export flow...")
                 try:
-                    success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                    success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
                     if not success:
                         logger.info("Retrying SO_DU_NH download after re-logging in...")
                         await login_to_misa(page, context, email, password)
-                        success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                        success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
                         
                     if success:
                         downloaded_count += 1
@@ -1438,7 +1446,7 @@ async def run_misa_automation():
             ]
             
             for prefix, report_name in saved_reports_to_download:
-                filename = f"{prefix}_{timestamp}.xlsx"
+                filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
                 logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix})")
                 
@@ -1504,16 +1512,16 @@ async def run_misa_automation():
                 if not url:
                     continue
                     
-                filename = f"{prefix}_{timestamp}.xlsx"
+                filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
                 
                 try:
-                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
                     if not success:
                         # Retry once after logging in again
                         logger.info("Retrying download after re-logging in...")
                         await login_to_misa(page, context, email, password)
-                        success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False)
+                        success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
                         
                     if success:
                         downloaded_count += 1

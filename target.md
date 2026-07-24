@@ -343,7 +343,21 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
 * **Quy tắc mapping bắt buộc dành cho lập trình viên & AI Agents**:
   - Khi cần lấy **Target Tháng (MTD Target)**: Bắt buộc ưu tiên đọc `month_*_target` từ `BUTargetPlan`.
   - Khi cần lấy **Target Cả Năm (YTD Target)**: **BẮT BUỘC ƯU TIÊN đọc trực tiếp từ `year_*_target` của `BUTargetPlan`**. Tuyệt đối không dùng số kế hoạch lũy kế tháng của `BUPerformance` để đại diện cho Target Cả Năm.
-* **Xác nhận cú pháp**: `python manage.py check` đạt kết quả 0 lỗi.
+## 44. Danh Sách Các Tác Vụ Chờ Tự Động Hóa MISA (≥ 30 Giây)
+* **Tệp tài liệu gốc**: [accounting/misa_tasks.py](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py) & [target.md](file:///d:/Sources/dashboard-report/target.md).
+* **Danh sách các tác vụ chờ cố định và timeout**:
+  1. `await asyncio.sleep(50)` ([L1157](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L1157)): **50 giây cố định** — Chờ MISA tạo file báo cáo ngầm dưới background sau khi bấm "Xuất Excel".
+  2. `page.expect_download(timeout=45000)` ([L1261](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L1261)): **45 giây timeout** — Chờ sự kiện trình duyệt tải file về đĩa sau khi bấm "Tải tệp".
+  3. Loop chờ nút "Tải tệp" 20 lần x 2s ([L1223-L1239](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L1223-L1239)): **40 giây timeout** — Chờ file mới xuất hiện trong panel Download Manager.
+  4. `await asyncio.sleep(40)` ([L686](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L686)): **40 giây cố định** — Chờ báo cáo lưu sẵn tải hoàn tất (Saved Reports flow).
+  5. `page.goto(report_url, timeout=30000)` ([L602](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L602)): **30 giây timeout** — Timeout điều hướng mở URL MISA.
+  6. Chờ nhập OTP email ([L108](file:///d:/Sources/dashboard-report/accounting/misa_tasks.py#L108)): **180 giây (3 phút) timeout** — Cho người dùng nhập OTP khi xác thực thiết bị mới.
+
+
+
+
+
+
 
 
 

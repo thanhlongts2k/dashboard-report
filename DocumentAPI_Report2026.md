@@ -563,88 +563,6 @@ Dưới đây là phần trả lời chi tiết cho các câu hỏi thường g�
 ### Q8: Bảng Nhân viên (`Employee`) có những thuộc tính mới nào được bổ sung gần đây?
 * **Trả lời**: Model `Employee` đã được bổ sung thêm 2 trường thông tin: 
   - `age` (Tuổi - kiểu CharField, mặc định là 0).
-  - `gender` (Giới tính - kiểu CharField, mặc định là 0).
-  - Đồng thời, định dạng chuỗi đại diện hiển thị của nhân viên (`__str__`) được cập nhật từ chỉ hiển thị tên thành hiển thị cả tên và mã nhân viên dưới dạng `f"{self.name} ({self.code})"` giúp người quản trị dễ dàng phân biệt trên giao diện Django Admin.
-
----
-
-## 9. Tổng Hợp Tiến Độ Dự Án (Project Status Tracker)
-
-Mục này được cập nhật thường xuyên để giúp đội ngũ nắm bắt được các nhiệm vụ đã hoàn thành và các phần việc nợ kỹ thuật (Technical Debt) / tính năng còn dang dở cần phát triển tiếp.
-
-### ✅ Những điểm ĐÃ LÀM ĐƯỢC (Completed)
-1. **Tối ưu hóa logic Import an toàn**: 
-   - Đã khắc phục triệt để lỗi sập luồng nạp do thư viện `import_export` gặp dữ liệu khoảng trắng (trailing space) hoặc mã đối tượng bị trống (Bằng cách tự động gán `None` trong `before_import_row`).
-   - Đảm bảo cơ chế Rollback an toàn trong `transaction.atomic()` khi có dòng dữ liệu hỏng.
-2. **Nâng cấp Bot MISA Automation**:
-   - Báo cáo Tuổi nợ KH: Đã loại bỏ thao tác điền *Kỳ báo cáo* giúp script tương thích với UI mới.
-   - Báo cáo Sổ chi tiết: Tự động mở dropdown chọn *Bậc 1* và tick chính xác các tài khoản `111, 112, 341`.
-   - Popup Hệ thống: Xử lý tự động đóng popup cảnh báo "Sắp hết hạn phần mềm" bằng cách click chọn "Nhắc lại sau" và thêm bộ lọc CSS/JS ẩn đi.
-3. **Cơ chế Giám sát & Báo lỗi**:
-   - MISA Automation: Bổ sung luồng chụp ảnh màn hình lưu file `MISA_Error_*.png` và báo lỗi Traceback ra console nếu gặp sự cố giao diện MISA thay đổi. Bổ sung ghi nhận chi tiết lỗi và tên tệp gặp sự cố tải ở cuối thông báo trạng thái `ImportLog` khi tải qua Playwright.
-   - Import Database: Xây dựng bảng model `ImportLog` trên Django Admin lưu trữ lịch sử nạp (trạng thái `SUCCESS`/`ERROR`, thời gian chạy, báo lỗi chi tiết đến từng dòng dữ liệu hỏng).
-4. **Tối ưu hóa hiệu năng Import (Exclusive Lock bảng)**:
-   - Chuyển từ cơ chế "Wipe & Reload" (xóa toàn bảng) sang "Targeted Chunk Deletion" (xóa theo phân đoạn ngày hạch toán hoặc kỳ kế toán hạch toán cụ thể).
-   - Nạp dữ liệu song song và tối ưu hóa bằng phương thức `bulk_create` với dung lượng chunk 1000 dòng, loại bỏ lock bảng PostgreSQL.
-5. **Đồng bộ hóa công thức tính Doanh thu**:
-   - Đã đồng bộ hóa công thức cho cả doanh thu ngày và doanh thu lũy kế tháng sử dụng cột `actual_sales` thay vì `sales_amount`, loại bỏ chênh lệch số liệu.
-6. **Bổ sung tính toán các chỉ số thực tế về tài chính từ Sổ chi tiết**:
-   - Tiền cuối kỳ thực tế (`cash_balance_actual`): Tự động trích xuất từ số dư tài khoản `111` và `112`, loại trừ số dư của các tài khoản ngân hàng bị loại bỏ (ví dụ tài khoản `"113611393939"`) được truy vấn từ bảng `BankBalance`.
-   - Nợ ngân hàng thực tế (`bank_debt_actual`): Tự động trích xuất từ số dư tài khoản `341`.
-7. **Tối ưu hóa API bất đồng bộ**:
-   - Đã nâng cấp API cập nhật hiệu suất (`POST /api/update-performance/`) sang chạy ngầm thông qua hàng chờ Celery, loại bỏ lỗi HTTP 504 Gateway Timeout.
-8. **Tích hợp Chi phí Vận hành (OPEX)**:
-   - Đã tính toán tự động chi phí opex thực tế (`opex_actual`) từ phát sinh Nợ tài khoản `641` và `642` trong bảng `AccountDetail`.
-   - Bổ sung cấu hình danh sách tài khoản đồng bộ từ MISA vào `settings.py` (`MISA_SO_CHI_TIET_ACCOUNTS`).
-   - Cập nhật chỉ số opex ngày (`daily_opex_plan`, `daily_opex_actual`) trong bảng `BUPerformanceDaily` và hỗ trợ cơ chế đồng bộ kế hoạch hai chiều linh hoạt trong Django Admin.
-9. **Tích hợp Bảng kê số dư ngân hàng (`BAListOfBalance`) & Điều chỉnh Tiền cuối kỳ**:
-   - Thêm model `BankBalance` lưu trữ chi tiết số dư tài khoản ngân hàng thực tế.
-   * Tự động tải từ MISA qua Playwright (bỏ chọn chi nhánh `_Nhật`, kỳ báo cáo `Tháng này`).
-   * Hỗ trợ import tự động từ tệp Excel có tiền tố `SO_DU_NH` và tự động dọn dẹp dữ liệu cũ của tháng báo cáo trước khi nạp mới.
-   * Cập nhật logic tính toán `cash_balance_actual` bằng cách lấy tổng số dư 111 và 112 từ sổ chi tiết trừ đi số dư của tài khoản ngân hàng cần loại trừ (`settings.MISA_EXCLUDED_BANK_ACCOUNTS`) truy vấn từ bảng `BankBalance`.
-
-
-10. **Endpoint gửi email backend (POST /api/reports/send-email/)**:
-    - Đã phát triển thành công API hỗ trợ gửi email từ Frontend với xác thực Token và hỗ trợ multipart để đính kèm file báo cáo.
-    - Hỗ trợ cấu hình SMTP linh hoạt từ môi trường `.env` và chế độ kiểm thử in ra Console (`ConsoleBackend`).
-
-
-### ⏳ Những điểm CHƯA LÀM ĐƯỢC (Pending / Nợ kỹ thuật)
-1. **Tận dụng dữ liệu Mua hàng và Công nợ NCC**: (Ưu tiên Trung bình) Cần tích hợp các số liệu chi phí này vào báo cáo tháng để hiển thị dòng tiền ra (cash out).
-2. **Phân quyền truy cập API chi tiết (Authorization)**: (Ưu tiên Trung bình) Cần áp dụng Row-Level Security để Trưởng BU chỉ được xem dữ liệu của BU mình quản lý.
-3. **Khắc phục N+1 Query và Tối ưu hiệu năng Database**: (Ưu tiên Thấp) Sử dụng `.select_related()` hoặc `.prefetch_related()` cho các API lấy danh sách như Giao dịch bán hàng, Sổ chi tiết.
-
----
-
-## 10. Nhật ký Cập nhật & Thay đổi (Change Logs)
-
-### Ngày 15/07/2026
-
-#### 🛠️ Đã sửa đổi & Cập nhật:
-- **Tích hợp Bảng kê số dư ngân hàng & Điều chỉnh Tiền cuối kỳ**:
-  - Tạo model `BankBalance` lưu trữ số dư tài khoản ngân hàng chi tiết từ báo cáo `BAListOfBalance`.
-  - Cập nhật kịch bản Playwright để tự động tải báo cáo `BAListOfBalance` (bỏ chọn chi nhánh `_Nhật`, chọn kỳ báo cáo `Tháng này`).
-  - Viết resource và logic import tệp Excel có tiền tố `SO_DU_NH` với cơ chế phân đoạn và dọn dẹp theo tháng báo cáo (`reporting_month`).
-  - Cập nhật logic tính toán `cash_balance_actual` cuối tháng: lấy tổng 111 và 112 từ sổ chi tiết trừ đi số dư của tài khoản bị loại trừ (mặc định `"113611393939"` cấu hình trong `settings.MISA_EXCLUDED_BANK_ACCOUNTS`).
-- **Tích hợp Chi phí Vận hành (OPEX)**:
-  - Khai báo các cột `daily_opex_plan` và `daily_opex_actual` trong bảng `BUPerformanceDaily`.
-  - Triển khai công thức Hybrid tính OPEX thực tế của tháng dựa trên Kế hoạch lũy kế ngày + Thực tế phát sinh ngày.
-  - Cấu hình đồng bộ hai chiều linh hoạt kế hoạch OPEX giữa tổng tháng và lưới ngày con trên giao diện Django Admin.
-
-### Ngày 10/07/2026
-
-#### 🛠️ Đã sửa đổi & Cập nhật:
-- **Chuyển đổi luồng Import Excel sang cơ chế Phân đoạn (Chunk) theo Tháng**:
-  - Hỗ trợ tự động nhận diện kỳ kế toán (`reporting_period`) từ tên file hoặc đọc lướt nội dung file Excel (nếu tên file không chứa thông tin ngày tháng).
-  - Thay đổi cơ chế "Wipe and Reload" (xóa sạch toàn bộ bảng) thành "Targeted Chunk Deletion" (chỉ xóa phân đoạn dữ liệu của kỳ hạch toán tương ứng từ `start_date` đến `end_date`), giúp bảo tồn dữ liệu của các tháng khác.
-  - Bổ sung trường `reporting_period` (định dạng `YYYY-MM`) vào các bảng số dư (Snapshot Tables: `InventorySummary`, `SupplierDebt`, `ReceivablesAgeing`) để quản lý và ghi đè chính xác dữ liệu theo từng kỳ báo cáo.
-  - Kế thừa lớp `BulkCreateResource` sử dụng `objects.bulk_create(..., batch_size=1000)` khi import dữ liệu Excel nhằm tối ưu hóa hiệu năng, rút ngắn thời gian import và phòng tránh lock bảng PostgreSQL.
-- **Nâng cấp logic tính toán KPI & Đồng bộ tồn kho tự động**:
-  - Celery Tasks tự động kích hoạt tính toán lại KPI (`update_single_bu_performance`) cho toàn bộ các Business Unit lẻ và Tổng công ty ngay sau khi nạp file Excel thành công.
-  - Chỉ thực hiện cập nhật số liệu phát sinh hàng ngày (`BUPerformanceDaily`) trong phạm vi tháng của file được nạp (từ ngày 01 đến ngày cuối của tháng đó).
-  - Bổ sung cơ chế **lan truyền lũy kế năm (YTD Propagation)**: tự động tính lũy kế năm `YTD (Tháng N) = YTD (Tháng N-1) + Thực tế tháng N` và cập nhật nối tiếp sang các tháng tiếp theo trong năm nếu có sự thay đổi số liệu tháng bất kỳ.
-  - Chuyển đổi API trigger thủ công (`POST /api/update-performance/`) sang chạy ngầm thông qua Celery queue để phòng tránh lỗi HTTP 504 Gateway Timeout.
-  - Tự động kích hoạt tác vụ đồng bộ tồn kho (`sync_warehouse_inventory_data`) vào bảng `Warehouse` theo đúng kỳ báo cáo sau khi hoàn tất tính KPI.
 - **Khắc phục triệt để các lỗi sai lệch Mapping cũ**:
   - **Báo cáo Bán hàng (`BAN_HANG`)**: Khai báo bổ sung trường `warehouse` (Kho) và `branch` (Chi nhánh) vào class `SalesTransactionResource` để sửa triệt để lỗi 100% bản ghi bị `NULL` trước đây.
   - **Báo cáo Tuổi nợ KH (`TUOI_NO_KH`)**: Ánh xạ đầy đủ 14 cột tuổi nợ chi tiết (các khoảng nợ trước hạn `due_0_7`... và quá hạn `overdue_0_14`...) vào model `ReceivablesAgeing` thay vì mặc định bằng `0.00`.
@@ -713,3 +631,19 @@ Mục này được cập nhật thường xuyên để giúp đội ngũ nắm 
    - Đã đồng bộ số liệu `mtd_revenue_actual`, `ytd_revenue_actual`, `ytd_revenue_oversea_actual` cho cấp Tổng công ty (Global) từ Tháng 1 đến Tháng 7/2026.
    - Doanh thu Tháng 07/2026 Global được điều chỉnh về **29,240,493,137 VNĐ** (~29.24 tỷ VNĐ), chênh lệch với Báo cáo Kế toán (**29,232,127,573 VNĐ**) chỉ còn **+8.37 triệu VNĐ** (**+0.03%**).
    - Doanh thu Oversea YTD lũy kế đạt **20.12 tỷ VNĐ** (khớp **99.7%** so với số liệu 20.17 tỷ VNĐ của Kế toán).
+---
+
+### Cập nhật bổ sung 24/07/2026 (Nâng cấp Tham số Kỳ Báo cáo `period_option` & Script Nạp lại dữ liệu Tháng 1-7)
+
+#### 📝 Nội dung nâng cấp:
+1. **Nâng cấp `accounting/misa_tasks.py` với tham số `period_option`**:
+   - Bổ sung tham số `period_option=None` vào hàm `download_report_from_url` và `run_misa_automation`.
+   - Mặc định giữ nguyên trạng `period_option=None` -> Chọn kỳ báo cáo `"Tháng này"` (đảm bảo 100% backward compatibility cho toàn bộ các tiến trình Celery / bot cũ đang chạy).
+   - Khi truyền `period_option` (ví dụ: `"Tháng 1"`, `"Tháng 2"`, ..., `"Tháng 7"`), bot tự động chọn item tương ứng trong dropdown hoặc nhập chuỗi `period_option` vào ô Kỳ báo cáo.
+
+2. **Script Tự động Nạp lại dữ liệu 7 tháng (`scripts/reimport_months_1_to_7.py`)**:
+   - **Bước 1 (Clear Data)**: Làm sạch dữ liệu giao dịch phát sinh trong database (`SalesTransaction`, `PurchaseDetail`, `AccountDetail`, `ReceivablesAgeing`, `SupplierDebt`, `InventorySummary`, `BankBalance`, `BUPerformanceDaily`, `BUPerformance`).
+   - **Bước 2 (Loop Download & Re-import)**: Duyệt `thang` từ 1 đến 7:
+     + Tải báo cáo MISA với `period_option = f"Tháng {thang}"`.
+     + Import dữ liệu Excel từ `media/auto_imports/` vào DB.
+     + Tự động tính toán lại KPI MTD/YTD cho tất cả các Business Unit và Global cho Tháng `thang`/2026.

@@ -81,7 +81,10 @@ def main():
         coll_y_pct = (coll_y_act / coll_y_tgt * 100) if coll_y_tgt > 0 else 0.0
 
         # Các chỉ tiêu tài chính khác
-        opex = float(p.opex_actual or 0)
+        opex_act = float(p.opex_actual or 0)
+        opex_tgt = float((tp.month_opex_target if (tp and tp.month_opex_target > 0) else p.opex_plan) or 0)
+        opex_pct = (opex_act / opex_tgt * 100) if opex_tgt > 0 else 0.0
+
         inv = float(p.inventory_value_actual or 0)
         rec = float(p.receivable_total or 0)
         rec_ovd = float(p.receivable_overdue or 0)
@@ -90,7 +93,7 @@ def main():
         if not args.show_all:
             if (rev_m_act == 0 and rev_m_tgt == 0 and rev_y_act == 0 and rev_y_tgt == 0 and 
                 coll_m_act == 0 and coll_m_tgt == 0 and coll_y_act == 0 and coll_y_tgt == 0 and 
-                opex == 0 and inv == 0 and rec == 0 and rec_ovd == 0):
+                opex_act == 0 and inv == 0 and rec == 0 and rec_ovd == 0):
                 continue
 
         displayed_bu_count += 1
@@ -99,7 +102,10 @@ def main():
         out.append(f"   • Doanh thu YTD thực tế      : {fmt(rev_y_act):>18} VNĐ  (Target: {fmt(rev_y_tgt):>18} VNĐ | Đạt: {fmt_pct(rev_y_pct)})")
         out.append(f"   • Thực thu MTD thực tế       : {fmt(coll_m_act):>18} VNĐ  (Target: {fmt(coll_m_tgt):>18} VNĐ | Đạt: {fmt_pct(coll_m_pct)})")
         out.append(f"   • Thực thu YTD thực tế       : {fmt(coll_y_act):>18} VNĐ  (Target: {fmt(coll_y_tgt):>18} VNĐ | Đạt: {fmt_pct(coll_y_pct)})")
-        out.append(f"   • Chi phí OPEX thực tế       : {fmt(opex):>18} VNĐ")
+        if opex_tgt > 0:
+            out.append(f"   • Chi phí OPEX thực tế       : {fmt(opex_act):>18} VNĐ  (Target: {fmt(opex_tgt):>18} VNĐ | Chi: {fmt_pct(opex_pct)})")
+        else:
+            out.append(f"   • Chi phí OPEX thực tế       : {fmt(opex_act):>18} VNĐ")
         out.append(f"   • Giá trị Tồn kho            : {fmt(inv):>18} VNĐ")
         out.append(f"   • Dư nợ Phải thu             : {fmt(rec):>18} VNĐ  (Quá hạn: {fmt(rec_ovd):>18} VNĐ)")
         out.append("-" * 90)
@@ -125,7 +131,10 @@ def main():
         g_coll_y_tgt = float((glob_target.year_collection_target if (glob_target and glob_target.year_collection_target > 0) else glob.ytd_collection_plan) or 0)
         g_coll_y_pct = (g_coll_y_act / g_coll_y_tgt * 100) if g_coll_y_tgt > 0 else 0.0
 
-        g_opex = float(glob.opex_actual or 0)
+        g_opex_act = float(glob.opex_actual or 0)
+        g_opex_tgt = float((glob_target.month_opex_target if (glob_target and glob_target.month_opex_target > 0) else glob.opex_plan) or 0)
+        g_opex_pct = (g_opex_act / g_opex_tgt * 100) if g_opex_tgt > 0 else 0.0
+
         g_inv = float(glob.inventory_value_actual or 0)
         g_rec = float(glob.receivable_total or 0)
         g_rec_ovd = float(glob.receivable_overdue or 0)
@@ -138,7 +147,10 @@ def main():
         out.append(f"   • Doanh thu YTD thực tế (Global) : {fmt(g_rev_y_act):>18} VNĐ  (Target: {fmt(g_rev_y_tgt):>18} VNĐ | Đạt: {fmt_pct(g_rev_y_pct)})")
         out.append(f"   • Thực thu MTD thực tế (Global)  : {fmt(g_coll_m_act):>18} VNĐ  (Target: {fmt(g_coll_m_tgt):>18} VNĐ | Đạt: {fmt_pct(g_coll_m_pct)})")
         out.append(f"   • Thực thu YTD thực tế (Global)  : {fmt(g_coll_y_act):>18} VNĐ  (Target: {fmt(g_coll_y_tgt):>18} VNĐ | Đạt: {fmt_pct(g_coll_y_pct)})")
-        out.append(f"   • Chi phí OPEX thực tế           : {fmt(g_opex):>18} VNĐ")
+        if g_opex_tgt > 0:
+            out.append(f"   • Chi phí OPEX thực tế           : {fmt(g_opex_act):>18} VNĐ  (Target: {fmt(g_opex_tgt):>18} VNĐ | Chi: {fmt_pct(g_opex_pct)})")
+        else:
+            out.append(f"   • Chi phí OPEX thực tế           : {fmt(g_opex_act):>18} VNĐ")
         out.append(f"   • Giá trị Tồn kho                : {fmt(g_inv):>18} VNĐ")
         out.append(f"   • Dư nợ Phải thu                 : {fmt(g_rec):>18} VNĐ  (Quá hạn: {fmt(g_rec_ovd):>18} VNĐ)")
         out.append(f"   • Quỹ tiền mặt (Cash Balance)   : {fmt(g_cash):>18} VNĐ")

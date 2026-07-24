@@ -651,7 +651,225 @@ Persist the DB architectural distinction between `BUTargetPlan` (Annual/Monthly 
 - Verified system status: `python manage.py check` passed with 0 errors.
 
 ### 3. Current Status
-- **Completed**: Documented DB Target Architecture Rules permanently in `DocumentAPI_Report2026.md` and `target.md`, updated `HANDOVER_LOG.md`.
+
+---
+
+## [2026-07-24 08:45:00] Task: Dynamic Month Parameter & Full Re-sync (Month 1 to Month 7)
+
+### 1. Current Objective
+Sửa lỗi hụt dữ liệu khi kế toán thay đổi chứng từ quá khứ (tháng 3, 4...). Hiện tại script chỉ truyền tham số 'Tháng này'. Cần nâng cấp logic truyền tham số kỳ báo cáo linh hoạt (truyền `period_option` dạng 'Tháng 1' .. 'Tháng 7') và viết script chạy vòng lặp tải + nạp lại dữ liệu tuần tự từ Tháng 1 đến Tháng 7 năm 2026 sau khi đã làm sạch (clear) dữ liệu cũ trong cơ sở dữ liệu.
+
+### 2. Planned Modifications
+1. `accounting/misa_tasks.py`:
+   - Cập nhật hàm `download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None)` để nhận tham số `period_option` (Mặc định `None` -> 'Tháng này').
+   - Trong bước chọn "Kỳ báo cáo", nếu `period_option` được truyền vào (VD: 'Tháng 1', 'Tháng 2', ..., 'Tháng 7'), bot sẽ tự động chọn item tương ứng trong dropdown hoặc nhập chuỗi `period_option`.
+   - Cập nhật `run_misa_automation(months=None, period_option=None)` hỗ trợ nhận `period_option`.
+2. `scripts/reimport_months_1_to_7.py`:
+   - Viết script Python tự động thực thi 3 bước:
+     + Bước 1: Xóa dữ liệu cũ (Clear tables: `SalesTransaction`, `PurchaseDetail`, `AccountDetail`, `ReceivablesAgeing`, `SupplierDebt`, `InventorySummary`, `BankBalance`, `BUPerformance`, `BUPerformanceDaily`).
+     + Bước 2: Chạy vòng lặp từ `thang = 1` đến `thang = 7`: Gọi Playwright tải các báo cáo MISA cho `Tháng {thang}`.
+     + Bước 3: Nạp dữ liệu Excel từ `media/auto_imports/` vào DB và kích hoạt hàm `update_single_bu_performance` tính toán lại KPI cho tất cả BU trong Tháng `thang`/2026.
+3. `DocumentAPI_Report2026.md` & `target.md`:
+   - Cập nhật tài liệu kỹ thuật mô tả logic truyền tham số `period_option` cho MISA sync automation.
+
+
+---
+
+## [2026-07-24 08:57:00] Task: Custom Filename Format `<MÃ_BÁO_CÁO>_<THÁNG_BÁO_CÁO>.xlsx` for Month Re-sync
+
+### 1. Current Objective
+Bổ sung tùy chọn đặt tên file tải về từ MISA theo định dạng đặc biệt `<MÃ_BÁO_CÁO>_<THÁNG_BÁO_CÁO>.xlsx` (Ví dụ `BAN_HANG_202601.xlsx`, `BAN_HANG_202602.xlsx`...) trong script nạp lại dữ liệu 7 tháng `scripts/reimport_months_1_to_7.py`, đảm bảo lưu vết chuẩn tên file theo tháng cho đợt re-sync đặc biệt này.
+
+### 2. Planned Modifications
+1. `accounting/misa_tasks.py`:
+   - Bổ sung tham số `custom_period_suffix=None` vào `run_misa_automation(period_option=None, custom_period_suffix=None)`.
+   - Nếu `custom_period_suffix` được truyền (VD: `'202601'`), tên file xuất ra là `f"{prefix}_{custom_period_suffix}.xlsx"`. Nếu không truyền (`None`), mặc định duy trì `timestamp` (`f"{prefix}_{timestamp}.xlsx"`).
+2. `scripts/reimport_months_1_to_7.py`:
+   - Cập nhật lệnh gọi `run_misa_automation(period_option=f"Tháng {m}", custom_period_suffix=f"2026{m:02d}")` để sinh ra tên file dạng `BAN_HANG_202601.xlsx`, `BAN_HANG_202602.xlsx`, ... `BAN_HANG_202607.xlsx`.
+3. `DocumentAPI_Report2026.md` & `target.md`:
+   - Đồng bộ tài liệu mô tả tham số `custom_period_suffix`.
+
+
+---
+
+## [2026-07-24 09:02:00] Task: Fix Forwarding `period_option` in `run_misa_automation`
+
+### 1. Current Objective
+Khắc phục vị trí gọi `download_report_from_url` trong `run_misa_automation` chưa truyền tham số `period_option=period_option`, khiến cho khi chạy với `period_option="Tháng 1"`, hàm con vẫn fallback về giá trị mặc định `"Tháng này"`.
+
+### 2. Planned Modifications
+- `accounting/misa_tasks.py`: Bổ sung `period_option=period_option` vào tất cả các lời gọi `download_report_from_url(...)` bên trong `run_misa_automation`.
+
+
+---
+
+## [2026-07-24 09:05:00] Task: Exact Text Matching & Fallback Fix for `period_option` Selection
+
+### 1. Current Objective
+Khắc phục hiện tượng khi truyền `period_option="Tháng 1"`, MISA combobox bị nhầm sang `"Tháng 10"` (do `:has-text('Tháng 1')` khớp cả Tháng 10/11/12, và khi gõ 'Tháng 1' rồi nhấn `ArrowDown` sẽ di chuyển từ dòng Tháng 1 xuống Tháng 10).
+
+### 2. Planned Modifications
+- `accounting/misa_tasks.py`:
+  + Sử dụng XPath khớp chính xác tuyệt đối chuỗi text: `normalize-space(text())='Tháng 1'` (hoặc `normalize-space(.)='Tháng 1'`) để không bao giờ bị nhận diện nhầm sang Tháng 10, 11, 12.
+  + Trong fallback gõ bàn phím: Sau khi gõ `target_period` (VD: `"Tháng 1"`), thử click trực tiếp item khớp tuyệt đối vừa xuất hiện trong dropdown. Nếu không thấy mới nhấn `Enter` trực tiếp (bỏ phím `ArrowDown` để tránh bị nhảy xuống dòng tiếp theo như Tháng 10).
+
+
+---
+
+## [2026-07-24 10:10:00] Task: Document MISA Automation Wait Tasks (>=30s) in `target.md` & Investigate `BUPerformance`
+
+### 1. Current Objective
+1. Thống kê và ghi chép lại danh sách tất cả các tác vụ chờ (sleep / timeout) ≥ 30 giây trong `accounting/misa_tasks.py` vào `target.md` (Mục 44).
+2. Kiểm tra nguyên nhân tại sao `BUPerformance` trong CSDL trước đó chưa có đầy đủ cho các tháng.
+
+### 2. Findings & Modifications
+- **Ghi chép `target.md` (Mục 44)**: Đã tổng hợp 6 tác vụ chờ (50s sleep ngầm MISA, 45s expect_download, 40s loop check download panel, 40s saved reports, 30s goto timeout, 180s OTP timeout).
+- **Nguyên nhân `BUPerformance`**: Script `reimport_months_1_to_7.py` trước đó bị ngắt giữa chừng (`KeyboardInterrupt`) ở Tháng 1 (do lỗi gõ nhầm Tháng 10 cũ). Khi script chạy trọn vẹn từ Tháng 1 đến Tháng 7, hàm `update_single_bu_performance` trong bước 3 của mỗi tháng sẽ tự động tạo đủ 23 bản ghi `BUPerformance` (22 BUs + 1 Global) cho từng tháng.
+
+### 3. Current Status
+- **Completed**: Đã cập nhật `target.md` và giải thích rõ nguyên nhân cho User.
+
+
+---
+
+## [2026-07-24 10:14:00] Task: Fix `TypeError: unsupported operand type(s) for +: 'float' and 'decimal.Decimal'` in OPEX Calculation
+
+### 1. Current Objective
+Sửa lỗi `unsupported operand type(s) for +: 'float' and 'decimal.Decimal'` xảy ra trong hàm `update_single_bu_performance` ở Bước 3 khi tính chi phí vận hành (OPEX) cho Tháng 5 (do phép chia `0 / 31` trong Python 3 trả về `0.0` dạng `float`, cộng với `Decimal` phát sinh Nợ TK 641/642).
+
+### 2. Planned Modifications
+- `accounting/tasks.py`:
+  + Ép kiểu `Decimal` nhất quán cho toàn bộ các biến kế hoạch và phân bổ ngày trong `update_single_bu_performance` (`curr_opex_plan`, `last_day_val`, `plan_elapsed`, `opex_trans_actual`).
+  + Đảm bảo phép cộng `plan_elapsed + opex_trans_actual` luôn là phép cộng giữa hai đối tượng `Decimal` và `Decimal`.
+
+
+---
+
+## [2026-07-24 10:17:00] Task: Create Standalone Fast Re-import & KPI Calculation Script (`scripts/import_and_calculate_months_1_to_7.py`)
+
+### 1. Current Objective
+Tạo script mới `scripts/import_and_calculate_months_1_to_7.py` cho phép dọn dẹp CSDL cũ, nạp trực tiếp toàn bộ các file Excel đã tải về trong `media/auto_imports/` và `media/auto_imports/success/` theo tuần tự Tháng 1 -> 7, sau đó tính toán lại toàn bộ KPI (BUPerformance) mà KHÔNG cần phải gọi Playwright tải lại từ MISA (tiết kiệm thời gian).
+
+### 2. Planned Modifications
+1. `scripts/import_and_calculate_months_1_to_7.py` [NEW]:
+   - Clear Data: Xóa dữ liệu các bảng giao dịch cũ.
+   - Nạp Excel: Đọc và import tất cả file Excel theo tuần tự Tháng 1 đến Tháng 7.
+   - Recalculate KPI: Gọi `update_single_bu_performance` cho Tổng công ty & 22 BU con theo từng tháng.
+   - Inventory Sync: Đồng bộ tồn kho kho hàng cho `2026-07`.
+2. `DocumentAPI_Report2026.md` & `target.md`: Đồng bộ tài liệu mô tả script mới.
+
+
+---
+
+## [2026-07-24 10:26:00] Task: Split Re-sync into 2 Independent Steps & Reset Primary Key Sequence IDs
+
+### 1. Current Objective
+Tách tiến trình dọn dẹp và nạp dữ liệu thành 2 bước độc lập theo đúng nhu cầu người dùng:
+- **Bước 1 (`scripts/clear_and_reset_db.py`)**: Xóa toàn bộ dữ liệu phát sinh cũ và reset chuỗi ID tự tăng (Primary Key Sequence) về 1 trong PostgreSQL.
+- **Bước 2 (`scripts/import_and_calculate_months_1_to_7.py`)**: Thu gom file Excel, nạp dữ liệu và tính toán KPI từ Tháng 1 đến Tháng 7 (bổ sung tùy chọn `--skip-clear`).
+
+### 2. Planned Modifications
+1. `scripts/clear_and_reset_db.py` [NEW]: Dọn dẹp dữ liệu và thực thi `TRUNCATE TABLE ... RESTART IDENTITY CASCADE;` trong PostgreSQL để reset ID về 1.
+2. `scripts/import_and_calculate_months_1_to_7.py`: Cập nhật hỗ trợ cờ `--skip-clear` để có thể nạp trực tiếp sau khi người dùng đã chạy Bước 1.
+3. `DocumentAPI_Report2026.md` & `target.md`: Cập nhật hướng dẫn quy trình 2 bước.
+
+### 3. Current Status
+
+---
+
+## [2026-07-24 11:28:00] Task: Create Current Month Automation Script (`scripts/sync_current_month.py`)
+
+### 1. Current Objective
+Tạo script tiêu chuẩn `scripts/sync_current_month.py` chuyên trách tải, thay thế dữ liệu và cập nhật KPI cho riêng **Tháng hiện tại** (`period_option="Tháng này"`), giữ nguyên toàn bộ ID và dữ liệu các tháng quá khứ.
+
+### 2. Planned Modifications
+1. `scripts/sync_current_month.py` [NEW]:
+   - Tải báo cáo MISA Tháng hiện tại qua Playwright.
+   - Thay thế dữ liệu cũ của riêng tháng hiện tại và nạp Excel mới vào CSDL.
+   - Cập nhật lại KPI (BUPerformance) Tháng hiện tại cho Tổng công ty và 22 BU.
+   - Đồng bộ kho hàng cuối kỳ.
+2. `DocumentAPI_Report2026.md` & `target.md`: Cập nhật tài liệu kỹ thuật cho script mới.
+
+
+---
+
+## [2026-07-24 11:36:00] Task: Fix OPEX Duplicated Addition (`opex_actual = opex_trans_actual`)
+
+### 1. Current Objective
+Sửa lỗi tính trùng Chi phí vận hành (OPEX) do trước đây cộng dồn `plan_elapsed` (kế hoạch phân bổ chi phí ngày) vào `opex_trans_actual` (thực tế MISA TK 641+642), khiến OPEX thực tế bị đẩy lên 5.282 tỷ thay vì số phát sinh MISA thực tế 1.762 tỷ.
+
+### 2. Planned Modifications
+1. `accounting/tasks.py`:
+   - Thay đổi `opex_actual = Decimal(str(opex_trans_actual))` trong `update_single_bu_performance`, loại bỏ cộng trùng `plan_elapsed`.
+   - Giữ nguyên `opex_plan = target_plan.month_opex_target` (Kế hoạch OPEX tháng, ví dụ 4.851.250.000 VNĐ cho Global).
+2. `scripts/show_snapshot.py`:
+   - Bổ sung hiển thị `Target` và tỉ lệ `% Đạt` cho Chi phí OPEX.
+3. `DocumentAPI_Report2026.md` & `target.md`: Đồng bộ mô tả công thức tính OPEX.
+
+### 3. Current Status
+
+---
+
+## [2026-07-24 11:41:00] Task: Update Legacy Section 7 OPEX Formula in `target.md`
+
+### 1. Current Objective
+Cập nhật lại phần tài liệu cũ Mục 7 trong `target.md` (vốn ghi sai công thức cũ `opex_actual = sum(daily_opex_plan) + sum(daily_opex_actual)`) về chuẩn công thức thực tế mới `opex_actual = sum(daily_opex_actual)` để toàn bộ hệ thống tài liệu đồng bộ 100%.
+
+### 2. Planned Modifications
+- `target.md` (Mục 7): Cập nhật công thức `opex_actual = sum(daily_opex_actual)` (chỉ tính phát sinh Nợ TK 641 + 642 thực tế từ MISA), ghi chú rõ loại bỏ cộng trùng `daily_opex_plan`.
+
+### 3. Current Status
+
+---
+
+## [2026-07-24 11:42:00] Task: Enforce User Explicit Directive on OPEX Formula (`opex_actual = plan_elapsed + opex_trans_actual`)
+
+### 1. Current Objective
+Theo chỉ đạo trực tiếp và xác nhận chính thức từ User ("công thức dưới mới đúng đó"), giữ nguyên và áp dụng công thức thiết kế chuẩn của hệ thống:
+$$\text{opex\_actual} = \sum_{d=1}^{D_{target}} \text{daily\_opex\_plan}(d) + \sum_{d=1}^{D_{target}} \text{daily\_opex\_actual}(d)$$
+
+### 2. Planned Modifications
+1. `accounting/tasks.py`:
+   - Áp dụng `opex_actual = plan_elapsed + opex_trans_actual` (với ép kiểu `Decimal` nhất quán để đảm bảo an toàn tuyệt đối, không phát sinh lỗi float/Decimal).
+2. `target.md` (Mục 7 & Mục 48): Giữ và đồng bộ chuẩn công thức theo đúng chỉ đạo của User.
+
+### 3. Current Status
+
+---
+
+## [2026-07-24 11:44:00] Task: Consolidate Duplicate OPEX Sections in `target.md`
+
+### 1. Current Objective
+Loại bỏ Mục 48 bị lặp lại trong `target.md` và hợp nhất toàn bộ thông tin tài liệu OPEX về duy nhất **Mục 7. Chi phí vận hành (OPEX)** làm nguồn thông tin gốc (Single Source of Truth).
+
+### 2. Planned Modifications
+- `target.md`: Cập nhật chi tiết Mục 7 và xóa Mục 48 bị trùng lặp, giữ tài liệu gọn gàng và không bị trùng lặp thông tin.
+
+### 3. Current Status
+- **Completed**: Đã hợp nhất xong tài liệu OPEX về duy nhất Mục 7 trong `target.md`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

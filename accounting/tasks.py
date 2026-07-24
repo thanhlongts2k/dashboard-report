@@ -2,6 +2,7 @@ import os
 import re
 import glob
 import logging
+from decimal import Decimal
 import pandas as pd
 from celery import shared_task
 from django.db.models import Sum, Q
@@ -585,27 +586,28 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     ).first()
     
     if target_plan and target_plan.month_opex_target > 0:
-        curr_opex_plan = target_plan.month_opex_target
+        curr_opex_plan = Decimal(str(target_plan.month_opex_target))
     else:
-        curr_opex_plan = existing_perf.opex_plan if existing_perf else 0
+        curr_opex_plan = Decimal(str(existing_perf.opex_plan)) if existing_perf else Decimal('0')
 
     last_day_val = calendar.monthrange(year, month)[1]
     
     existing_daily = BUPerformanceDaily.objects.filter(performance_month=existing_perf) if existing_perf else None
-    existing_sum = existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0 if existing_daily else 0
+    existing_sum = Decimal(str(existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0)) if existing_daily else Decimal('0')
     
     redistribute_plan = False
     if not existing_daily or existing_daily.count() != last_day_val:
         redistribute_plan = True
-    elif abs(existing_sum - curr_opex_plan) > 0.01:
+    elif abs(existing_sum - curr_opex_plan) > Decimal('0.01'):
         redistribute_plan = True
         
     if redistribute_plan:
-        plan_elapsed = (curr_opex_plan / last_day_val) * target_date.day
+        plan_elapsed = (curr_opex_plan / Decimal(last_day_val)) * Decimal(target_date.day)
     else:
-        plan_elapsed = existing_daily.filter(date__lte=target_date).aggregate(total=Sum('daily_opex_plan'))['total'] or 0
+        plan_elapsed = Decimal(str(existing_daily.filter(date__lte=target_date).aggregate(total=Sum('daily_opex_plan'))['total'] or 0))
 
-    # Chi phí vận hành hiển thị (MTD) = Chi phí tạm tính phân bổ đến target_date + Thực tế phát sinh MISA
+    # Chi phí vận hành thực tế (MTD) = Chi phí phân bổ kế hoạch lũy kế đến target_date + Thực tế phát sinh Nợ TK 641 & 642 MISA
+    opex_trans_actual = Decimal(str(opex_trans_actual))
     opex_actual = plan_elapsed + opex_trans_actual
 
     # --- BỔ SUNG TÍNH TOÁN CÔNG NỢ & THU TIỀN ---
@@ -813,15 +815,15 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     
     # Xác định xem có cần phân bổ lại kế hoạch opex không
     existing_daily = BUPerformanceDaily.objects.filter(performance_month=performance)
-    existing_sum = existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0
+    existing_sum = Decimal(str(existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0))
     
     redistribute_plan = False
     if existing_daily.count() != last_day_val:
         redistribute_plan = True
-    elif abs(existing_sum - performance.opex_plan) > 0.01:
+    elif abs(existing_sum - performance.opex_plan) > Decimal('0.01'):
         redistribute_plan = True
         
-    daily_plan_val = performance.opex_plan / last_day_val
+    daily_plan_val = Decimal(str(performance.opex_plan)) / Decimal(last_day_val)
     
     current_date = datetime(year, month, 1).date()
     while current_date <= last_day_of_month:
