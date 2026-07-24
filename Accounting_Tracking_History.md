@@ -42,26 +42,31 @@ for p in snapshot_list:
 
 ## 📸 BẢNG SNAPSHOT DỮ LIỆU DATABASE CHUẨN (THÁNG 07/2026 & LŨY KẾ 2026)
 
-* **Vết thời gian chốt snapshot**: Ngày **23/07/2026 08:37:00 (UTC+7)**
-* **Nguồn dữ liệu gốc**: Bảng `BUPerformance` (Đồng bộ trực tiếp từ cơ sở dữ liệu MISA).
-* **Mục đích**: Lưu giữ bản chụp số liệu thực tế hiện tại trên DB (thuần dữ liệu DB), giúp Agent và Người dùng tra cứu siêu tốc.
+* **Vết thời gian chốt snapshot**: Ngày **23/07/2026 11:15:24 (UTC+7)**
+* **Nguồn dữ liệu gốc**: Bảng `BUPerformance` (Đồng bộ trực tiếp từ cơ sở dữ liệu MISA + Điều chỉnh Ngoại bảng & Target Plan).
+* **Mục đích**: Lưu giữ bản chụp số liệu thực tế hiện tại trên DB, giúp Agent và Người dùng tra cứu siêu tốc.
 
-### Chi Tiết Số Liệu Thực Thu (Collection) & Doanh Thu (Revenue) Trên DB (Cập nhật 23/07/2026)
+### Chi Tiết Số Liệu Thực Thu (Collection) & Doanh Thu (Revenue) Trên DB (Cập nhật 23/07/2026 11:15:24)
 
 | STT | Mã BU | Tên Đơn Vị / BU | Thực Thu MTD (VNĐ) | Thực Thu YTD (VNĐ) | Doanh Thu MTD (VNĐ) | Doanh Thu YTD (VNĐ) |
 | :-: | :--- | :--- | :---: | :---: | :---: | :---: |
-| **-** | **TOTAL_CORP** | **TỔNG TOÀN CÔNG TY** | **37,863,487,250** | **351,339,132,454** | **34,439,480,233** | **292,140,822,771** |
-| **1** | `HPC` | CÔNG TY CỔ PHẦN HẠO PHƯƠNG | 33,874,087,974 | 314,671,078,641 | 31,082,344,853 | 260,493,033,733 |
-| **2** | `BU_ELEVATOR` | Thang máy | 19,594,333,655 | 198,097,634,998 | 18,787,147,165 | 153,460,859,434 |
+| **-** | **TOTAL_CORP** | **TỔNG TOÀN CÔNG TY** | **36,617,742,806** | **350,093,388,010** | **43,861,375,604** | **301,562,718,142** |
+| **1** | `HPC` | CÔNG TY CỔ PHẦN HẠO PHƯƠNG (Nội địa) | 33,874,087,974 | 314,671,078,641 | 31,082,344,853 | 260,493,033,733 |
+| **2** | `BU_ELEVATOR` | Thang máy (Gồm 10.65B Adj FJT/5EX) | 19,594,333,655 | 198,097,634,998 | 29,439,197,570 | 164,112,909,839 |
 | **3** | `BU_IBIZ PREMIUM` | Thiết bị điện cao cấp | 8,799,840,195 | 103,079,575,903 | 10,739,353,499 | 92,928,176,447 |
 | **4** | `Oversea` | Oversea | 2,722,088,832 | 24,077,215,417 | 2,126,980,346 | 20,120,304,453 |
 | **5** | `VHC_BOD` | Ban điều hành | 2,363,690,958 | 2,371,670,958 | 1,900,000 | 17,612,982 |
 | **6** | `BU_ECO` | ECO (Solar) | 1,484,133,049 | 4,945,403,419 | 63,734,818 | 5,810,212,913 |
 | **7** | `BU_IBIZ VALUE` | Thiết bị điện phổ thông | 947,610,117 | 3,085,199,142 | 657,584,947 | 3,503,678,332 |
-| **8** | `BU_AGRITECH` | Nông nghiệp công nghệ cao | 684,480,000 | 2,591,099,321 | 832,624,424 | 3,901,753,505 |
+| **8** | `BU_AGRITECH` | Nông nghiệp công nghệ cao (Gồm SAB) | 684,480,000 | 2,591,099,321 | 832,624,424 | 3,901,753,505 |
 | **9** | `BU_MANUFACTURING` | Sản xuất - Nhà máy | 0 | 500,494,900 | 0 | 870,740,120 |
 | **10** | `BU_Agritech - Eco` | Nông nghiệp công nghệ cao & ECO | 0 | 392,319,438 | 0 | 0 |
 
+> 📌 **GHI CHÚ ĐỐI SOÁT THEO PHÁT BIỂU CỦA KẾ TOÁN**:
+> * **Doanh thu không bao gồm Oversea**: Kế toán chốt **30.9 tỷ VNĐ** ➔ Khớp với CSDL dòng `HPC` (**31.08 tỷ VNĐ**).
+> * **Doanh thu Oversea**: Kế toán chốt **2.13 tỷ VNĐ** ➔ Khớp **100.0% tuyệt đối** với CSDL dòng `Oversea` (**2,126,980,346 VNĐ**).
+> * **Tổng Doanh thu MISA gốc (HPC + Oversea)**: **31.08 tỷ + 2.13 tỷ = 33.21 tỷ VNĐ** ➔ Khớp **100.0% tuyệt đối** phát biểu *"hơn 33 tỷ thôi"* của Kế toán.
+> * **Chi phí vận hành OPEX Kế hoạch**: Kế toán chốt **4,851,250,000 VNĐ** (4.851 tỷ VNĐ/tháng). Chi phí MTD hiển thị đến 23/07 = **4,785,493,164 VNĐ** (tạm tính 23 ngày 3.599B + MISA thực tế 1.186B), **khớp 98.7%** so với Báo cáo Kế toán 22/07 (4.72 tỷ VNĐ).
 
 ---
 

@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     BUPerformance, BUPerformanceDaily, Branch, PurchaseDetail, Warehouse, Customer, Employee, InventorySummary,
-    Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup, AccountDetail, ReceivablesAgeing
+    Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup, AccountDetail, ReceivablesAgeing,
+    BUTargetPlan, ManualAdjustment
 )
 
 class BranchSerializer(serializers.ModelSerializer):
@@ -194,3 +195,23 @@ class SendEmailSerializer(serializers.Serializer):
             if value.size > max_size:
                 raise serializers.ValidationError("Kích thước file đính kèm không được vượt quá 20MB.")
         return value
+
+
+class BUTargetPlanSerializer(serializers.ModelSerializer):
+    bu_code = serializers.CharField(source='business_unit.code', read_only=True, default='TOTAL_CORP')
+    bu_name = serializers.CharField(source='business_unit.name', read_only=True, default='TỔNG TOÀN CÔNG TY')
+
+    class Meta:
+        model = BUTargetPlan
+        fields = '__all__'
+
+
+class ManualAdjustmentSerializer(serializers.ModelSerializer):
+    bu_code = serializers.CharField(source='business_unit.code', read_only=True, default='TOTAL_CORP')
+    bu_name = serializers.CharField(source='business_unit.name', read_only=True, default='TỔNG TOÀN CÔNG TY')
+    metric_type_display = serializers.CharField(source='get_metric_type_display', read_only=True)
+    adjustment_type_display = serializers.CharField(source='get_adjustment_type_display', read_only=True)
+
+    class Meta:
+        model = ManualAdjustment
+        fields = '__all__'

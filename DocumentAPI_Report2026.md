@@ -99,11 +99,11 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 
 #### 1. Logic xác định phạm vi (Global / Sub-BU)
 - **Quy ước Global**: Nếu `bu_id` nhận vào là `None`, hệ thống thiết lập biến `is_global = True`.
-- **Hành vi**: Khi `is_global = True`, hệ thống sẽ **bỏ qua bộ lọc theo BU** trên các bảng dữ liệu gốc, trực tiếp tổng hợp toàn bộ dữ liệu của toàn công ty (Tổng công ty). Nếu `bu_id` khác `None` (kể cả các đơn vị gốc cấp cao nhất như HPC hay ĐTCT), hệ thống vẫn thiết lập `is_global = False` để tính toán dựa trên các BU con thuộc nhánh đó thông qua `get_all_descendant_ids()`.
+- **Hành vi**: Khi `is_global = True`, hệ thống sẽ **bỏ qua bộ lọc theo từng BU con**, trực tiếp tổng hợp toàn bộ dữ liệu của toàn công ty (Tổng công ty). Đồng thời, hệ thống **bắt buộc áp dụng bộ lọc loại trừ `settings.EXCLUDED_BU_CODES`** (`['ĐTCT']`) trên tất cả các truy vấn dữ liệu gốc (`SalesTransaction`, `AccountDetail`, `InventorySummary`, `ReceivablesAgeing`) để loại bỏ 1.23 tỷ VNĐ doanh thu mảng ĐTCT khỏi Tổng công ty.
 - **Bộ lọc loại trừ động từ `settings.py`**:
-  * Loại trừ BU: Tự động lọc bỏ các BU có mã nằm trong `settings.EXCLUDED_BU_CODES` (hiện tại là `['ĐTCT']`) và các đơn vị con của chúng khỏi mọi phép tính.
+  * Loại trừ BU: Tự động lọc bỏ các BU có mã nằm trong `settings.EXCLUDED_BU_CODES` (hiện tại là `['ĐTCT']` - Đầu tư cho thuê) và các đơn vị con của chúng khỏi mọi phép tính (kể cả cấp Tổng công ty `is_global = True`).
   * Loại trừ Khách hàng: Lọc bỏ các giao dịch của khách hàng thuộc nhóm trong `settings.EXCLUDED_CUSTOMER_GROUP_CODES` (hiện tại là `['Internal']`).
-- **BU cấp dưới (Sub-BU)**: Nếu `bu_id` cụ thể và có BU cha, hệ thống chỉ lọc chính xác bản ghi của riêng BU đó (và loại trừ các BU/Khách hàng đặc thù nói trên).
+- **BU cấp dưới (Sub-BU)**: Nếu `bu_id` cụ thể, hệ thống lọc chính xác bản ghi của riêng BU đó và các BU con thuộc nhánh thông qua `get_all_descendant_ids()` (và loại trừ các BU/Khách hàng đặc thù nói trên).
 
 #### 2. Logic xử lý mốc thời gian (`target_date`)
 - Nhận tham số ngày kết thúc tính toán `target_date_str`.
@@ -149,15 +149,31 @@ Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `u
 *   Tất cả số liệu sau khi tính toán xong được lưu vào bảng `BUPerformance` (theo tháng) và `BUPerformanceDaily` (theo ngày).
 
 > [!NOTE]
-> **Tính toán Chi phí Vận hành (OPEX):**
-> Trường `opex_actual` (Chi phí vận hành thực tế tháng) và các chỉ số ngày (`daily_opex_plan`, `daily_opex_actual`) đã được tự động tính toán từ các tài khoản chi phí đầu `641` và `642` trong bảng `AccountDetail` (đồng bộ tự động từ MISA).
+> **Công thức & Quy tắc Tính toán Chi phí Vận hành (OPEX):**
+> * **Chi phí vận hành MTD (`opex_actual`)**: Chi phí tạm tính phân bổ + Thực tế MISA Nợ TK 641 & 642.
+>   * *Chi phí tạm tính phân bổ lũy kế*: `(opex_plan / số ngày trong tháng) * ngày kết thúc target_date` (Hoặc tổng `daily_opex_plan` đến ngày `target_date`).
+>   * *Thực tế MISA*: Tổng phát sinh Nợ TK 641 & 642 trong `AccountDetail` (loại trừ `EXCLUDED_BU_CODES`).
+> * **Kế hoạch Chi phí tháng (`opex_plan`)**: Được nạp từ `BUTargetPlan` (`month_opex_target`) hoặc thiết lập trên Django Admin UI.
+> * **Kế hoạch Chi phí ngày (`daily_opex_plan`)**: Tự động phân bổ đều theo ngày (`opex_plan / số ngày trong tháng`).
+> * **Chi phí Thực tế ngày (`daily_opex_actual`)**: Tổng phát sinh Nợ TK 641 & 642 của riêng ngày đó trong `AccountDetail`.
 
 
-> [!NOTE]
-> **Các bảng độc lập:**
-> Dữ liệu mua hàng (`PurchaseDetail`) và Công nợ nhà cung cấp (`SupplierDebt`) được tự động nạp từ Excel nhưng hiện tại **không tham gia** vào luồng tính toán hiệu suất BU.
+> [!IMPORTANT]
+> **Kiến trúc & Quy tắc Mapping Target/Plan (`BUTargetPlan` vs `BUPerformance`):**
+> * **Bảng `BUTargetPlan` (Ngân sách Kế hoạch Cố định của Kế toán giao)**:
+>   - Đây là bảng lưu các chỉ tiêu Kế hoạch giao chính thức (Kế toán nhập vào hoặc nạp từ file/seed script).
+>   - Chứa 2 loại chỉ tiêu riêng biệt:
+>     - **Target Tháng (MTD Target)**: `month_revenue_target`, `month_collection_target`, `month_opex_target`, v.v. (Ví dụ Thu tiền MTD Tháng 7: **64.52 tỷ VNĐ**).
+>     - **Target Cả Năm Cố Định (YTD/Year Target)**: `year_revenue_target`, `year_collection_target`, `year_opex_target`, v.v. (Ví dụ Thu tiền Cả Năm: **594.87 tỷ VNĐ**, Doanh thu Cả Năm: **724.03 tỷ VNĐ**).
+> * **Bảng `BUPerformance` (Bảng Tính Toán Hiệu Suất Tự Động Hàng Tháng)**:
+>   - Chứa dữ liệu phát sinh Thực tế (MTD/YTD) và các trường kế hoạch phân bổ lũy kế.
+>   - Trường `ytd_collection_plan` và `ytd_revenue_plan` trong bảng này được hàm `update_single_bu_performance` tự động tính bằng cách **cộng dồn `mtd_*_plan` các tháng đã đi qua**.
+> * **NGUYÊN TẮC MAPPING BẮT BUỘC CHO LẬP TRÌNH VIÊN VÀ AI AGENTS**:
+>   - **Khi lấy Target Tháng (MTD Target)**: Ưu tiên đọc `month_*_target` từ `BUTargetPlan` (Fallback: `mtd_*_plan` từ `BUPerformance`).
+>   - **Khi lấy Target Năm (YTD Target)**: **BẮT BUỘC ƯU TIÊN đọc trực tiếp từ `year_*_target` của `BUTargetPlan`** (Fallback: `ytd_*_plan` từ `BUPerformance`). Tuyệt đối không dùng số lũy kế tháng của `BUPerformance` để đại diện cho Target Cả Năm.
 
 ---
+
 
 ### Luồng C: Đồng bộ tồn kho kho hàng (Warehouse Inventory Sync)
 Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu tồn kho chi tiết từ bảng `InventorySummary` (cột đầu kỳ `opening_value`, nhập `in_value`, xuất `out_value`, cuối kỳ `closing_value`) nhóm theo kho hàng rồi cập nhật ngược trực tiếp vào các trường tương ứng trong bảng `Warehouse`.
@@ -439,6 +455,10 @@ Các ViewSet này cung cấp giao diện Web API trực quan để lấy danh s�
 *   `/api/purchase-details/` (Chi tiết mua hàng):
     *   *Bộ lọc*: `?supplier__code=...&business_unit__code=...&warehouse__code=...`
 *   `/api/inventory-summaries/` (Tổng hợp tồn kho)
+*   `/api/target-plans/` (Quản lý Chỉ tiêu Kế hoạch - Target Plans):
+    *   *Bộ lọc*: `?month=7&year=2026&business_unit=...`
+*   `/api/adjustments/` (Quản lý Điều chỉnh Phát sinh Ngoại bảng - Off-MISA Adjustments):
+    *   *Bộ lọc*: `?month=7&year=2026&metric_type=REVENUE&is_active=true`
 
 ---
 

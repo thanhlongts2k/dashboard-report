@@ -3,7 +3,8 @@ from import_export.admin import ImportExportModelAdmin
 from .models import (
     BUPerformance, BUPerformanceDaily, Branch, PurchaseDetail, Warehouse, Customer, Employee, 
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
-    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup, BankBalance
+    AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup, BankBalance,
+    BUTargetPlan, ManualAdjustment
 )
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
@@ -170,7 +171,7 @@ class BUPerformanceAdmin(admin.ModelAdmin):
             # Chia đều kế hoạch tháng cho số ngày
             daily_plan_val = obj.opex_plan / days_in_month
             obj.daily_logs.all().update(daily_opex_plan=daily_plan_val)
-    actions = ['trigger_update_data']
+    actions = ['trigger_update_data', 'recalculate_company_total']
 
     @admin.action(description='🚀 Cập nhật số liệu thực tế (Tháng & Ngày)')
     def trigger_update_data(self, request, queryset):
@@ -209,6 +210,17 @@ class BUPerformanceAdmin(admin.ModelAdmin):
         self.message_user(
             request, 
             f"Đã cập nhật thành công số liệu cho {success_count} mục (Bao gồm bảng Tháng và Ngày).", 
+            messages.SUCCESS
+        )
+
+    @admin.action(description='🏢 Cập nhật Số liệu Tổng Toàn Công Ty (TOTAL_CORP)')
+    def recalculate_company_total(self, request, queryset):
+        periods = set((obj.month, obj.year) for obj in queryset)
+        for m, y in periods:
+            update_single_bu_performance(None, month=m, year=y)
+        self.message_user(
+            request, 
+            f"✅ Đã cập nhật thành công Số liệu Tổng Toàn Công Ty cho {len(periods)} kỳ báo cáo chọn!", 
             messages.SUCCESS
         )
 
@@ -335,3 +347,58 @@ class BankBalanceAdmin(admin.ModelAdmin):
     list_display = ('bank_account_number', 'bank_name', 'balance', 'reporting_month')
     list_filter = ('reporting_month', 'bank_name')
     search_fields = ('bank_account_number', 'bank_name')
+
+
+@admin.register(BUTargetPlan)
+class BUTargetPlanAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_bu_display', 'month', 'year', 'manager',
+        'month_revenue_target', 'month_collection_target', 'month_opex_target', 'updated_at'
+    )
+    list_filter = ('year', 'month', 'business_unit')
+    search_fields = ('business_unit__code', 'business_unit__name', 'manager', 'note')
+    
+    @admin.display(description="Đơn vị kinh doanh")
+    def get_bu_display(self, obj):
+        return obj.business_unit.code if obj.business_unit else "TỔNG TOÀN CÔNG TY"
+
+    def save_model(self, request, obj, form, change):
+        if not obj.updated_by:
+            obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
+        # Recalculate KPI for this BU and period
+        bu_id = obj.business_unit.id if obj.business_unit else None
+        update_single_bu_performance(bu_id, month=obj.month, year=obj.year)
+        messages.success(request, f"✅ Đã cập nhật Chỉ tiêu và tính toán lại KPI thành công cho {self.get_bu_display(obj)} Th{obj.month}/{obj.year}!")
+
+
+@admin.register(ManualAdjustment)
+class ManualAdjustmentAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_bu_display', 'metric_type', 'adjustment_type', 'amount',
+        'month', 'year', 'reason', 'is_active', 'created_by', 'created_at'
+    )
+    list_filter = ('is_active', 'metric_type', 'adjustment_type', 'year', 'month', 'business_unit')
+    search_fields = ('reason', 'business_unit__code', 'business_unit__name')
+    actions = ['recalculate_performance']
+
+    @admin.display(description="Đơn vị kinh doanh")
+    def get_bu_display(self, obj):
+        return obj.business_unit.code if obj.business_unit else "TỔNG TOÀN CÔNG TY"
+
+    def save_model(self, request, obj, form, change):
+        if not obj.created_by:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+        bu_id = obj.business_unit.id if obj.business_unit else None
+        update_single_bu_performance(bu_id, month=obj.month, year=obj.year)
+        messages.success(request, f"✅ Đã lưu khoản điều chỉnh và cập nhật KPI cho {self.get_bu_display(obj)} Th{obj.month}/{obj.year}!")
+
+    @admin.action(description="🔄 recalculate - Kích hoạt tính lại KPI cho các khoản điều chỉnh chọn")
+    def recalculate_performance(self, request, queryset):
+        count = 0
+        for obj in queryset:
+            bu_id = obj.business_unit.id if obj.business_unit else None
+            update_single_bu_performance(bu_id, month=obj.month, year=obj.year)
+            count += 1
+        messages.success(request, f"✅ Đã recalculate lại KPI thành công cho {count} khoản điều chỉnh!")

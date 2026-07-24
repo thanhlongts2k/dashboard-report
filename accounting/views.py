@@ -6,7 +6,8 @@ from django.db.models import Q, Sum
 from .models import (
     Branch, Warehouse, Customer, Employee, InventorySummary,
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
-    ReceivablesAgeing, AccountDetail, BUPerformance, BUPerformanceDaily
+    ReceivablesAgeing, AccountDetail, BUPerformance, BUPerformanceDaily,
+    BUTargetPlan, ManualAdjustment
 )
 from .serializers import *
 from .filters import BUPerformanceDailyFilter, BUPerformanceFilter
@@ -587,5 +588,42 @@ class SendEmailAPIView(APIView):
                     f.write(timing_entry)
             except Exception as log_err:
                 logger.error(f"Lỗi ghi log file email_timing.log: {str(log_err)}")
+
+
+class BUTargetPlanViewSet(viewsets.ModelViewSet):
+    queryset = BUTargetPlan.objects.all().order_by('-year', '-month')
+    serializer_class = BUTargetPlanSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['month', 'year', 'business_unit']
+
+    def perform_create(self, serializer):
+        instance = serializer.save(updated_by=self.request.user if self.request.user.is_authenticated else None)
+        bu_id = instance.business_unit.id if instance.business_unit else None
+        update_single_bu_performance(bu_id, month=instance.month, year=instance.year)
+
+    def perform_update(self, serializer):
+        instance = serializer.save(updated_by=self.request.user if self.request.user.is_authenticated else None)
+        bu_id = instance.business_unit.id if instance.business_unit else None
+        update_single_bu_performance(bu_id, month=instance.month, year=instance.year)
+
+
+class ManualAdjustmentViewSet(viewsets.ModelViewSet):
+    queryset = ManualAdjustment.objects.all().order_by('-year', '-month', '-created_at')
+    serializer_class = ManualAdjustmentSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['month', 'year', 'business_unit', 'metric_type', 'is_active']
+
+    def perform_create(self, serializer):
+        instance = serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+        bu_id = instance.business_unit.id if instance.business_unit else None
+        update_single_bu_performance(bu_id, month=instance.month, year=instance.year)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        bu_id = instance.business_unit.id if instance.business_unit else None
+        update_single_bu_performance(bu_id, month=instance.month, year=instance.year)
+
 
 

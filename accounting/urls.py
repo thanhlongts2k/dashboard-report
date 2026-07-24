@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BUPerformanceUpdateAPIView, BranchViewSet, InventorySummaryViewSet, WarehouseViewSet, CustomerViewSet, 
     EmployeeViewSet, ProductViewSet, BusinessUnitViewSet,
-    SalesTransactionViewSet, SupplierViewSet, SupplierDebtViewSet, SupplierGroupViewSet, AccountDetailViewSet, ReceivablesAgeingViewSet, PurchaseDetailViewSet
+    SalesTransactionViewSet, SupplierViewSet, SupplierDebtViewSet, SupplierGroupViewSet, AccountDetailViewSet, ReceivablesAgeingViewSet, PurchaseDetailViewSet,
+    BUTargetPlanViewSet, ManualAdjustmentViewSet
 )
 from .views import LoginAPI, GoogleLoginAPI, BUReportAPIView, BUPerformanceDailyListView, DashboardCollectionByBUAPIView, SendEmailAPIView
 
@@ -24,6 +25,8 @@ router.register(r'account-details', AccountDetailViewSet)
 router.register(r'receivables-ageing', ReceivablesAgeingViewSet)
 router.register(r'purchase-details', PurchaseDetailViewSet)
 router.register(r'inventory-summaries', InventorySummaryViewSet)
+router.register(r'target-plans', BUTargetPlanViewSet)
+router.register(r'adjustments', ManualAdjustmentViewSet)
 
 # Danh sách URL của App
 urlpatterns = [

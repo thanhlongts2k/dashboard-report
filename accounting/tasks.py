@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 from celery import shared_task
 from django.db.models import Sum, Q
-from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer, BankBalance
+from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer, BankBalance, BUTargetPlan, ManualAdjustment
 from datetime import datetime, timedelta
 import calendar
 from .resources import (
@@ -520,7 +520,10 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     
     inventory_actual = inv_data['closing'] or 0
 
-    if not is_global and not is_under_oversea_branch:
+    if is_global:
+        if excluded_bu_ids:
+            base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)
+    elif not is_under_oversea_branch:
         base_filter &= Q(business_unit_id__in=bu_ids)
 
     # Loại trừ các chứng từ có tiền tố mã chứng từ trong EXCLUDED_DOC_ID_PREFIXES (ví dụ: THANHLY)
@@ -528,6 +531,11 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     if excluded_doc_id_prefixes:
         for prefix in excluded_doc_id_prefixes:
             base_filter &= ~Q(doc_id__startswith=prefix)
+
+    # Loại trừ các nhóm khách hàng nội bộ (ví dụ: Internal / Nội bộ)
+    excluded_cust_group_codes = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', [])
+    if excluded_cust_group_codes:
+        base_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
 
     # Doanh thu tháng
     sales_qs = SalesTransaction.objects.filter(base_filter)
@@ -555,7 +563,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     coll_exclude_oversea_actual = coll_actual - coll_oversea_actual
 
     # Chi phí vận hành tháng thực tế (OPEX Actual)
-    # 1. Tính thực tế từ giao dịch phát sinh Nợ TK 641 và 642 trong tháng (lên đến target_date)
+    # Tính thực tế từ phát sinh Nợ TK 641 và 642 trong tháng (lên đến target_date)
     opex_trans_filter = Q(posting_date__month=month, posting_date__year=year, posting_date__lte=target_date)
     if is_global:
         if excluded_bu_ids:
@@ -569,16 +577,20 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     opex_trans_actual = opex_trans_qs.aggregate(total=Sum('debit_amount'))['total'] or 0
 
     # 2. Tính số Kế hoạch phân bổ lũy kế đến target_date (Kế hoạch ngày * số ngày đã qua)
+    target_plan = BUTargetPlan.objects.filter(business_unit_id=bu_id, month=month, year=year).first()
     existing_perf = BUPerformance.objects.filter(
         business_unit_id=bu_id,
         month=month,
         year=year
     ).first()
-    curr_opex_plan = existing_perf.opex_plan if existing_perf else 0
+    
+    if target_plan and target_plan.month_opex_target > 0:
+        curr_opex_plan = target_plan.month_opex_target
+    else:
+        curr_opex_plan = existing_perf.opex_plan if existing_perf else 0
 
     last_day_val = calendar.monthrange(year, month)[1]
     
-    # Kiểm tra xem có sử dụng phân bổ đều hay sum từ các dòng con hiện có
     existing_daily = BUPerformanceDaily.objects.filter(performance_month=existing_perf) if existing_perf else None
     existing_sum = existing_daily.aggregate(total=Sum('daily_opex_plan'))['total'] or 0 if existing_daily else 0
     
@@ -593,7 +605,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     else:
         plan_elapsed = existing_daily.filter(date__lte=target_date).aggregate(total=Sum('daily_opex_plan'))['total'] or 0
 
-    # Tổng opex_actual của tháng (lũy kế đến target_date) = Kế hoạch phân bổ ngày + Thực tế phát sinh
+    # Chi phí vận hành hiển thị (MTD) = Chi phí tạm tính phân bổ đến target_date + Thực tế phát sinh MISA
     opex_actual = plan_elapsed + opex_trans_actual
 
     # --- BỔ SUNG TÍNH TOÁN CÔNG NỢ & THU TIỀN ---
@@ -675,30 +687,73 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     last_341 = AccountDetail.objects.filter(ledger_filter, account_number='341').order_by('posting_date', 'id').last()
     bank_debt_actual = last_341.balance_credit if last_341 else 0
 
+    # --- 3.7. ÁP DỤNG ĐIỀU CHỈNH NGOẠI BẢNG (MANUAL ADJUSTMENTS) & MỤC TIÊU KẾ HOẠCH (TARGET PLANS) ---
+    target_plan = BUTargetPlan.objects.filter(business_unit_id=bu_id, month=month, year=year).first()
+    
+    # 2. Đọc các khoản điều chỉnh ngoại bảng Active (Cấp Tổng công ty sẽ gom tất cả điều chỉnh active trong kỳ)
+    if is_global:
+        adjustments = ManualAdjustment.objects.filter(month=month, year=year, is_active=True)
+    else:
+        adjustments = ManualAdjustment.objects.filter(business_unit_id=bu_id, month=month, year=year, is_active=True)
+    def apply_adj(base_val, metric_code):
+        met_adjs = adjustments.filter(metric_type=metric_code)
+        res = base_val
+        for adj in met_adjs:
+            if adj.adjustment_type == 'ADDITION':
+                res += adj.amount
+            elif adj.adjustment_type == 'DEDUCTION':
+                res -= adj.amount
+            elif adj.adjustment_type == 'OVERWRITE':
+                res = adj.amount
+        return res
+
+    rev_actual = apply_adj(rev_actual, 'REVENUE')
+    coll_actual = apply_adj(coll_actual, 'COLLECTION')
+    receivable_total = apply_adj(receivable_total, 'RECEIVABLES_DUE')
+    receivable_overdue = apply_adj(receivable_overdue, 'RECEIVABLES_OVERDUE')
+    inventory_actual = apply_adj(inventory_actual, 'INVENTORY')
+    cash_balance_actual = apply_adj(cash_balance_actual, 'CASH')
+    bank_debt_actual = apply_adj(bank_debt_actual, 'BANK_DEBT')
+    opex_actual = apply_adj(opex_actual, 'OPEX')
+
+    # Cập nhật lại các chỉ số tách/loại trừ Oversea sau khi áp dụng điều chỉnh ManualAdjustment (các khoản điều chỉnh ngoại bảng là nội địa)
+    rev_exclude_oversea_actual = rev_actual - rev_oversea_actual
+    coll_exclude_oversea_actual = coll_actual - coll_oversea_actual
+
     # --- 4. CẬP NHẬT DATABASE (BẢNG THÁNG) ---
+    defaults_dict = {
+        'mtd_revenue_actual': rev_actual,                  # Doanh thu thực tế lũy kế tháng (MTD)
+        'mtd_collection_actual': coll_actual,              # Thực thu thực tế lũy kế tháng (Dòng tiền thu về)
+        'collection_due_actual': collection_due_actual,    # Số tiền nợ quá hạn thực tế đã thu được trong tháng
+        'collection_in_term_cod': collection_in_term_cod,  # Số tiền thu nợ trong hạn + COD thực tế thu được
+        'receivable_total': receivable_total,              # Tổng số dư nợ phải thu của khách hàng tại thời điểm cuối kỳ
+        'receivable_overdue': receivable_overdue,          # Tổng số dư nợ quá hạn của khách hàng tại thời điểm cuối kỳ
+        'inventory_opening_value': inv_data['opening'] or 0, # Giá trị tồn kho đầu kỳ báo cáo
+        'inventory_in_value': inv_data['in_val'] or 0,     # Tổng giá trị nhập kho phát sinh trong kỳ
+        'inventory_out_value': inv_data['out_val'] or 0,   # Tổng giá trị xuất kho phát sinh trong kỳ
+        'inventory_value_actual': inventory_actual,        # Giá trị tồn kho thực tế cuối kỳ báo cáo
+        'cash_balance_actual': cash_balance_actual,        # Tổng số dư tiền mặt và tiền gửi ngân hàng thực tế cuối kỳ
+        'bank_debt_actual': bank_debt_actual,              # Tổng số dư nợ vay ngân hàng (TK 341) thực tế cuối kỳ
+        'mtd_revenue_oversea_actual': rev_oversea_actual,  # Doanh thu Oversea MTD (Thực tế)
+        'mtd_revenue_exclude_oversea_actual': rev_exclude_oversea_actual, # Doanh thu không bao gồm Oversea MTD (Thực tế)
+        'mtd_collection_oversea_actual': coll_oversea_actual,  # Thực thu Oversea MTD (Thực tế)
+        'mtd_collection_exclude_oversea_actual': coll_exclude_oversea_actual,  # Thực thu không bao gồm Oversea MTD (Thực tế)
+        'opex_actual': opex_actual,                        # Chi phí vận hành thực tế (Thực tế)
+    }
+
+    if target_plan:
+        if target_plan.month_revenue_target > 0: defaults_dict['mtd_revenue_plan'] = target_plan.month_revenue_target
+        if target_plan.month_collection_target > 0: defaults_dict['mtd_collection_plan'] = target_plan.month_collection_target
+        if target_plan.month_inventory_target > 0: defaults_dict['inventory_value_plan'] = target_plan.month_inventory_target
+        if target_plan.month_cash_target > 0: defaults_dict['cash_balance_plan'] = target_plan.month_cash_target
+        if target_plan.month_bank_debt_target > 0: defaults_dict['bank_debt_plan'] = target_plan.month_bank_debt_target
+        if target_plan.month_opex_target > 0: defaults_dict['opex_plan'] = target_plan.month_opex_target
+
     performance, _ = BUPerformance.objects.update_or_create(
         business_unit_id=bu_id,
         month=month,
         year=year,
-        defaults={
-            'mtd_revenue_actual': rev_actual,                  # Doanh thu thực tế lũy kế tháng (MTD)
-            'mtd_collection_actual': coll_actual,              # Thực thu thực tế lũy kế tháng (Dòng tiền thu về)
-            'collection_due_actual': collection_due_actual,    # Số tiền nợ quá hạn thực tế đã thu được trong tháng
-            'collection_in_term_cod': collection_in_term_cod,  # Số tiền thu nợ trong hạn + COD thực tế thu được
-            'receivable_total': receivable_total,              # Tổng số dư nợ phải thu của khách hàng tại thời điểm cuối kỳ
-            'receivable_overdue': receivable_overdue,          # Tổng số dư nợ quá hạn của khách hàng tại thời điểm cuối kỳ
-            'inventory_opening_value': inv_data['opening'] or 0, # Giá trị tồn kho đầu kỳ báo cáo
-            'inventory_in_value': inv_data['in_val'] or 0,     # Tổng giá trị nhập kho phát sinh trong kỳ
-            'inventory_out_value': inv_data['out_val'] or 0,   # Tổng giá trị xuất kho phát sinh trong kỳ
-            'inventory_value_actual': inventory_actual,        # Giá trị tồn kho thực tế cuối kỳ báo cáo
-            'cash_balance_actual': cash_balance_actual,        # Tổng số dư tiền mặt và tiền gửi ngân hàng thực tế cuối kỳ
-            'bank_debt_actual': bank_debt_actual,              # Tổng số dư nợ vay ngân hàng (TK 341) thực tế cuối kỳ
-            'mtd_revenue_oversea_actual': rev_oversea_actual,  # Doanh thu Oversea MTD (Thực tế)
-            'mtd_revenue_exclude_oversea_actual': rev_exclude_oversea_actual, # Doanh thu không bao gồm Oversea MTD (Thực tế)
-            'mtd_collection_oversea_actual': coll_oversea_actual,  # Thực thu Oversea MTD (Thực tế)
-            'mtd_collection_exclude_oversea_actual': coll_exclude_oversea_actual,  # Thực thu không bao gồm Oversea MTD (Thực tế)
-            'opex_actual': opex_actual,                        # Chi phí vận hành thực tế (Thực tế)
-        }
+        defaults=defaults_dict
     )
 
     # --- 4.5. TÍNH CHỈ SỐ YTD (LŨY KẾ NĂM) & PROPAGATION ---
@@ -817,9 +872,36 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             }
         )
         current_date += timedelta(days=1)
-    
+
+    # --- 6. TỰ ĐỘNG CẬP NHẬT TỔNG CÔNG TY KHI BU CON THAY ĐỔI ---
+    if not is_global:
+        try:
+            # Gọi cập nhật lại số liệu Tổng công ty (bu_id=None) cho cùng kỳ month/year
+            update_single_bu_performance(None, month=month, year=year, target_date_str=target_date.strftime('%Y-%m-%d'))
+        except Exception as cascade_err:
+            logger.warning(f"Lỗi khi tự động cập nhật Tổng công ty từ BU con ({cascade_err})")
+
     bu_name = "TỔNG CÔNG TY" if is_global else f"Business Unit {bu_id}"
     return f"Updated {bu_name}: Month Rev={rev_actual} | All days up to {target_date} updated"
+
+
+@shared_task
+def recalculate_company_total_task(month=None, year=None):
+    """
+    Celery Task / Function cập nhật linh hoạt số liệu Tổng Toàn Công Ty bất cứ lúc nào.
+    """
+    today = datetime.now()
+    month = int(month) if month else today.month
+    year = int(year) if year else today.year
+    
+    # 1. Cập nhật tất cả BU con
+    for bu in BusinessUnit.objects.all():
+        update_single_bu_performance(bu.id, month=month, year=year)
+        
+    # 2. Cập nhật Tổng công ty
+    res = update_single_bu_performance(None, month=month, year=year)
+    return f"✅ Đã cập nhật xong Tổng Toàn Công Ty Th{month}/{year}: {res}"
+
 
 
 @shared_task

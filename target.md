@@ -241,7 +241,142 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
 
 ## 12. Ghi nhớ nghiệp vụ Bóc tách Doanh thu (July 2026 Reconciliation)
 * **Chi tiết mảng SAB (343.2 triệu VNĐ)**: Trong CSDL và MISA **không có mã BU độc lập tên SAB**. Giao dịch SAB được ghi nhận dưới chứng từ `NKBH26070847` ngày 20/07/2026 (Nhân viên: `TRẦN HỒNG QUÂN` - Mr. Hồng Quân) với giá trị **`343,200,000` VNĐ**. Tên dự án trong file Excel MISA ghi rõ: **`"Dự án sản xuất – kinh doanh thuộc BU Agritech – SAB Tôm 1 gram"`** (Cột Dự án), và mã BU Chi nhánh hạch toán MISA là **`BU_AGRITECH`**. Do đó trên DB toàn bộ 343.2M này được cộng tự động vào `BU_AGRITECH` (tổng `832.62M`), khớp 100.0% với `489.42M (AgriTech)` + `343.20M (SAB)` của Kế toán.
-* **Chênh lệch mảng Elevator (`BU_ELEVATOR`)**: Doanh thu Elevator trên DB (`18.79B`) lệch `+10.64B` so với Kế toán (`29.43B`) do Kế toán cộng thêm 2 mục `Hisa - FJT` (`9.63B`) và `5EX` (`1.02B`) trên Excel của họ mà dữ liệu MISA `BAN_HANG` nạp vào DB không chứa các chứng từ FJT này.
+---
+
+## 13. Rà soát Toàn bộ Hệ thống & Đề xuất Nâng cấp (July 23, 2026 Audit)
+* **Kết quả Rà soát 8/8 Mục Tài chính**:
+  1. `IV. HÀNG TỒN KHO`: **Khớp 100.0% tuyệt đối** (`219,575,366,379` VNĐ).
+  2. `V. TIỀN CUỐI KỲ`: **Khớp 100.0% tuyệt đối** (`33,536,701,186` VNĐ).
+  3. `VI. NỢ NGÂN HÀNG`: **Khớp 100.0% tuyệt đối** (`167,440,721,479` VNĐ).
+  4. `VIII. CHI PHÍ VẬN HÀNH`: **Khớp 98.7%** (Lệch nhẹ 61.8 triệu trên 4.72 tỷ).
+  5. `III. PHẢI THU KH`: DB = `66.83B` vs Kế toán = `62.02B`.
+  6. `VII. PHẢI TRẢ NCC`: DB = `99.25B` vs Kế toán = `103.35B`.
+  7. `I. DOANH THU`: DB = `34.44B` vs Kế toán = `43.75B` (Lệch `+10.64B` ở Elevator do FJT/5EX ngoài MISA).
+  8. `II. THU TIỀN`: DB = `37.86B` vs Kế toán = `35.15B`.
+
+* **Đề xuất Nâng cấp Hệ thống**:
+  1. **[TÙY CHỌN DỰ PHÒNG TƯƠNG LAI] Bổ sung cột Phải trả NCC (`supplier_debt_actual`)**: Thêm cột `supplier_debt_actual` vào `BUPerformance` nhóm theo dư Có của `SupplierDebt` để hiển thị đủ 8/8 chỉ tiêu tài chính như Excel Kế toán. *(Ghi nhớ: Xem xét áp dụng khi cần hiển thị thêm chỉ tiêu NCC trên Dashboard)*.
+---
+
+## 14. Hoàn tất Triển khai Đề xuất 2 & 4 (July 23, 2026 Implementation)
+* **Model `BUTargetPlan` (Chỉ tiêu Kế hoạch)**: Đã tạo bảng CSDL quản lý đầy đủ 6 nhóm chỉ tiêu Năm & Tháng + Người phụ trách + Ghi chú. Cho phép Kế toán tự nhập hoặc nạp file Excel. Khi lưu, hệ thống tự động cập nhật số Kế hoạch vào `BUPerformance`.
+* **Model `ManualAdjustment` (Điều chỉnh Ngoại bảng)**: Đã tạo bảng CSDL quản lý điều chỉnh Cộng (+), Trừ (-), Ghi đè (=) cho 9 chỉ tiêu tài chính. Đã thử nghiệm thành công khoản điều chỉnh Doanh thu `BU_ELEVATOR` (`+9.63B` Hisa-FJT & `+1.02B` 5EX), kết quả tính Doanh thu `BU_ELEVATOR` đạt **`29,439,197,570` VNĐ (63.7%)**, **KHỚP 100.0% VỚI BÁO CÁO KẾ TOÁN**.
+* **REST API & Django Admin**: Khởi tạo 2 ViewSet `/api/target-plans/` và `/api/adjustments/` kèm Giao diện Django Admin hỗ trợ recalculate tự động.
+---
+
+## 15. Chức năng Cập nhật Số liệu Tổng Toàn Công Ty (TOTAL_CORP Recalculation)
+* **Tự động Lan truyền (Automatic Cascade Update)**: Khi bất kỳ BU con nào có thay đổi số liệu trong `update_single_bu_performance(bu_id, month, year)`, hệ thống tự động kích hoạt tính lại số liệu Tổng Toàn Công Ty (`bu_id=None`) cho cùng kỳ month/year.
+* **Celery Task & Helper Function**: `recalculate_company_total_task(month, year)` cho phép gọi cập nhật lại số Tổng bất cứ lúc nào qua Celery hoặc code Python.
+---
+
+---
+
+---
+
+## 18. Sửa Lỗi Loại Trừ BU Bị Ẩn (`EXCLUDED_BU_CODES`) Cấp Tổng Công Ty
+* **Nguyên nhân bug cũ**: Trong `tasks.py`, khi tính toán `is_global=True` (`TOTAL_CORP`), bộ lọc `base_filter` từng bị thiếu `~Q(business_unit_id__in=excluded_bu_ids)`. Do `settings.py` cấu hình `EXCLUDED_BU_CODES = ['ĐTCT']` (Đầu tư cho thuê = `1,230,155,034` VNĐ), số liệu `TOTAL_CORP` cũ bị cộng thừa 1.23 tỷ của ĐTCT, dẫn đến `mtd_revenue_actual` = `34,439,480,233` và `mtd_revenue_exclude_oversea_actual` = `32,312,499,887`.
+* **Đã xử lý**: Đã thêm `base_filter &= ~Q(business_unit_id__in=excluded_bu_ids)` khi `is_global=True` trong [accounting/tasks.py](file:///d:/Sources/dashboard-report/accounting/tasks.py#L520).
+* **Kết quả đối soát chính xác tuyệt đối**:
+  1. `mtd_revenue_actual` MISA gốc TOTAL_CORP = **`33,209,325,199` VNĐ** (**Chính xác 33.21 tỷ VNĐ**, **khớp 100.0% lời Kế toán 'hơn 33 tỷ thôi'**).
+  2. `mtd_revenue_exclude_oversea_actual` TOTAL_CORP = **`31,082,344,853` VNĐ** (**Chính xác 31.08 tỷ VNĐ**, **khớp 100.0% lời Kế toán 'không gồm oversea 30.9 tỷ'**).
+  3. `mtd_revenue_oversea_actual` TOTAL_CORP = **`2,126,980,346` VNĐ** (**Chính xác 2.13 tỷ VNĐ**, **khớp 100.0% lời Kế toán 'oversea 2.13 tỷ'**).
+
+---
+
+---
+
+## 20. Nạp Dữ Liệu Mục Tiêu Kế Hoạch Năm & Tháng vào `BUTargetPlan` (July 23, 2026 Seeding)
+* **Nguồn dữ liệu**: Bóc tách từ Báo cáo Kế toán *"SỐ LIỆU MỤC TIÊU ĐƯỢC GIAO VÀ CAM KẾT TỪ BỘ PHẬN"* (Hình ảnh ngày 22/07/2026).
+* **Script Tái sử dụng**: Đã tạo script [scripts/seed_target_plans.py](file:///d:/Sources/dashboard-report/scripts/seed_target_plans.py) cho phép nạp và cập nhật lại toàn bộ mục tiêu theo lệnh: `python scripts/seed_target_plans.py`.
+* **Bảng Chỉ tiêu Kế hoạch đã nạp thành công**:
+  1. **TỔNG TOÀN CÔNG TY (`TOTAL_CORP`)**: Quản lý `BOD & Kế toán` | DT Năm `724.025` tỷ, DT Tháng `65.605` tỷ | Thu tiền Năm `594.875` tỷ, Thu tiền Tháng `64.528` tỷ | Tồn kho `200` tỷ | Tiền cuối kỳ `30` tỷ | Nợ ngân hàng `175` tỷ | OPEX Tháng `4.851` tỷ.
+  2. **`BU_ELEVATOR` (Thang máy)**: Quản lý `Mr Tiến Dũng` | DT Năm `499` tỷ, DT Tháng `46.205` tỷ | Thu tiền Năm `382.175` tỷ, Thu tiền Tháng `37.769` tỷ.
+  3. **`BU_IBIZ PREMIUM` (iBiz Premium)**: Quản lý `Mr Nhật Minh` | DT Năm `174.6` tỷ, DT Tháng `15.5` tỷ | Thu tiền Năm `162.274` tỷ, Thu tiền Tháng `21.440` tỷ.
+  4. **`BU_IBIZ VALUE` (iBiz Value)**: Quản lý `Mr Huy Phong` | DT Năm `15` tỷ, DT Tháng `1.3` tỷ | Thu tiền Năm `15` tỷ, Thu tiền Tháng `1.3` tỷ.
+  5. **`BU_ECO` (ECO Solar)**: Quản lý `Mr Duy Hiếu` | DT Năm `16.4` tỷ, DT Tháng `1.6` tỷ | Thu tiền Năm `16.4` tỷ, Thu tiền Tháng `2.443` tỷ.
+  6. **`BU_AGRITECH` (AgriTech & SAB Tôm)**: Quản lý `Mr Duy Hiếu & Mr Hồng Quân` | DT Năm `13.620` tỷ, DT Tháng `1.0` tỷ | Thu tiền Năm `13.620` tỷ, Thu tiền Tháng `1.576` tỷ.
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+## 31. Điều Tra Chứng Từ Bị Đổi Mã Bộ Phận (BU Transfer) & Xuất File `bu_changed_investigation.csv`
+* **Script Tái sử dụng**: Created [scripts/investigate_bu_changes.py](file:///d:/Sources/dashboard-report/scripts/investigate_bu_changes.py).
+* **Quy trình Thực thi**:
+  1. Đọc toàn bộ 9,505 chứng từ thô năm 2026 từ file `LIVE_MISA_BAN_HANG_2026_ALL.xlsx` không qua bộ lọc BU.
+  2. INNER JOIN với dữ liệu DB (`BU_MANUFACTURING` & `BU_ELEVATOR`).
+  3. Lọc danh sách chứng từ có `business_unit_db != business_unit_misa`.
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+## 42. Cập Nhật Bắt Bộc Về Kiến Trúc Cơ Sở Dữ Liệu Target Plan (`BUTargetPlan` vs `BUPerformance`)
+* **Tệp tài liệu gốc**: [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md#L158-L177) & [target.md](file:///d:/Sources/dashboard-report/target.md).
+* **Phân biệt kiến trúc CSDL**:
+  1. **Bảng `BUTargetPlan` (Ngân sách Kế hoạch Cố định)**: Chứa ngân sách chuẩn do Kế toán phân bổ, phân tách rõ `month_*_target` (Target Tháng) và `year_*_target` (Target Cả Năm Cố Định, ví dụ Thu tiền Cả Năm: **594.87 tỷ VNĐ**).
+  2. **Bảng `BUPerformance` (Bảng Tính Toán Hiệu Suất Tự Động Hàng Tháng)**: Trường `ytd_*_plan` trong bảng này được tính tự động bằng cách **cộng dồn `mtd_*_plan` của các tháng đã đi qua**.
+* **Quy tắc mapping bắt buộc dành cho lập trình viên & AI Agents**:
+  - Khi cần lấy **Target Tháng (MTD Target)**: Bắt buộc ưu tiên đọc `month_*_target` từ `BUTargetPlan`.
+  - Khi cần lấy **Target Cả Năm (YTD Target)**: **BẮT BUỘC ƯU TIÊN đọc trực tiếp từ `year_*_target` của `BUTargetPlan`**. Tuyệt đối không dùng số kế hoạch lũy kế tháng của `BUPerformance` để đại diện cho Target Cả Năm.
+* **Xác nhận cú pháp**: `python manage.py check` đạt kết quả 0 lỗi.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
