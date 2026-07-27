@@ -2,6 +2,7 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 from .models import (
     BUPerformance, BUPerformanceDaily, Branch, PurchaseDetail, Warehouse, Customer, Employee, 
+    Department, JobTitle, EmployeeAssignment,
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
     AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup, BankBalance,
     BUTargetPlan, ManualAdjustment
@@ -122,7 +123,38 @@ class WarehouseAdmin(admin.ModelAdmin):
             f"Đã cập nhật dữ liệu tồn kho thành công cho {count} kho.", 
             messages.SUCCESS
         )
-admin.site.register(Employee)
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display = ('department_code', 'department_name', 'parent_department')
+    search_fields = ('department_code', 'department_name')
+    list_filter = ('parent_department',)
+
+
+@admin.register(JobTitle)
+class JobTitleAdmin(admin.ModelAdmin):
+    list_display = ('title_id', 'title_name')
+    search_fields = ('title_name',)
+
+
+class EmployeeAssignmentInline(admin.TabularInline):
+    model = EmployeeAssignment
+    extra = 1
+    fields = ('department', 'title', 'start_date', 'end_date')
+
+
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ('employee_code', 'full_name', 'gender', 'date_of_birth', 'identity_number', 'phone_number', 'email', 'is_active')
+    search_fields = ('employee_code', 'full_name', 'identity_number', 'email', 'phone_number')
+    list_filter = ('gender', 'is_active')
+    inlines = [EmployeeAssignmentInline]
+
+
+@admin.register(EmployeeAssignment)
+class EmployeeAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('assignment_id', 'employee', 'department', 'title', 'start_date', 'end_date')
+    search_fields = ('employee__employee_code', 'employee__full_name', 'department__department_name', 'title__title_name')
+    list_filter = ('department', 'title', 'start_date', 'end_date')
 
 class BUPerformanceDailyInline(admin.TabularInline):
     model = BUPerformanceDaily

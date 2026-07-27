@@ -1,5 +1,6 @@
 from .models import (
-    Branch, Warehouse, CustomerGroup, Customer, Employee,
+    Branch, Warehouse, CustomerGroup, Customer,
+    Department, JobTitle, Employee, EmployeeAssignment,
     MaterialGroup, Product, BusinessUnit, BUTargetPlan,
     ManualAdjustment, ImportLog, SalesTransaction, AccountDetail,
     BankBalance, SupplierGroup, Supplier, SupplierDebt,
@@ -8,7 +9,8 @@ from .models import (
 )
 
 __all__ = [
-    'Branch', 'Warehouse', 'CustomerGroup', 'Customer', 'Employee',
+    'Branch', 'Warehouse', 'CustomerGroup', 'Customer',
+    'Department', 'JobTitle', 'Employee', 'EmployeeAssignment',
     'MaterialGroup', 'Product', 'BusinessUnit', 'BUTargetPlan',
     'ManualAdjustment', 'ImportLog', 'SalesTransaction', 'AccountDetail',
     'BankBalance', 'SupplierGroup', 'Supplier', 'SupplierDebt',

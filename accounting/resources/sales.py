@@ -28,7 +28,7 @@ class SalesTransactionResource(BulkCreateResource):
     employee = fields.Field(
         attribute='employee', 
         column_name='Mã nhân viên bán hàng', 
-        widget=ForeignKeyWidget(Employee, 'code')
+        widget=ForeignKeyWidget(Employee, 'employee_code')
     )
     business_unit = fields.Field(
         attribute='business_unit', 
@@ -147,7 +147,7 @@ class SalesTransactionResource(BulkCreateResource):
 
         emp_code = row.get('Mã nhân viên bán hàng')
         if emp_code:
-            Employee.objects.get_or_create(code=emp_code, defaults={'name': row.get('Tên nhân viên bán hàng') or 'N/A'})
+            Employee.objects.get_or_create(employee_code=emp_code, defaults={'full_name': row.get('Tên nhân viên bán hàng') or 'N/A'})
 
         bu_code = row.get('Mã thống kê')
         if bu_code:

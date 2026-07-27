@@ -4,6 +4,7 @@ from .purchase import PurchaseDetailResource
 from .finance import AccountDetailResource, BankBalanceResource
 from .debt import SupplierDebtResource, ReceivablesAgeingResource
 from .inventory import InventorySummaryResource
+from .employee import EmployeeResource
 
 __all__ = [
     'BulkCreateResource',
@@ -15,4 +16,5 @@ __all__ = [
     'SupplierDebtResource',
     'ReceivablesAgeingResource',
     'InventorySummaryResource',
+    'EmployeeResource',
 ]

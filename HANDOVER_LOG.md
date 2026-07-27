@@ -4,13 +4,22 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
-## [2026-07-27 14:24:00] Task: Diagnose & Fix Missing Accounts issue in TAI_KHOAN_CT download flow
-- **Objective**: Xác minh nguyên nhân tại sao lần tải/nạp tệp `TAI_KHOAN_CT` trước đó bị thiếu các tài khoản `111`, `112`, `341` dẫn đến chỉ số Thu tiền & Nợ ngân hàng bị về 0.
-- **Root Causes Discovered**:
-  1. Trong `report_exporter.py` Step 5: Hàm `check_all_select_all_checkboxes` và `ensure_all_items_selected` đã bị gọi **không có điều kiện loại trừ cho `TAI_KHOAN_CT`** (khác với logic commit gốc `57a0e59`). Việc này dẫn đến việc sau khi chọn 5 tài khoản cụ thể (`111`, `112`, `341`, `641`, `642`), bước "Chọn tất cả" vô tình chạy đè và hủy/thay đổi trạng thái tick của 5 tài khoản này.
-  2. File `TAI_KHOAN_CT` nhỏ (63KB) nạp vào đã kích hoạt xóa dữ liệu cũ của Tháng 7/2026 trước khi nạp 371 dòng mới (chỉ chứa TK 642).
-- **Fix Applied**: Bọc Bước 5 trong `if prefix != 'TAI_KHOAN_CT':` chuẩn 100% commit `57a0e59`.
-- **Current Status**: **COMPLETED** — Đã nạp lại file chuẩn (7.2MB), chỉ số Thu tiền (81.1B) và Nợ ngân hàng (175.2B) đã khôi phục chính xác.
+## [2026-07-27 15:28:00] Task: Implement Employee Management System (Department, JobTitle, Employee, EmployeeAssignment) & Excel Import
+- **Objective**: Thiết kế và triển khai các Model Django (`Department`, `JobTitle`, `Employee`, `EmployeeAssignment`), Resource import Excel `Danh_sach_nhan_vien.xlsx`, và đăng ký Django Admin.
+- **Files Modified**:
+  1. `accounting/models/employee.py` (**TẠO MỚI**): Định nghĩa `Department` (PK: department_code), `JobTitle` (AutoField PK), `Employee` (unique employee_code, full_name, gender, date_of_birth, identity_number, phone_number, email, is_active), `EmployeeAssignment` (FK → Employee, Department, JobTitle).
+  2. `accounting/models/organization.py`: Xóa class `Employee` placeholder cũ.
+  3. `accounting/models/transactions.py` + `debt.py`: Cập nhật import `Employee` từ `.employee`.
+  4. `accounting/models/__init__.py` + `accounting/models.py`: Export 4 model mới.
+  5. `accounting/resources/employee.py` (**TẠO MỚI**): `EmployeeResource` với `before_import_row` tự động get_or_create `Department`, `JobTitle`, `EmployeeAssignment`.
+  6. `accounting/resources/__init__.py`: Export `EmployeeResource`.
+  7. `accounting/tasks.py`: Thêm `DANH_SACH_NHAN_VIEN` và `NHAN_VIEN` vào `IMPORT_MAP` với `skip_delete=True`.
+  8. `accounting/admin.py`: Đăng ký `DepartmentAdmin`, `JobTitleAdmin`, `EmployeeAdmin` (with `EmployeeAssignmentInline`), `EmployeeAssignmentAdmin`.
+  9. `accounting/migrations/0041_...py`: Migration thủ công với `RunPython(copy_code_to_employee_code)` để migrate data cũ (`code`→`employee_code`, `name`→`full_name`) trước khi enforce unique index.
+- **Current Status**: **COMPLETED** — Migration `0041` apply thành công. Bảng `departments`, `job_titles`, `employees`, `employee_assignments` đã tồn tại trong DB PostgreSQL.
+
+
+
 
 
 

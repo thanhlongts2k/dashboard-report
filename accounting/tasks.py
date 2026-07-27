@@ -6,12 +6,13 @@ from decimal import Decimal
 import pandas as pd
 from celery import shared_task
 from django.db.models import Sum, Q
-from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer, BankBalance, BUTargetPlan, ManualAdjustment
+from .models import BusinessUnit, BUPerformance, InventorySummary, PurchaseDetail, ReceivablesAgeing, SalesTransaction, AccountDetail, BUPerformanceDaily, SupplierDebt, Warehouse, ImportLog, Customer, BankBalance, BUTargetPlan, ManualAdjustment, Department, JobTitle, Employee, EmployeeAssignment
 from datetime import datetime, timedelta
 import calendar
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
-    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource, CustomerResource, BankBalanceResource
+    AccountDetailResource, ReceivablesAgeingResource, InventorySummaryResource, CustomerResource, BankBalanceResource,
+    EmployeeResource
 )
 from django.conf import settings
 from django.db import transaction
@@ -45,6 +46,8 @@ def load_and_clean_excel(file_path, prefix):
         required_cols = ['Mã khách hàng']
     elif prefix == 'SO_DU_NH':
         required_cols = ['Tên ngân hàng']
+    elif prefix in ['DANH_SACH_NHAN_VIEN', 'NHAN_VIEN']:
+        required_cols = ['Mã nhân viên', 'Tên nhân viên']
 
     for idx, row in df.iterrows():
         row_str = [str(cell).strip() if pd.notna(cell) else "" for cell in row.values]
@@ -154,6 +157,8 @@ def auto_import_excel_from_folder(specific_file=None):
         'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
         'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource()},
         'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource()},
+        'DANH_SACH_NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True},
+        'NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True},
     }
 
     # Nếu specific_file được chỉ định → chỉ xử lý đúng 1 file đó (bỏ qua quét thư mục)

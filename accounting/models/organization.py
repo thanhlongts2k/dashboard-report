@@ -67,15 +67,7 @@ class Customer(models.Model):
         verbose_name = "Khách hàng"
         verbose_name_plural = "Danh mục khách hàng"
     
-class Employee(models.Model):
-    code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhân viên")
-    name = models.CharField(max_length=255, verbose_name="Tên nhân viên")
-    age = models.CharField(default=0, verbose_name="Tuổi")
-    gender = models.CharField(default=0, verbose_name="Giới tính")
 
-    def __str__(self):
-        return f"{self.name} ({self.code})"
-    
 class MaterialGroup(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhóm VTHH")
     name = models.CharField(max_length=255, verbose_name="Tên nhóm VTHH")

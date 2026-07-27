@@ -1,5 +1,6 @@
 from django.db import models
-from .organization import Customer, Branch, BusinessUnit, Warehouse, Product, Employee
+from .organization import Customer, Branch, BusinessUnit, Warehouse, Product
+from .employee import Employee
 
 class SupplierGroup(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhóm NCC")

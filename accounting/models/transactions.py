@@ -1,5 +1,6 @@
 from django.db import models
-from .organization import Customer, Product, Employee, Warehouse, Branch, BusinessUnit
+from .organization import Customer, Product, Warehouse, Branch, BusinessUnit
+from .employee import Employee
 
 class SalesTransaction(models.Model):
     posting_date = models.DateField(verbose_name="Ngày hạch toán")

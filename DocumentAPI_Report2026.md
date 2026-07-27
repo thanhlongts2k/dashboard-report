@@ -35,7 +35,8 @@ Thư mục làm việc bao gồm:
     *   [celery.py](file:///d:/Sources/dashboard-report/report2026/celery.py): Cấu hình khởi tạo Celery Worker & Beat.
 *   `accounting/` *(Ứng dụng xử lý kế toán - Đã tái cấu trúc Modular Package)*:
     *   `models/` *(Gói Model chuyên biệt)*:
-        *   [organization.py](file:///d:/Sources/dashboard-report/accounting/models/organization.py): `Branch`, `Warehouse`, `CustomerGroup`, `Customer`, `Employee`, `MaterialGroup`, `Product`, `BusinessUnit`.
+        *   [organization.py](file:///d:/Sources/dashboard-report/accounting/models/organization.py): `Branch`, `Warehouse`, `CustomerGroup`, `Customer`, `MaterialGroup`, `Product`, `BusinessUnit`.
+        *   [employee.py](file:///d:/Sources/dashboard-report/accounting/models/employee.py): `Department`, `JobTitle`, `Employee`, `EmployeeAssignment` *(Tạo mới 27/07/2026 — Quản lý Nhân sự)*.
         *   [master_data.py](file:///d:/Sources/dashboard-report/accounting/models/master_data.py): `BUTargetPlan`, `ManualAdjustment`, `ImportLog`.
         *   [transactions.py](file:///d:/Sources/dashboard-report/accounting/models/transactions.py): `SalesTransaction`, `AccountDetail`, `BankBalance`.
         *   [debt.py](file:///d:/Sources/dashboard-report/accounting/models/debt.py): `SupplierGroup`, `Supplier`, `SupplierDebt`, `ReceivablesAgeing`, `PurchaseDetail`.
@@ -208,7 +209,7 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 *   `/api/branches/` (Chi nhánh)
 *   `/api/warehouses/` (Kho hàng)
 *   `/api/customers/` (Khách hàng)
-*   `/api/employees/` (Nhân viên)
+*   `/api/employees/` (Nhân viên — fields: `employee_code`, `full_name`, `gender`, `date_of_birth`, `identity_number`, `phone_number`, `email`, `is_active`)
 *   `/api/products/` (Sản phẩm/Vật tư hàng hóa)
 *   `/api/business-units/` (Đơn vị kinh doanh - BU)
 *   `/api/transactions/` (Chi tiết bán hàng)
@@ -271,8 +272,19 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
   - `python import_specific_file.py <FILE_PATH>`
   - `python manage.py calculate_bu_performance`, `calculate_global_performance`, `createdefaultuser`
 
-### Q8: Bảng Nhân viên (`Employee`) có những thuộc tính mới nào?
-* **Trả lời**: `age` (Tuổi) và `gender` (Giới tính).
+### Q8: Model `Employee` (Được cấu trúc lại 27/07/2026) có những fields nào?
+* **Trả lời**: `Employee` được chuyển từ `organization.py` → `employee.py` và được tái thiết kế toàn diện:
+  - `employee_code` (VARCHAR 20, UNIQUE — trước đây là `code`)
+  - `full_name` (VARCHAR 100 — trước đây là `name`)
+  - `gender` (CHOICES: `MALE`/`FEMALE`, nullable)
+  - `date_of_birth` (DATE, nullable)
+  - `identity_number` (VARCHAR 20, nullable)
+  - `phone_number` (VARCHAR 20, nullable)
+  - `email` (VARCHAR 100, nullable)
+  - `is_active` (BOOLEAN default True)
+* **Bảng DB mới**: `employees` (trước đây là `accounting_employee`).
+* **Các Model liên quan mới**: `Department` (bảng `departments`), `JobTitle` (bảng `job_titles`), `EmployeeAssignment` (bảng `employee_assignments`).
+* **Backward compat**: `Employee.code` property trả về `employee_code`; `Employee.name` property trả về `full_name`.
 
 ---
 
@@ -281,6 +293,18 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 1. **Gói Dịch vụ Nghiệp vụ Lõi (`accounting/services/`)**: `kpi_calculator.py`, `period_parser.py`, `inventory_sync.py`. Wrapper: `tasks.py`.
 2. **Gói Tự động hóa MISA Playwright (`accounting/misa/`)**: `locators.py`, `browser.py`, `report_exporter.py`, `automation.py`. Wrapper: `misa_tasks.py`.
 3. **Gói Django REST Framework Views (`accounting/views/`)**: `misa_api.py`, `collection_api.py`, `inventory_api.py`, `dashboard_api.py`. Wrapper: `views.py`.
-4. **Gói Django Database Models (`accounting/models/`)**: `organization.py`, `master_data.py`, `transactions.py`, `debt.py`, `performance.py`. Wrapper: `models.py`.
-5. **Gói Import-Export Excel Resources (`accounting/resources/`)**: `bulk.py`, `sales.py`, `purchase.py`, `finance.py`, `debt.py`, `inventory.py`. Wrapper: `resources.py`.
+4. **Gói Django Database Models (`accounting/models/`)**: `organization.py`, `employee.py`, `master_data.py`, `transactions.py`, `debt.py`, `performance.py`. Wrapper: `models.py`.
+5. **Gói Import-Export Excel Resources (`accounting/resources/`)**: `bulk.py`, `sales.py`, `purchase.py`, `finance.py`, `debt.py`, `inventory.py`, `employee.py`. Wrapper: `resources.py`.
 6. **Django Custom Management Command (`sync_misa.py`)**: `python manage.py sync_misa --action=all|download|import --prefix=... --period=... --file=...`.
+
+---
+
+### Cập nhật bổ sung 27/07/2026 (Hệ thống Quản lý Nhân sự — Employee Management System)
+
+1. **Model `Employee` tái cấu trúc**: Chuyển từ `organization.py` → `employee.py`. Bảng DB đổi từ `accounting_employee` → `employees`. Fields cũ (`code`, `name`, `age`) được migrate data sang fields mới (`employee_code`, `full_name`) thông qua `RunPython` trong Migration 0041.
+2. **Model mới `Department`** (bảng `departments`): Phân cấp tự tham chiếu (self-FK `parent_department`), import từ `Danh_sach_nhan_vien.xlsx`.
+3. **Model mới `JobTitle`** (bảng `job_titles`): Danh mục chức danh, auto get_or_create khi import Excel.
+4. **Model mới `EmployeeAssignment`** (bảng `employee_assignments`): Lịch sử quá trình công tác (FK → Employee, Department, JobTitle; `start_date`, `end_date`).
+5. **Resource mới `EmployeeResource`** (`accounting/resources/employee.py`): Import `Danh_sach_nhan_vien.xlsx` với logic `before_import_row` (chuẩn hóa gender/date/is_active, get_or_create Department/JobTitle) và `after_save_instance` (tạo EmployeeAssignment). `skip_delete=True` — import không xóa data cũ.
+6. **Fix `sales.py`**: Cập nhật `ForeignKeyWidget(Employee, 'employee_code')` và `Employee.objects.get_or_create(employee_code=...)` khắc phục lỗi import BAN_HANG sau khi migrate.
+7. **Migration 0041**: Thủ công viết lại với đúng thứ tự: (1) Thêm fields mới, (2) RunPython copy data, (3) Xóa fields cũ, (4) Enforce unique index.

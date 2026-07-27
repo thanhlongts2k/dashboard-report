@@ -358,3 +358,75 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
   2. **Modular MISA Automation (`accounting/misa/`)**: Tách Playwright UI automation (`browser.py`, `locators.py`, `report_exporter.py`, `automation.py`). `accounting/misa_tasks.py` re-export 100% Celery tasks.
   3. **Modular Views & Models Packages (`accounting/views/`, `accounting/models/`)**: Tách monolith `views.py` và `models.py` thành các submodule chuyên biệt (`dashboard_api.py`, `collection_api.py`, `organization.py`, `performance.py`...), giữ wrapper re-export 100% tương thích ngược.
   4. **Django Custom Management Command (`sync_misa.py`)**: Gom toàn bộ các script bảo trì rải rác ngoài thư mục root thành câu lệnh Django chuẩn hóa: `python manage.py sync_misa --action=all|download|import --prefix=... --period=...`.
+
+---
+
+## 11. Hệ thống Quản lý Nhân sự (Employee Management)
+
+### 11.1. Thiết kế Database
+Hệ thống gồm 4 bảng mới trong DB PostgreSQL, được định nghĩa tại [`accounting/models/employee.py`](file:///d:/Sources/dashboard-report/accounting/models/employee.py):
+
+| Bảng | Model Django | Mô tả |
+|------|-------------|--------|
+| `departments` | `Department` | Danh mục đơn vị / Phòng ban (tự tham chiếu parent) |
+| `job_titles` | `JobTitle` | Danh mục chức danh |
+| `employees` | `Employee` | Danh sách nhân viên (unique: `employee_code`) |
+| `employee_assignments` | `EmployeeAssignment` | Lịch sử quá trình công tác |
+
+### 11.2. Schema Chi Tiết
+```
+Department:
+  - department_code    VARCHAR(50) PRIMARY KEY
+  - parent_department  FK → departments.department_code (nullable)
+  - department_name    VARCHAR(255)
+
+JobTitle:
+  - title_id           SERIAL PRIMARY KEY
+  - title_name         VARCHAR(255)
+
+Employee (bảng: employees):
+  - id                 SERIAL PRIMARY KEY (nội bộ Django)
+  - employee_code      VARCHAR(20) UNIQUE NOT NULL  (VD: '0512')
+  - full_name          VARCHAR(100) DEFAULT ''
+  - gender             VARCHAR(10) CHOICES('MALE','FEMALE') nullable
+  - date_of_birth      DATE nullable
+  - identity_number    VARCHAR(20) nullable
+  - phone_number       VARCHAR(20) nullable
+  - email              VARCHAR(100) nullable
+  - is_active          BOOLEAN DEFAULT TRUE
+
+EmployeeAssignment:
+  - assignment_id      SERIAL PRIMARY KEY
+  - employee           FK → employees.id
+  - department         FK → departments.department_code
+  - title              FK → job_titles.title_id
+  - start_date         DATE
+  - end_date           DATE nullable (NULL = đang giữ vị trí)
+```
+
+### 11.3. Import Excel (`Danh_sach_nhan_vien.xlsx`)
+- **File**: `media/auto_imports/Danh_sach_nhan_vien.xlsx`
+- **Sheet**: `DANH SÁCH NHÂN VIÊN` — header tại row index 2 (Excel row 3)
+- **Columns mapping**:
+
+| Column Excel | Field Model |
+|-------------|------------|
+| Mã nhân viên | `employee_code` |
+| Tên nhân viên | `full_name` |
+| Giới tính (`Nam`/`Nữ`) | `gender` (`MALE`/`FEMALE`) |
+| Ngày sinh | `date_of_birth` |
+| Số CMND | `identity_number` |
+| Chức danh | `JobTitle.title_name` (auto get_or_create) |
+| Trạng thái người dùng | `is_active` |
+| Mã đơn vị | `Department.department_code` (auto get_or_create) |
+| Tên đơn vị | `Department.department_name` |
+
+- **Resource**: [`accounting/resources/employee.py`](file:///d:/Sources/dashboard-report/accounting/resources/employee.py) — `EmployeeResource`
+- **Logic**: `before_import_row` tự động `get_or_create` `Department`, `JobTitle`, `EmployeeAssignment` cho mỗi dòng.
+- **Import via CLI**:
+  ```bash
+  py manage.py sync_misa --action=import --file="media/auto_imports/Danh_sach_nhan_vien.xlsx"
+  ```
+- **Import via folder scan**: Đặt file vào `media/auto_imports/DANH_SACH_NHAN_VIEN_*.xlsx` → Celery task tự động nhận diện prefix `DANH_SACH_NHAN_VIEN`.
+- **Lưu ý**: `skip_delete=True` — import nhân viên **KHÔNG** xóa dữ liệu cũ (upsert mode).
+
