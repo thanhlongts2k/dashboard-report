@@ -141,7 +141,7 @@ def load_and_clean_excel(file_path, prefix):
     return headers, filtered_rows
 
 @shared_task
-def auto_import_excel_from_folder():
+def auto_import_excel_from_folder(specific_file=None):
     # 1. Cấu hình đường dẫn
     BASE_IMPORT_PATH = os.path.join(settings.BASE_DIR, 'media', 'auto_imports')
     
@@ -156,12 +156,17 @@ def auto_import_excel_from_folder():
         'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource()},
     }
 
-    # Quét tất cả các file excel trong thư mục auto_imports
-    all_files = []
-    if os.path.exists(BASE_IMPORT_PATH):
-        for f in os.listdir(BASE_IMPORT_PATH):
-            if f.lower().endswith('.xlsx') and not f.startswith('~$'):
-                all_files.append(os.path.join(BASE_IMPORT_PATH, f))
+    # Nếu specific_file được chỉ định → chỉ xử lý đúng 1 file đó (bỏ qua quét thư mục)
+    if specific_file:
+        all_files = [specific_file]
+        logger.info(f"[specific_file mode] Processing only: {os.path.basename(specific_file)}")
+    else:
+        # Quét tất cả các file excel trong thư mục auto_imports
+        all_files = []
+        if os.path.exists(BASE_IMPORT_PATH):
+            for f in os.listdir(BASE_IMPORT_PATH):
+                if f.lower().endswith('.xlsx') and not f.startswith('~$'):
+                    all_files.append(os.path.join(BASE_IMPORT_PATH, f))
 
     # Gom nhóm các file theo tiền tố phù hợp nhất (lấy prefix dài nhất khớp)
     prefix_to_files = {p: [] for p in IMPORT_MAP.keys()}

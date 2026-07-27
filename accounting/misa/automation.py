@@ -9,7 +9,8 @@ from .report_exporter import download_report_from_url
 
 logger = logging.getLogger(__name__)
 
-async def run_misa_automation(period_option=None):
+async def run_misa_automation(period_option=None, prefix_filter=None):
+    """Chạy tự động tải báo cáo MISA. Nếu prefix_filter được truyền vào, chỉ tải đúng 1 loại báo cáo khớp tiền tố đó."""
     email = settings.MISA_EMAIL
     password = settings.MISA_PASSWORD
     headless = settings.MISA_HEADLESS
@@ -79,9 +80,11 @@ async def run_misa_automation(period_option=None):
         
         if use_saved_reports_option:
             logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 2 (Hybrid Flow)")
+            if prefix_filter:
+                logger.info(f"[prefix_filter] Only processing prefix: '{prefix_filter}'")
             
             so_du_nh_url = settings.MISA_REPORTS.get('SO_DU_NH')
-            if so_du_nh_url:
+            if so_du_nh_url and (not prefix_filter or prefix_filter == 'SO_DU_NH'):
                 prefix = 'SO_DU_NH'
                 filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
@@ -126,6 +129,10 @@ async def run_misa_automation(period_option=None):
             ]
             
             for prefix, report_name in saved_reports_to_download:
+                # Lọc theo prefix_filter nếu được chỉ định
+                if prefix_filter and prefix != prefix_filter:
+                    logger.info(f"[prefix_filter] Skipping '{prefix}' (filter='{prefix_filter}')")
+                    continue
                 filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
                 logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix})")
@@ -183,10 +190,16 @@ async def run_misa_automation(period_option=None):
                         logger.warning(f"Failed to navigate back to Saved Reports List: {str(e)}")
         else:
             logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 1 (Step-by-step Flow)")
-            for prefix, url in settings.MISA_REPORTS.items():
-                if not url:
-                    continue
-                    
+            if prefix_filter:
+                logger.info(f"[prefix_filter] Only processing prefix: '{prefix_filter}'")
+            # Lọc danh sách báo cáo theo prefix_filter nếu được truyền vào
+            reports_to_run = {
+                k: v for k, v in settings.MISA_REPORTS.items()
+                if v and (not prefix_filter or k == prefix_filter)
+            }
+            if not reports_to_run:
+                logger.warning(f"No reports matched prefix_filter='{prefix_filter}'. Available prefixes: {list(settings.MISA_REPORTS.keys())}")
+            for prefix, url in reports_to_run.items():
                 filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
                 

@@ -4,7 +4,18 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
-## [2026-07-27 10:12:00] Task: Restore Commit 57a0e59 Steps & Create CLI download_report.py Script
+## [2026-07-27 10:37:00] Task: Audit TAI_KHOAN_CT Download Steps vs Commit 57a0e59
+- **Objective**: Phục hồi logic `select_accounts_for_so_chi_tiet` và các bước nhỏ khác để khớp 100% commit 57a0e59.
+- **Planned Modifications**:
+  1. `report_exporter.py` L183-208: Thay hàm `select_accounts_for_so_chi_tiet` — dùng textbox `Nhập từ khóa tìm kiếm` để search từng tài khoản rồi click (khớp 57a0e59).
+  2. `report_exporter.py` L217-219: Thêm `wait_for_load_state("domcontentloaded")` sau `goto()`.
+  3. `report_exporter.py` L303-314: Thêm xác nhận sau click checkbox + JS fallback.
+  4. `report_exporter.py` L338: Thêm `skip_ky_bao_cao` logic cho `TUOI_NO_KH`.
+  5. `report_exporter.py` L421: Tăng gear timeout từ 10000 lên 30000.
+- **Current Status**: **COMPLETED** — Đã sửa đủ 5 điểm, syntax OK, Django check 0 lỗi. Chờ user commit.
+
+
+
 - **Objective**: Restored 100% of Commit 57a0e59 download history clearing steps (clear download manager panel history `"Xóa hết lịch sử tải tệp"` -> confirm `"Có"` before exporting), select `"Mẫu chuẩn."` template via gear icon `.mi-setting__list-bold`, set default report period to `"Tháng này"`, and create standalone CLI script `download_report.py` supporting keyword arguments (`BAN_HANG`, `MUA_HANG`, `TON_KHO`, `CONG_NO_NCC`, `TUOI_NO_KH`, `TAI_KHOAN_CT`, `SO_DU_NH`, `ALL`).
 - **Planned Modifications**:
   1. `report_exporter.py`: Restored pre-export download manager history clearing and gear template selection.

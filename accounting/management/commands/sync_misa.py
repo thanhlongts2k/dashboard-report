@@ -52,7 +52,7 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.ERROR(f"❌ Không tìm thấy tệp: {file_path}"))
                 return
             self.stdout.write(self.style.SUCCESS(f"📦 Đang nạp trực tiếp tệp: {file_path}"))
-            res = auto_import_excel_from_folder()
+            res = auto_import_excel_from_folder(specific_file=os.path.abspath(file_path))
             self.stdout.write(self.style.SUCCESS(f"✅ Hoàn tất nạp tệp: {res}"))
             return
 
@@ -66,7 +66,7 @@ class Command(BaseCommand):
                 asyncio.set_event_loop(loop)
                 
             try:
-                download_res = loop.run_until_complete(run_misa_automation(period_option=period))
+                download_res = loop.run_until_complete(run_misa_automation(period_option=period, prefix_filter=prefix))
                 self.stdout.write(self.style.SUCCESS(f"✅ Kết quả tải MISA: {download_res}"))
             except Exception as e:
                 self.stderr.write(self.style.ERROR(f"❌ Lỗi khi tải báo cáo MISA: {str(e)}"))

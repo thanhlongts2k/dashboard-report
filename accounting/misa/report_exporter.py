@@ -182,30 +182,165 @@ async def check_all_select_all_checkboxes(page):
 
 async def select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341', '641', '642']):
     """
-    Tự động chọn Bậc = 1 và chọn 5 tài khoản trong báo cáo Sổ chi tiết các tài khoản (TAI_KHOAN_CT).
-    (Phục hồi 100% pre-commit 773e281~1)
+    Tự động chọn Bậc = 1 và chọn từng tài khoản trong báo cáo Sổ chi tiết các tài khoản (TAI_KHOAN_CT).
+    Phục hồi 100% logic commit 57a0e59:
+    1. Chọn Bậc = 1 qua combobox (với các fallback selector + keyboard navigation)
+    2. Với TỪNG tài khoản: gõ mã tài khoản vào ô tìm kiếm 'Nhập từ khóa tìm kiếm', chờ bảng lọc, rồi click checkbox dòng khớp bằng JS.
     """
     logger.info(f"[TAI_KHOAN_CT] Setting Account Level = 1 and selecting accounts: {accounts}")
-    for frame in [page] + [f for f in page.frames if f != page.main_frame]:
-        try:
-            level_combo = frame.locator("xpath=//label[contains(text(),'Bậc') or contains(text(),'Cấp')]/following::div[contains(@class,'ms-combo')][1]//input").first
-            if await level_combo.count() > 0:
-                await level_combo.click(force=True)
-                await asyncio.sleep(0.3)
-                opt = frame.locator("xpath=//*[contains(@class,'ms-combo-item') or contains(@class,'dx-item')][normalize-space(text())='1']").first
-                if await opt.count() > 0:
-                    await opt.click(force=True)
-                    logger.info("Selected Account Level = 1.")
 
-            for acc in accounts:
-                row_cb = frame.locator(f"xpath=//td[normalize-space(text())='{acc}']/preceding-sibling::td//span[contains(@class,'ms-checkbox')]").first
-                if await row_cb.count() > 0:
-                    cls = await row_cb.get_attribute("class") or ""
-                    if "checked-true" not in cls:
-                        await row_cb.click(force=True)
-                        logger.info(f"Checked account row {acc}.")
+    # --- Bước 1: Chọn Bậc = 1 ---
+    bac_selectors = [
+        "xpath=//div[contains(@class,'ms-search-account')]//div[contains(@class,'ms-combo')]//input",
+        "xpath=//span[normalize-space(text())='Bậc']/following::div[contains(@class,'ms-combo')][1]//input",
+        "xpath=//th[normalize-space(text())='Bậc']/preceding::input[contains(@class,'dx-texteditor-input')][1]",
+        "xpath=//div[contains(@class,'ms-combo') and not(ancestor::*[contains(@class,'ms-date')])][last()]//input",
+        ".ms-search-account .ms-combo input",
+        "xpath=(//div[contains(@class,'param') or contains(@class,'filter')]//input[@type='text'])[last()]",
+    ]
+    bac_input, _ = await find_locator_in_any_frame(page, bac_selectors, timeout=3000)
+    if bac_input:
+        logger.info("Clicking 'Bac' combobox to open options...")
+        await bac_input.click(force=True)
+        await asyncio.sleep(0.5)
+
+        bac1_selectors = [
+            "xpath=//div[contains(@class,'dx-dropdowneditor-overlay')]//div[contains(@class,'dx-item-content') and normalize-space(.)='1']",
+            "xpath=//div[contains(@class,'dx-item-content') and normalize-space(text())='1']",
+            "xpath=//li[contains(@class,'dx-list-item')][normalize-space(.)='1']",
+            "xpath=//*[contains(@class,'ms-combo-item') or contains(@class,'ms-select-item')][normalize-space(text())='1']",
+            "xpath=//div[contains(@class,'ms-dropdown')]//*[normalize-space(text())='1']"
+        ]
+        bac1_item, _ = await find_locator_in_any_frame(page, bac1_selectors, timeout=2000)
+        if bac1_item:
+            logger.info("Selecting 'Bac 1'...")
+            await bac1_item.click(force=True)
+        else:
+            logger.warning("Could not find 'Bac 1' option. Using keyboard ArrowDown fallback...")
+            try:
+                await bac_input.click(force=True)
+                await asyncio.sleep(0.5)
+                await page.keyboard.press("Home")
+                await asyncio.sleep(0.2)
+                await page.keyboard.press("ArrowDown")
+                await asyncio.sleep(0.2)
+                await page.keyboard.press("Enter")
+                logger.info("Used keyboard ArrowDown to select Bac 1 and pressed Enter.")
+            except Exception as e:
+                logger.error(f"Failed to select Bac 1: {str(e)}")
+        await asyncio.sleep(0.5)
+    else:
+        logger.warning("Could not find 'Bac' combobox. Skipping Bac selection.")
+
+    # --- Bước 2: Với TỪNG tài khoản, dùng ô tìm kiếm để lọc rồi click ---
+    account_search_selectors = [
+        "input[placeholder='Nhập từ khóa tìm kiếm']",
+        "xpath=//input[@placeholder='Nhập từ khóa tìm kiếm']",
+        "input[placeholder*='từ khóa']",
+        "input[placeholder*='tìm kiếm']",
+        ".ms-input-search input",
+    ]
+
+    for account_code in accounts:
+        logger.info(f"[TAI_KHOAN_CT] Searching and selecting account: {account_code}")
+
+        acc_input, _ = await find_locator_in_any_frame(page, account_search_selectors, timeout=3000)
+        if not acc_input:
+            logger.warning(f"Could not find account search textbox for {account_code}. Skipping.")
+            continue
+
+        try:
+            await acc_input.click(force=True)
+            await asyncio.sleep(0.2)
+            await acc_input.fill("")
+            await acc_input.type(account_code)
+            await asyncio.sleep(1.5)  # Chờ bảng filter hiển thị kết quả
+            logger.info(f"Typed account code '{account_code}' in search box.")
         except Exception as e:
-            logger.warning(f"Error selecting accounts for TAI_KHOAN_CT in frame: {e}")
+            logger.error(f"Failed to type account {account_code}: {str(e)}")
+            continue
+
+        # Click checkbox của dòng khớp chính xác bằng JS (quét toàn bộ DOM)
+        clicked = False
+        try:
+            js_script = f"""
+            (() => {{
+                const rows = document.querySelectorAll('tr, [role="row"], .dx-data-row, .dx-row, .ms-tr');
+                if (rows.length === 0) return false;
+
+                for (const row of rows) {{
+                    const cells = row.querySelectorAll('td, th, [role="cell"], .dx-cell, .ms-td');
+                    let hasMatch = false;
+                    for (const cell of cells) {{
+                        if (cell.textContent.trim() === '{account_code}') {{
+                            hasMatch = true;
+                            break;
+                        }}
+                    }}
+                    if (hasMatch) {{
+                        const cb = row.querySelector('input[type="checkbox"], .dx-checkbox, .ms-checkbox, .checkbox, [role="checkbox"]');
+                        if (cb) {{
+                            let isChecked = false;
+                            if (cb.tagName === 'INPUT') {{
+                                isChecked = cb.checked;
+                            }} else {{
+                                isChecked = cb.classList.contains('dx-checkbox-checked') ||
+                                            cb.classList.contains('is-checked') ||
+                                            cb.classList.contains('checked') ||
+                                            cb.getAttribute('aria-checked') === 'true' ||
+                                            row.classList.contains('dx-selection') ||
+                                            row.getAttribute('aria-selected') === 'true';
+                            }}
+                            if (!isChecked) {{ cb.click(); }}
+                            return true;
+                        }}
+                        if (cells.length > 0) {{ cells[0].click(); return true; }}
+                    }}
+                }}
+
+                // Nếu sau khi filter chỉ còn 1 dòng data -> click dòng đầu tiên
+                let dataRow = rows[0];
+                if (rows.length > 1 && (rows[0].closest('thead') || rows[0].querySelector('th'))) {{
+                    dataRow = rows[1];
+                }}
+                const cb = dataRow.querySelector('input[type="checkbox"], .dx-checkbox, .ms-checkbox, .checkbox, [role="checkbox"]');
+                if (cb) {{ cb.click(); return true; }}
+                const cells2 = dataRow.querySelectorAll('td, [role="cell"], .dx-cell, .ms-td');
+                if (cells2.length > 0) {{ cells2[0].click(); return true; }}
+                return false;
+            }})()
+            """
+            frames_to_check = [page] + page.frames
+            for f in frames_to_check:
+                try:
+                    if await f.evaluate(js_script):
+                        clicked = True
+                        break
+                except Exception:
+                    pass
+
+            if clicked:
+                logger.info(f"Successfully clicked checkbox for account {account_code} via JS.")
+        except Exception as e:
+            logger.error(f"JS fallback for {account_code} failed: {str(e)}")
+
+        if not clicked:
+            logger.warning(f"Could not click via JS for {account_code}, trying XPath first-row fallback...")
+            first_row_selectors = [
+                "xpath=(//tr[contains(@class,'dx-row')]//div[contains(@class,'dx-checkbox')])[1]",
+                "xpath=(//div[contains(@class,'dx-data-row')]//div[contains(@class,'dx-checkbox')])[1]",
+                ".dx-checkbox:visible"
+            ]
+            first_row_cb, _ = await find_locator_in_any_frame(page, first_row_selectors, timeout=1500)
+            if first_row_cb:
+                await first_row_cb.click(force=True)
+                logger.info(f"Clicked first row checkbox as fallback for account {account_code}.")
+            else:
+                logger.warning(f"Could not find any checkbox for {account_code}. Skipping.")
+
+        await asyncio.sleep(0.5)
+
+    logger.info(f"[TAI_KHOAN_CT] Finished selecting accounts: {accounts}")
 
 async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None):
     """
@@ -217,6 +352,10 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             await page.goto(report_url, timeout=30000, wait_until="load")
         except Exception as e:
             logger.warning(f"Navigation to report URL timed out or failed: {str(e)}")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+        except Exception:
+            pass
             
         logger.info("Waiting 5s to check for SPA routing redirect...")
         await asyncio.sleep(5)
@@ -304,6 +443,16 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                         logger.info("Checkbox not checked yet. Clicking label to toggle ON...")
                         await checkbox_label.click(force=True)
                         await asyncio.sleep(1.0)
+                        # Xác nhận trạng thái sau khi click (100% Commit 57a0e59)
+                        if await checkbox_span.count() > 0:
+                            span_class_after = await checkbox_span.get_attribute("class") or ""
+                            logger.info(f"Checkbox span class after click: '{span_class_after}'")
+                            if "checked-true" not in span_class_after:
+                                logger.warning("Checkbox may not have been checked! Trying JS click on input as fallback...")
+                                checkbox_input_fb = checkbox_label.locator("input[type='checkbox']").first
+                                if await checkbox_input_fb.count() > 0:
+                                    await checkbox_input_fb.evaluate("el => el.click()")
+                                    await asyncio.sleep(0.5)
                     else:
                         logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked, skipping.")
                 try:
@@ -335,7 +484,8 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception as e:
                     logger.error(f"Error selecting accounts for TAI_KHOAN_CT: {str(e)}")
 
-            # Step 4: Choose Period ("Tháng này" or "Năm nay")
+            # Step 4: Choose Period ("Tháng này" or "Năm nay") — skip for TUOI_NO_KH (100% Commit 57a0e59)
+            skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
             target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
             logger.info(f"Setting report period to: '{target_period}'...")
             ky_baocao_selectors = [
@@ -345,24 +495,39 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 ".ms-combo input[placeholder*='Kỳ']"
             ]
             ky_input, frame = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
-            if ky_input:
+            if skip_ky_bao_cao:
+                logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as per commit 57a0e59 logic.")
+            elif ky_input:
                 try:
                     await ky_input.click(force=True)
                     await asyncio.sleep(0.5)
                 except Exception:
                     pass
 
-            exact_period_selectors = [
-                f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{target_period}']",
-                f"text='{target_period}'"
-            ]
-            period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=2000)
-            if period_el:
-                try:
-                    await period_el.click(force=True)
-                    logger.info(f"Selected period '{target_period}' successfully.")
-                except Exception as pe:
-                    logger.warning(f"Could not click period element: {str(pe)}")
+                exact_period_selectors = [
+                    f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{target_period}']",
+                    f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{target_period}']",
+                    f"text='{target_period}'"
+                ]
+                period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=3000)
+                if period_el:
+                    try:
+                        await period_el.click(force=True)
+                        logger.info(f"Selected period '{target_period}' successfully.")
+                    except Exception as pe:
+                        logger.warning(f"Could not click period element: {str(pe)}")
+                else:
+                    logger.warning(f"Could not find '{target_period}' in dropdown. Trying keyboard type fallback...")
+                    try:
+                        await ky_input.click(click_count=3)
+                        await ky_input.type(target_period)
+                        await asyncio.sleep(0.5)
+                        await page.keyboard.press("Enter")
+                        logger.info(f"Typed '{target_period}' and pressed Enter as fallback.")
+                    except Exception as e:
+                        logger.error(f"Failed to fill '{target_period}': {str(e)}")
+            else:
+                logger.warning("Could not find 'Ky bao cao' input combobox.")
 
             try:
                 await page.screenshot(path=os.path.join(ss_dir, "04_selected_period.png"))
@@ -403,14 +568,14 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 logger.info("Waiting 20s for report data to load...")
                 await asyncio.sleep(20)
 
-        # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) for BAN_HANG (100% Commit 57a0e59)
-        if prefix == 'BAN_HANG' or not prefix:
+        # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) for BAN_HANG only (100% Commit 57a0e59)
+        if prefix == 'BAN_HANG':
             logger.info("[BAN_HANG] Selecting 'Mẫu chuẩn.' template via gear settings button...")
             gear_selectors = [
-                ".mi-setting__list-bold",
+                ".mi-setting__list-bold",  # Nút bánh răng cài đặt của lưới báo cáo MISA
                 "div.mi-setting__list-bold",
                 "xpath=//div[contains(@class, 'mi-setting__list-bold')]",
-                "xpath=//div[contains(@class, 'mi-setting') and not(contains(@class, 'header-icon'))]"
+                "xpath=//div[contains(@class, 'mi-setting') and not(contains(@class, 'header-icon')) and not(contains(@class, 'mi-setting-2__nav'))]"
             ]
             for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading"]:
                 try:
@@ -418,15 +583,17 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception:
                     pass
 
-            gear_btn, gear_frame = await find_locator_in_any_frame(page, gear_selectors, timeout=10000)
+            # Chờ nút bánh răng xuất hiện (timeout 30s để đảm bảo báo cáo lớn kịp tải)
+            gear_btn, _ = await find_locator_in_any_frame(page, gear_selectors, timeout=30000)
             if gear_btn:
                 logger.info("Clicking gear settings button...")
                 await gear_btn.click(force=True)
                 await asyncio.sleep(1.5)
 
+                # Tìm item "Mẫu chuẩn." trên page (không dùng gear_frame — tránh tìm sai frame, khhớp 57a0e59)
                 mau_chuan_item = None
                 for sel in ["text=Mẫu chuẩn.", "xpath=//span[contains(text(), 'Mẫu chuẩn.')]"]:
-                    loc = (gear_frame or page).locator(sel).first
+                    loc = page.locator(sel).first
                     try:
                         if await loc.is_visible(timeout=1000):
                             mau_chuan_item = loc
@@ -434,10 +601,18 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     except Exception:
                         continue
 
+                if not mau_chuan_item:
+                    # Fallback: đợi tối đa 4 giây cho dropdown menu render xong rồi thử lại (khhớp 57a0e59)
+                    mau_chuan_item = page.locator("text=Mẫu chuẩn.").first
+                    try:
+                        await mau_chuan_item.wait_for(state="visible", timeout=4000)
+                    except Exception:
+                        mau_chuan_item = None
+
                 if mau_chuan_item:
                     logger.info("Selecting 'Mẫu chuẩn.' template option...")
                     await mau_chuan_item.click(force=True)
-                    await asyncio.sleep(4.0)
+                    await asyncio.sleep(5.0)  # Chờ 5 giây để tải lại mẫu chuẩn (khhớp 57a0e59)
                 else:
                     logger.warning("Could not find 'Mẫu chuẩn.' option in settings menu.")
             else:
