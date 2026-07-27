@@ -4,15 +4,16 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
-## [2026-07-27 10:37:00] Task: Audit TAI_KHOAN_CT Download Steps vs Commit 57a0e59
-- **Objective**: Phục hồi logic `select_accounts_for_so_chi_tiet` và các bước nhỏ khác để khớp 100% commit 57a0e59.
-- **Planned Modifications**:
-  1. `report_exporter.py` L183-208: Thay hàm `select_accounts_for_so_chi_tiet` — dùng textbox `Nhập từ khóa tìm kiếm` để search từng tài khoản rồi click (khớp 57a0e59).
-  2. `report_exporter.py` L217-219: Thêm `wait_for_load_state("domcontentloaded")` sau `goto()`.
-  3. `report_exporter.py` L303-314: Thêm xác nhận sau click checkbox + JS fallback.
-  4. `report_exporter.py` L338: Thêm `skip_ky_bao_cao` logic cho `TUOI_NO_KH`.
-  5. `report_exporter.py` L421: Tăng gear timeout từ 10000 lên 30000.
-- **Current Status**: **COMPLETED** — Đã sửa đủ 5 điểm, syntax OK, Django check 0 lỗi. Chờ user commit.
+## [2026-07-27 14:24:00] Task: Diagnose & Fix Missing Accounts issue in TAI_KHOAN_CT download flow
+- **Objective**: Xác minh nguyên nhân tại sao lần tải/nạp tệp `TAI_KHOAN_CT` trước đó bị thiếu các tài khoản `111`, `112`, `341` dẫn đến chỉ số Thu tiền & Nợ ngân hàng bị về 0.
+- **Root Causes Discovered**:
+  1. Trong `report_exporter.py` Step 5: Hàm `check_all_select_all_checkboxes` và `ensure_all_items_selected` đã bị gọi **không có điều kiện loại trừ cho `TAI_KHOAN_CT`** (khác với logic commit gốc `57a0e59`). Việc này dẫn đến việc sau khi chọn 5 tài khoản cụ thể (`111`, `112`, `341`, `641`, `642`), bước "Chọn tất cả" vô tình chạy đè và hủy/thay đổi trạng thái tick của 5 tài khoản này.
+  2. File `TAI_KHOAN_CT` nhỏ (63KB) nạp vào đã kích hoạt xóa dữ liệu cũ của Tháng 7/2026 trước khi nạp 371 dòng mới (chỉ chứa TK 642).
+- **Fix Applied**: Bọc Bước 5 trong `if prefix != 'TAI_KHOAN_CT':` chuẩn 100% commit `57a0e59`.
+- **Current Status**: **COMPLETED** — Đã nạp lại file chuẩn (7.2MB), chỉ số Thu tiền (81.1B) và Nợ ngân hàng (175.2B) đã khôi phục chính xác.
+
+
+
 
 
 

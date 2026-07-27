@@ -97,7 +97,7 @@ graph TD
     *   `TON_KHO*.xlsx` (Tồn kho) -> Lưu vào `InventorySummary`
     *   `CONG_NO_NCC*.xlsx` (Công nợ nhà cung cấp) -> Lưu vào `SupplierDebt`
     *   `TUOI_NO_KH*.xlsx` (Tuổi nợ khách hàng) -> Lưu vào `ReceivablesAgeing`
-    *   `TAI_KHOAN_CT*.xlsx` (Sổ chi tiết các tài khoản 111, 112, 341) -> Lưu vào `AccountDetail`
+    *   `TAI_KHOAN_CT*.xlsx` (Sổ chi tiết các tài khoản 111, 112, 341, 641, 642) -> Lưu vào `AccountDetail`
     *   `SO_DU_NH*.xlsx` (Số dư ngân hàng) -> Lưu vào `BankBalance`
 3. **An toàn dữ liệu & Phạm vi xóa (Scope of Deletion)**: 
     Dữ liệu import của mỗi file được đặt trong một **database transaction** (`transaction.atomic()`). 

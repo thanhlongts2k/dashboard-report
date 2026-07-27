@@ -534,13 +534,14 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             except Exception:
                 pass
 
-            # Step 5: Check ALL "Chọn tất cả" checkboxes and ensure items selected
-            await ensure_all_items_selected(frame if frame else page)
-            await check_all_select_all_checkboxes(page)
-            try:
-                await page.screenshot(path=os.path.join(ss_dir, "05_checked_select_all.png"))
-            except Exception:
-                pass
+            # Step 5: Check ALL "Chọn tất cả" checkboxes and ensure items selected (skip for TAI_KHOAN_CT as per commit 57a0e59)
+            if prefix != 'TAI_KHOAN_CT':
+                await ensure_all_items_selected(frame if frame else page)
+                await check_all_select_all_checkboxes(page)
+                try:
+                    await page.screenshot(path=os.path.join(ss_dir, "05_checked_select_all.png"))
+                except Exception:
+                    pass
 
             # Step 6: Click "Đồng ý" / "Xem báo cáo" button
             view_btn_selectors = [

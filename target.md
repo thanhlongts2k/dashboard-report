@@ -132,19 +132,30 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
 
 ---
 
-## 6. Quy trình xuất Báo cáo bán hàng (BAN_HANG) từ MISA
-Để đảm bảo số liệu xuất từ MISA là chính xác, hệ thống Playwright thực hiện các bước sau (áp dụng khi sử dụng xuất thủ công từng bước):
-1. Truy cập trực tiếp vào URL báo cáo bán hàng.
+## 6. Quy trình xuất Báo cáo từ MISA qua Playwright
+Để đảm bảo số liệu xuất từ MISA là chính xác và không bị thiếu hụt dữ liệu, hệ thống Playwright thực hiện các bước tự động sau:
+
+### 6.1. Quy trình tổng quát (Áp dụng cho BAN_HANG, MUA_HANG, TON_KHO, CONG_NO_NCC, TUOI_NO_KH, SO_DU_NH)
+1. Truy cập trực tiếp vào URL báo cáo tương ứng.
 2. Click nút **"Chọn tham số"**.
-3. Tích chọn checkbox **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+3. Tích chọn checkbox **"Bao gồm số liệu chi nhánh phụ thuộc"** (có bước xác nhận lại class `checked-true` và JS fallback nếu chưa tick thành công).
 4. Loại bỏ các chi nhánh phụ thuộc có chứa ký tự `_Nhật`.
-5. Chọn kỳ báo cáo (mặc định cấu hình **"Tháng này"** trong `settings.MISA_REPORT_PERIOD_OPTION` hoặc tùy chỉnh **"Năm nay"**).
+5. Chọn kỳ báo cáo (mặc định cấu hình **"Tháng này"** trong `settings.MISA_REPORT_PERIOD_OPTION` hoặc tùy chỉnh **"Năm nay"**; riêng `TUOI_NO_KH` bỏ qua bước chọn kỳ báo cáo).
 6. Tích chọn các checkbox độc lập nằm kế bên nhãn **"Chọn tất cả"** (loại trừ checkbox `th` header, bổ sung độ trễ 1.0s giữa mỗi ô click).
 7. Click nút **"Đồng ý"** / **"Xem báo cáo"** và chờ 20 giây để báo cáo hiển thị kết quả.
-8. Click chọn biểu tượng **Bánh răng** (`.mi-setting__list-bold`) ở góc trên bên phải grid hiển thị báo cáo $\rightarrow$ Chọn mẫu **"Mẫu chuẩn."** (có dấu chấm ở cuối).
+8. Đối với báo cáo bán hàng (`BAN_HANG`): Click chọn biểu tượng **Bánh răng** (`.mi-setting__list-bold`) ở góc trên bên phải grid $\rightarrow$ Chọn mẫu **"Mẫu chuẩn."** (chờ 4 giây fallback render và 5 giây để MISA tải lại dữ liệu).
 9. Mở khay download dọn sạch lịch sử tải cũ (**"Xóa hết lịch sử tải tệp"** $\rightarrow$ bấm **"Có"**) để chống dính file cũ, sau đó đóng khay.
 10. Click vào biểu tượng **Excel** trên thanh công cụ và chọn **"Xuất Excel (dạng dữ liệu)"**.
 11. Chờ 20 giây để hệ thống MISA kết xuất, mở khay download (dùng 3 indicator nhận diện chuẩn Commit `57a0e59`: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`) và click **"Tải tệp"** (ô mới nhất) để lưu về máy.
+
+### 6.2. Quy trình đặc thù cho Sổ chi tiết các tài khoản (TAI_KHOAN_CT)
+Để thu thập đủ dữ liệu hạch toán Thu tiền (TK 111, 112), Nợ ngân hàng (TK 341) và Chi phí vận hành OPEX (TK 641, 642):
+* **Chọn Bậc = 1**: Chọn combobox Bậc/Cấp = 1 (với fallback dùng phím `ArrowDown` + `Enter`).
+* **Lọc từng tài khoản cụ thể**: Với từng mã tài khoản trong danh sách `settings.MISA_SO_CHI_TIET_ACCOUNTS` (`['111', '112', '341', '641', '642']`):
+  1. Gõ mã tài khoản vào ô tìm kiếm (`Nhập từ khóa tìm kiếm`).
+  2. Chờ 1.5 giây để lưới dữ liệu MISA lọc kết quả.
+  3. Chạy JS script để tìm dòng khớp chính xác mã tài khoản và tick chọn checkbox của dòng đó.
+* **Bỏ qua Bước 5 ("Chọn tất cả")**: Báo cáo `TAI_KHOAN_CT` **bắt buộc loại trừ khỏi bước "Chọn tất cả"** (`if prefix != 'TAI_KHOAN_CT':`) để tránh việc nút "Chọn tất cả" chạy đè làm hủy/thay đổi trạng thái tick của 5 tài khoản đã chọn ở bước trước.
 
 * **Tải riêng từng báo cáo / Nạp file Excel rời vào CSDL:**
   Xem hướng dẫn đầy đủ tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** — Mục 3.1 (`download_report.py`) và Mục 3.2 (`import_specific_file.py`) và Mục 2.1 (`sync_misa --action import --file <PATH>`).
