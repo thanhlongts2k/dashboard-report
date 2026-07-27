@@ -206,6 +206,9 @@ MISA_REPORTS = {
     'SO_DU_NH': env('MISA_URL_BALISTOFBALANCE', default='https://actapp.misa.vn/app/BA/ReportAnalysis/RPDynamicViewer/BAListOfBalance'),
 }
 
+# Cấu hình kỳ báo cáo mặc định khi xuất từ MISA ('Tháng này' hoặc 'Năm nay')
+MISA_REPORT_PERIOD_OPTION = env('MISA_REPORT_PERIOD_OPTION', default='Tháng này')
+
 # Cấu hình loại trừ khi tính toán hiệu suất BU
 EXCLUDED_BU_CODES = ['ĐTCT']
 EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']

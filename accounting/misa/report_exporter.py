@@ -335,8 +335,8 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 except Exception as e:
                     logger.error(f"Error selecting accounts for TAI_KHOAN_CT: {str(e)}")
 
-            # Step 4: Choose Period ("Năm nay" or "Tháng này")
-            target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Năm nay')
+            # Step 4: Choose Period ("Tháng này" or "Năm nay")
+            target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
             logger.info(f"Setting report period to: '{target_period}'...")
             ky_baocao_selectors = [
                 "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
