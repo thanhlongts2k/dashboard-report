@@ -403,31 +403,109 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 logger.info("Waiting 20s for report data to load...")
                 await asyncio.sleep(20)
 
-        # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) if present
-        try:
-            logger.info("Checking for Gear icon (Cài đặt) to select 'Mẫu chuẩn.' template...")
+        # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) for BAN_HANG (100% Commit 57a0e59)
+        if prefix == 'BAN_HANG' or not prefix:
+            logger.info("[BAN_HANG] Selecting 'Mẫu chuẩn.' template via gear settings button...")
             gear_selectors = [
-                ".mi-setting",
-                ".mi-gear",
-                ".icon-setting",
-                "[title*='Mẫu']",
-                "[title*='Cài đặt']",
-                "xpath=//div[contains(@class,'setting') or contains(@class,'gear')]"
+                ".mi-setting__list-bold",
+                "div.mi-setting__list-bold",
+                "xpath=//div[contains(@class, 'mi-setting__list-bold')]",
+                "xpath=//div[contains(@class, 'mi-setting') and not(contains(@class, 'header-icon'))]"
             ]
-            gear_btn, gear_frame = await find_locator_in_any_frame(page, gear_selectors, timeout=2000, close_blockers=False)
-            if gear_btn:
-                await gear_btn.click(force=True)
-                await asyncio.sleep(1.0)
-                target_f = gear_frame or page
-                mau_chuan_option = target_f.locator("xpath=//*[normalize-space(text())='Mẫu chuẩn.' or normalize-space(text())='Mẫu chuẩn']").first
-                if await mau_chuan_option.is_visible(timeout=2000):
-                    logger.info("Selecting 'Mẫu chuẩn.' template...")
-                    await mau_chuan_option.click(force=True)
-                    await asyncio.sleep(1.5)
-        except Exception as gear_err:
-            logger.debug(f"Template gear icon selection skipped: {gear_err}")
+            for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading"]:
+                try:
+                    await page.locator(loading_sel).first.wait_for(state="hidden", timeout=10000)
+                except Exception:
+                    pass
 
-        # Step 7: Click Excel icon dropdown button (Pre-refactor 773e281~1 logic)
+            gear_btn, gear_frame = await find_locator_in_any_frame(page, gear_selectors, timeout=10000)
+            if gear_btn:
+                logger.info("Clicking gear settings button...")
+                await gear_btn.click(force=True)
+                await asyncio.sleep(1.5)
+
+                mau_chuan_item = None
+                for sel in ["text=Mẫu chuẩn.", "xpath=//span[contains(text(), 'Mẫu chuẩn.')]"]:
+                    loc = (gear_frame or page).locator(sel).first
+                    try:
+                        if await loc.is_visible(timeout=1000):
+                            mau_chuan_item = loc
+                            break
+                    except Exception:
+                        continue
+
+                if mau_chuan_item:
+                    logger.info("Selecting 'Mẫu chuẩn.' template option...")
+                    await mau_chuan_item.click(force=True)
+                    await asyncio.sleep(4.0)
+                else:
+                    logger.warning("Could not find 'Mẫu chuẩn.' option in settings menu.")
+            else:
+                logger.warning("Could not find gear settings button.")
+
+        # Step 7: Open download manager to clear old history before exporting (100% Commit 57a0e59)
+        logger.info("Opening download manager to clear old history...")
+        download_manager_selectors = [
+            "div.ms-download",
+            "div.icon-feature-download",
+            ".ms-download",
+            ".icon-feature-download",
+            ".mi-download",
+            ".mi-cloud-download"
+        ]
+        manager_btn, manager_frame = await find_locator_in_any_frame(page, download_manager_selectors, timeout=4000)
+        if manager_btn:
+            await manager_btn.click(force=True)
+            await asyncio.sleep(2.0)
+
+            for clear_attempt in range(3):
+                has_entries = False
+                tai_tep_check = page.locator("text='Tải tệp'").first
+                try:
+                    has_entries = await tai_tep_check.is_visible(timeout=1500)
+                except Exception:
+                    pass
+
+                if not has_entries:
+                    logger.info(f"Download panel is clean (attempt {clear_attempt + 1}). No old entries to remove.")
+                    break
+
+                logger.info(f"Found old entries in download panel (attempt {clear_attempt + 1}). Clearing...")
+                clear_btn_selectors = [
+                    "text='Xóa hết lịch sử tải tệp'",
+                    ".clear-all",
+                    ".clear-all--text",
+                    "div:has-text('Xóa hết lịch sử tải tệp')"
+                ]
+                clear_btn, clear_frame = await find_locator_in_any_frame(page, clear_btn_selectors, timeout=2000)
+                if clear_btn:
+                    logger.info("Clicking 'Xóa hết lịch sử tải tệp' to clear old downloads...")
+                    await clear_btn.click(force=True)
+                    await asyncio.sleep(1.5)
+
+                    confirm_btn_selectors = [
+                        "button:has-text('Có')",
+                        ".ms-button:has-text('Có')",
+                        ".dx-button-content:has-text('Có')",
+                        "text='Có'",
+                        "span:has-text('Có')"
+                    ]
+                    confirm_btn, confirm_frame = await find_locator_in_any_frame(page, confirm_btn_selectors, timeout=3000)
+                    if confirm_btn:
+                        logger.info("Clicking 'Có' on deletion confirmation popup...")
+                        await confirm_btn.click(force=True)
+                        await asyncio.sleep(2.0)
+                    else:
+                        await asyncio.sleep(1.5)
+                else:
+                    await asyncio.sleep(1.0)
+                    break
+
+            logger.info("Closing download manager panel...")
+            await manager_btn.click(force=True)
+            await asyncio.sleep(1.0)
+
+        # Step 8: Click Excel icon dropdown button (100% Commit 57a0e59)
         logger.info("Looking for Excel export icon dropdown button...")
         excel_btn_selectors = [
             ".mi-export__excel-bold",
