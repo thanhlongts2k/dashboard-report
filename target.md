@@ -148,12 +148,12 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
 2. Click nút **"Chọn tham số"**.
 3. Tích chọn checkbox **"Bao gồm số liệu chi nhánh phụ thuộc"**.
 4. Loại bỏ các chi nhánh phụ thuộc có chứa ký tự `_Nhật`.
-5. Chọn kỳ báo cáo là **"Tháng này"**.
-6. Tích chọn checkbox **"Chọn tất cả"**.
-7. Click nút **"Xem báo cáo"** và chờ 10 giây để báo cáo hiển thị kết quả.
+5. Chọn kỳ báo cáo (ví dụ: **"Năm nay"** hoặc **"Tháng này"**).
+6. Tích chọn các checkbox độc lập nằm kế bên nhãn **"Chọn tất cả"** (loại trừ checkbox `th` header, bổ sung độ trễ 1.0s giữa mỗi ô click).
+7. Click nút **"Đồng ý"** / **"Xem báo cáo"** và chờ 20 giây để báo cáo hiển thị kết quả.
 8. Click chọn biểu tượng **Bánh răng** (Cài đặt) ở góc trên bên phải grid hiển thị báo cáo $\rightarrow$ Chọn mẫu **"Mẫu chuẩn."** (có dấu chấm ở cuối).
 9. Click vào biểu tượng **Excel** trên thanh công cụ và chọn **"Xuất Excel (dạng dữ liệu)"**.
-10. Chờ 50 giây để hệ thống MISA kết xuất, mở khay download và click **"Tải tệp"** để lưu về máy.
+10. Chờ 20 giây để hệ thống MISA kết xuất, mở khay download (dùng 3 indicator nhận diện chuẩn Commit `57a0e59`: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`) và click **"Tải tệp"** (ô đầu tiên mới nhất) để lưu về máy.
 
 ---
 
