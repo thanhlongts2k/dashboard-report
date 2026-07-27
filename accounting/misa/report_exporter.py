@@ -403,6 +403,30 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 logger.info("Waiting 20s for report data to load...")
                 await asyncio.sleep(20)
 
+        # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) if present
+        try:
+            logger.info("Checking for Gear icon (Cài đặt) to select 'Mẫu chuẩn.' template...")
+            gear_selectors = [
+                ".mi-setting",
+                ".mi-gear",
+                ".icon-setting",
+                "[title*='Mẫu']",
+                "[title*='Cài đặt']",
+                "xpath=//div[contains(@class,'setting') or contains(@class,'gear')]"
+            ]
+            gear_btn, gear_frame = await find_locator_in_any_frame(page, gear_selectors, timeout=2000, close_blockers=False)
+            if gear_btn:
+                await gear_btn.click(force=True)
+                await asyncio.sleep(1.0)
+                target_f = gear_frame or page
+                mau_chuan_option = target_f.locator("xpath=//*[normalize-space(text())='Mẫu chuẩn.' or normalize-space(text())='Mẫu chuẩn']").first
+                if await mau_chuan_option.is_visible(timeout=2000):
+                    logger.info("Selecting 'Mẫu chuẩn.' template...")
+                    await mau_chuan_option.click(force=True)
+                    await asyncio.sleep(1.5)
+        except Exception as gear_err:
+            logger.debug(f"Template gear icon selection skipped: {gear_err}")
+
         # Step 7: Click Excel icon dropdown button (Pre-refactor 773e281~1 logic)
         logger.info("Looking for Excel export icon dropdown button...")
         excel_btn_selectors = [
