@@ -5,7 +5,7 @@ from datetime import datetime
 from django.conf import settings
 from playwright.async_api import async_playwright
 from .browser import login_to_misa, close_misa_popups
-from .report_exporter import download_report_from_url, click_saved_report_link
+from .report_exporter import download_report_from_url
 
 logger = logging.getLogger(__name__)
 

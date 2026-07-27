@@ -1,5 +1,4 @@
 import os
-import sys
 import asyncio
 import logging
 from django.conf import settings
@@ -39,28 +38,6 @@ async def dismiss_misa_warning_if_any(page):
     except Exception as e:
         logger.debug(f"No warning popup detected: {e}")
     return False
-
-async def click_saved_report_link(page, report_name, creator='NGUYỄN THÀNH LONG'):
-    """
-    Tìm và click vào link báo cáo đã lưu có tên tương ứng của người tạo chỉ định.
-    (Phục hồi 100% pre-commit 773e281~1)
-    """
-    link_el = None
-    target_frame = None
-    for frame in [page] + page.frames:
-        try:
-            loc = frame.locator("tr, [role='row']").filter(has_text=creator).locator("span.drilldown").filter(has_text=report_name).first
-            if await loc.is_visible(timeout=1000):
-                link_el = loc
-                target_frame = frame
-                break
-        except Exception:
-            pass
-
-    if link_el:
-        await link_el.click(force=True)
-        return page, False
-    return page, False
 
 async def remove_nhat_branches(page):
     """
