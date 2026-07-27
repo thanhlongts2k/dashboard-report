@@ -148,12 +148,22 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
 2. Click nút **"Chọn tham số"**.
 3. Tích chọn checkbox **"Bao gồm số liệu chi nhánh phụ thuộc"**.
 4. Loại bỏ các chi nhánh phụ thuộc có chứa ký tự `_Nhật`.
-5. Chọn kỳ báo cáo (ví dụ: **"Năm nay"** hoặc **"Tháng này"**).
+5. Chọn kỳ báo cáo (mặc định cấu hình **"Tháng này"** trong `settings.MISA_REPORT_PERIOD_OPTION` hoặc tùy chỉnh **"Năm nay"**).
 6. Tích chọn các checkbox độc lập nằm kế bên nhãn **"Chọn tất cả"** (loại trừ checkbox `th` header, bổ sung độ trễ 1.0s giữa mỗi ô click).
 7. Click nút **"Đồng ý"** / **"Xem báo cáo"** và chờ 20 giây để báo cáo hiển thị kết quả.
-8. Click chọn biểu tượng **Bánh răng** (Cài đặt) ở góc trên bên phải grid hiển thị báo cáo $\rightarrow$ Chọn mẫu **"Mẫu chuẩn."** (có dấu chấm ở cuối).
-9. Click vào biểu tượng **Excel** trên thanh công cụ và chọn **"Xuất Excel (dạng dữ liệu)"**.
-10. Chờ 20 giây để hệ thống MISA kết xuất, mở khay download (dùng 3 indicator nhận diện chuẩn Commit `57a0e59`: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`) và click **"Tải tệp"** (ô đầu tiên mới nhất) để lưu về máy.
+8. Click chọn biểu tượng **Bánh răng** (`.mi-setting__list-bold`) ở góc trên bên phải grid hiển thị báo cáo $\rightarrow$ Chọn mẫu **"Mẫu chuẩn."** (có dấu chấm ở cuối).
+9. Mở khay download dọn sạch lịch sử tải cũ (**"Xóa hết lịch sử tải tệp"** $\rightarrow$ bấm **"Có"**) để chống dính file cũ, sau đó đóng khay.
+10. Click vào biểu tượng **Excel** trên thanh công cụ và chọn **"Xuất Excel (dạng dữ liệu)"**.
+11. Chờ 20 giây để hệ thống MISA kết xuất, mở khay download (dùng 3 indicator nhận diện chuẩn Commit `57a0e59`: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`) và click **"Tải tệp"** (ô mới nhất) để lưu về máy.
+
+* **Tải riêng từng báo cáo qua CLI Command:**
+  Hệ thống hỗ trợ script CLI [`download_report.py`](file:///d:/Sources/dashboard-report/download_report.py) để tải riêng từng loại báo cáo MISA theo keyword mà không cần chạy lại toàn bộ:
+  ```bash
+  python download_report.py <KEYWORD> [--period "Tháng này"]
+  # Ví dụ: python download_report.py BAN_HANG
+  # Ví dụ: python download_report.py SO_DU_NH
+  # Ví dụ: python download_report.py ALL --period "Năm nay"
+  ```
 
 ---
 

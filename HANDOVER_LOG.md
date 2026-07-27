@@ -4,6 +4,14 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-27 10:12:00] Task: Restore Commit 57a0e59 Steps & Create CLI download_report.py Script
+- **Objective**: Restored 100% of Commit 57a0e59 download history clearing steps (clear download manager panel history `"Xóa hết lịch sử tải tệp"` -> confirm `"Có"` before exporting), select `"Mẫu chuẩn."` template via gear icon `.mi-setting__list-bold`, set default report period to `"Tháng này"`, and create standalone CLI script `download_report.py` supporting keyword arguments (`BAN_HANG`, `MUA_HANG`, `TON_KHO`, `CONG_NO_NCC`, `TUOI_NO_KH`, `TAI_KHOAN_CT`, `SO_DU_NH`, `ALL`).
+- **Planned Modifications**:
+  1. `report_exporter.py`: Restored pre-export download manager history clearing and gear template selection.
+  2. `settings.py`: Set `MISA_REPORT_PERIOD_OPTION` default to `'Tháng này'`.
+  3. `download_report.py`: Created CLI script supporting UTF-8 output and keyword arguments.
+- **Current Status**: In Progress (SOP Step 3 Documentation updated, Step 4 System Audit passed, waiting for SOP Step 5 User Commit Approval).
+
 ## [2026-07-27 09:16:00] Task: Fix Standalone 'Chọn tất cả' Checkbox Selection (Exclude Header TH)
 - **Objective**: Ensure Playwright targets ONLY the standalone checkbox element right next to the text label `'Chọn tất cả'` (e.g., `'Chọn tất cả 31355 vật tư được chọn'`, `'Chọn tất cả 20 khách hàng được chọn'`) and completely excludes table header (`th`/`thead`) checkboxes to select 100% of items and customers across all pages.
 - **Planned Modifications**:

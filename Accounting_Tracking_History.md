@@ -159,3 +159,18 @@ for p in snapshot_list:
      - Giảm thời gian chờ load grid và thời gian tạo file ngầm từ 40s/45s xuống đúng **20 giây**.
 * **Bằng chứng kiểm thử thực tế (2026-07-27 09:41:32)**:
   - Tải thành công file `BAN_HANG_TEST_20260727_094018.xlsx` (**431,395 bytes**) vào thư mục `media/auto_imports/`.
+
+---
+
+## 15. Nhật Ký Bổ Sung CLI Download Script & Phục Hồi Dọn Lịch Sử Tải Tệp (2026-07-27)
+
+* **Nhiệm vụ**: Phục hồi 100% các bước chi tiết của Commit `57a0e59` và viết script CLI hỗ trợ tải riêng từng loại báo cáo MISA theo keyword.
+* **Chi tiết cải tiến & khôi phục**:
+  1. **Dọn sạch lịch sử tải tệp cũ trước khi xuất Excel**:
+     - Phục hồi luồng mở khay tải tệp (`div.ms-download`), bấm **"Xóa hết lịch sử tải tệp"** (`.clear-all`) và xác nhận **"Có"** trước khi phát lệnh Xuất Excel mới để chống dính tệp cũ.
+  2. **Chọn Mẫu chuẩn cho Grid báo cáo**:
+     - Phục hồi bước tự động bấm icon Bánh răng cài đặt (`.mi-setting__list-bold`) và chọn option `"Mẫu chuẩn."` cho grid Bán hàng.
+  3. **Script CLI `download_report.py`**:
+     - Tạo mới script [`download_report.py`](file:///d:/Sources/dashboard-report/download_report.py) cho phép tải từng báo cáo theo keyword: `python download_report.py <KEYWORD>` (hỗ trợ `BAN_HANG`, `MUA_HANG`, `TON_KHO`, `CONG_NO_NCC`, `TUOI_NO_KH`, `TAI_KHOAN_CT`, `SO_DU_NH`, `ALL`).
+  4. **Kỳ báo cáo mặc định**:
+     - Cấu hình biến `MISA_REPORT_PERIOD_OPTION` mặc định là `"Tháng này"` trong `settings.py`.
