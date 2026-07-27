@@ -142,3 +142,20 @@ for p in snapshot_list:
 
 3. **Ghi chú về dòng tiền Ban Điều Hành (`VHC_BOD`)**:
    * DB ghi nhận **1,363,352,000 VNĐ** thu tiền trong tháng 7 tại BU `VHC_BOD`. Kế toán không ghi nhận chỉ tiêu này vào 8 mảng thương mại chính.
+
+---
+
+## 14. Nhật Ký Automation & Tự Động Tải Báo Cáo MISA (2026-07-27)
+
+* **Nhiệm vụ**: Tự động hóa quá trình chọn tham số, xóa tag chi nhánh `_Nhật`, tích chọn 100% tất cả vật tư/khách hàng và tải file Excel báo cáo MISA về hệ thống.
+* **Các lỗi đã khắc phục triệt để**:
+  1. **Lỗi `expect_download` Timeout**:
+     - *Phát hiện*: Mảng nhận diện bảng quản lý tải tệp `panel_indicator` bị trùng chuỗi `'Tải tệp'` ngắn ngoài trang chính $\rightarrow$ bot tưởng bảng đã mở nên không bấm icon tải tệp (`div.ms-download`) $\rightarrow$ click nhầm nút ảo $\rightarrow$ Timeout.
+     - *Khắc phục*: Phục hồi 100% logic Commit `57a0e59` với 3 bộ chỉ báo nhận diện chuẩn: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`.
+  2. **Thao tác "Chọn tất cả" bị chọn thiếu**:
+     - *Phát hiện*: Bot click nhầm ô checkbox trên header bảng (`th`), khiến MISA chỉ chọn 20 dòng trên trang hiện tại và bỏ chọn ô "Chọn tất cả X vật tư" tổng.
+     - *Khắc phục*: Chuyển sang lọc chính xác ô checkbox độc lập nằm kế bên nhãn chữ `"Chọn tất cả"` (bỏ qua `th`/`thead`), đồng thời giãn cách độ trễ **1.0 giây** giữa các lần click theo yêu cầu người dùng.
+  3. **Tối ưu thời gian chờ (Sleep timeouts)**:
+     - Giảm thời gian chờ load grid và thời gian tạo file ngầm từ 40s/45s xuống đúng **20 giây**.
+* **Bằng chứng kiểm thử thực tế (2026-07-27 09:41:32)**:
+  - Tải thành công file `BAN_HANG_TEST_20260727_094018.xlsx` (**431,395 bytes**) vào thư mục `media/auto_imports/`.

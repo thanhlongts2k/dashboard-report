@@ -237,6 +237,35 @@ EMAIL_DISPLAY_NAME = env('EMAIL_DISPLAY_NAME', default='Hao Phuong Reporting Sys
 # Cấu hình Google OAuth2 Login
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
 
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[%(asctime)s: %(levelname)s/%(name)s] %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'accounting': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'accounting.misa': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
 
 
 

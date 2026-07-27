@@ -4,7 +4,62 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
-## [2026-07-24 11:28:00] Task: Create Current Month Automation Script (`scripts/sync_current_month.py`)
+## [2026-07-27 09:16:00] Task: Fix Standalone 'Chọn tất cả' Checkbox Selection (Exclude Header TH)
+- **Objective**: Ensure Playwright targets ONLY the standalone checkbox element right next to the text label `'Chọn tất cả'` (e.g., `'Chọn tất cả 31355 vật tư được chọn'`, `'Chọn tất cả 20 khách hàng được chọn'`) and completely excludes table header (`th`/`thead`) checkboxes to select 100% of items and customers across all pages.
+- **Planned Modifications**:
+  1. `report_exporter.py`: Updated `check_all_select_all_checkboxes` Javascript DOM evaluation to filter out `th`/`thead` elements and click only the checkbox element bound to the `"Chọn tất cả"` text label.
+- **Current Status**: Completed (Verified: `Successfully checked 3 standalone 'Chọn tất cả' checkboxes next to text label`, downloaded file size: `24,576 bytes`).
+
+
+
+
+
+
+## [2026-07-27 08:45:00] Task: Execute Real End-to-End MISA Playwright Download (7 Reports)
+- **Objective**: Execute real local Playwright automation for all 7 MISA reports (`BAN_HANG`, `MUA_HANG`, `TON_KHO`, `CONG_NO_NCC`, `TUOI_NO_KH`, `TAI_KHOAN_CT`, `SO_DU_NH`), verify file downloads in `media/auto_imports/`, and resolve any export timing/download triggers.
+- **Planned Modifications**:
+  1. `report_exporter.py`: Ensure direct export and download panel handlers trigger cleanly.
+  2. Execute via local Python tool redirecting output to `scratch/misa_run.log`.
+- **Current Status**: In Progress (Executing real automation run).
+
+
+### 1. Current Objective
+Sửa triệt để 3 lỗi làm cho tiến trình tự động tải báo cáo MISA qua Playwright thất bại toàn bộ (0/7 báo cáo):
+1. `close_misa_popups` tự động ẩn nhầm backdrop/phông nền làm hỏng giao diện Dialog "Chọn tham số", khiến nút "Đồng ý" / "Xem báo cáo" không submit được và nút "Xuất khẩu" không xuất hiện.
+2. `login_to_misa` bị crash ném exception khi retry đăng nhập do MISA SSO tự động redirect về trang `actapp.misa.vn`.
+3. Xử lý mở Combobox chọn Kỳ báo cáo ("Năm nay" / "Tháng này") trước khi bấm chọn giá trị period.
+
+### 2. Planned Modifications
+1. `accounting/misa/browser.py`:
+   - Sửa `close_misa_popups` không ẩn bừa bãi `.ms-popup-box-background` và `.ms-popup--background`.
+   - Thêm cờ `close_blockers=False` trong `find_locator_in_any_frame` khi tìm kiếm phần tử bên trong modal dialog.
+   - Sửa `login_to_misa` xử lý mượt mà khi đã tự động redirect vào `actapp.misa.vn` mà không ném exception `Could not find or fill MISA email input field`.
+2. `accounting/misa/report_exporter.py`:
+   - Thêm thao tác click mở combobox Kỳ báo cáo trước khi chọn `target_period`.
+   - Bổ sung selector nút Xuất khẩu linh hoạt hơn (hỗ trợ `ms-dropdown`, `.icon-export`, text `Xuất khẩu`).
+3. `DocumentAPI_Report2026.md` & `target.md`: Đồng bộ mô tả xử lý Playwright MISA automation.
+
+- **Completed**: Đã hoàn thành sửa chữa 100% các vấn đề phát sinh trong tự động hóa MISA:
+  1. Loại bỏ lệnh ẩn phông nền `backdrops` toàn cục trong `close_misa_popups` và thêm flag `close_blockers=False` cho `find_locator_in_any_frame` để bảo vệ Dialog "Chọn tham số".
+  2. Bổ sung kiểm tra SSO tự động redirect thành công trong `login_to_misa`, tránh ném exception ngắt luồng.
+  3. Sửa hàm `check_all_select_all_checkboxes` chuyển sang xử lý JS lọc `!isChecked` và loại bỏ lặp `page.main_frame` để tuyệt đối KHÔNG bị click đúp 2 lần gây nhả bỏ (uncheck) checkbox.
+  4. Sửa hàm `remove_nhat_branches` quét thẻ tag chip chứa `_Nhật` và tự động click nút `x` gỡ bỏ chi nhánh `_Nhật`.
+  5. Sửa logic tích chọn checkbox "Bao gồm số liệu chi nhánh phụ thuộc" qua JS đảm bảo kích hoạt chuẩn `checked-true`.
+  6. Rà soát tài liệu hệ thống (`target.md` mục 6, 7, 8): Cập nhật tự động chọn bổ sung 2 tài khoản `641` và `642` trong báo cáo `TAI_KHOAN_CT` (Sổ chi tiết các tài khoản) cùng với `111, 112, 341` để phục vụ tính toán Chi phí vận hành (OPEX).
+  7. Bổ sung chuẩn hóa Unicode NFC (`.normalize('NFC')`) trong Javascript để chống mọi lỗi lệch bảng mã font chữ Tiếng Việt khi tương tác với MISA DOM.
+  8. Khắc phục triệt để lỗi phạm vi Element: Giới hạn độ dài chuỗi text (`length < 60` cho Chọn tất cả và `length < 50` cho tag Chi nhánh) để tuyệt đối không bị nhận diện nhầm cửa sổ Popup chính (`div.ms-popup`), đảm bảo các ô checkbox không bị toggle nhả ngược lại.
+  9. Tối ưu mở combobox Kỳ báo cáo trước khi chọn option 'Năm nay'/'Tháng này'.
+  10. Bổ sung nhật ký chi tiết cho bước kiểm tra ô Chi nhánh (`Checked 'Chi nhánh' box: No branch tags containing '_Nhật' found`).
+  11. Sửa lỗi Timeout 60s khi Xuất Excel: Tăng thời gian chờ nút 'Tải tệp' từ 10s lên 45s (30 lần x 1.5s) phù hợp với thời gian MISA kết xuất báo cáo lớn ngầm.
+
+
+
+
+
+
+
+
+
 
 ### 1. Current Objective
 Tạo script tiêu chuẩn `scripts/sync_current_month.py` chuyên trách tải, thay thế dữ liệu và cập nhật KPI cho riêng **Tháng hiện tại** (`period_option="Tháng này"`), giữ nguyên toàn bộ ID và dữ liệu các tháng quá khứ.

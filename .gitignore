@@ -25,3 +25,7 @@ dump.rdb
 
 # .env file
 .env
+
+# Scratch temporary files
+scratch/
+media/debug/

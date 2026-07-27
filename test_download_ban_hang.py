@@ -1,6 +1,13 @@
 import os
+import sys
 import django
 import asyncio
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s: %(levelname)s/%(name)s] %(message)s'
+)
 
 # Setup Django Environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
@@ -82,4 +89,6 @@ async def test_download():
             print("FAILED to download report.")
 
 if __name__ == '__main__':
+    import sys
+    sys.stdout.reconfigure(encoding='utf-8')
     asyncio.run(test_download())
