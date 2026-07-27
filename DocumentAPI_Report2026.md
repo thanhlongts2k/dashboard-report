@@ -264,8 +264,12 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 ### Q6: Tại sao kết quả Celery Task hiển thị ký tự mã thoát Unicode và cách khắc phục?
 * **Trả lời**: Lớp `CustomTaskResultAdmin` trong `admin.py` tự động giải mã JSON để render tiếng Việt chuẩn trên Django Admin.
 
-### Q7: Danh sách các lệnh Django Custom Management Commands?
-* **Trả lời**: `sync_misa`, `calculate_bu_performance`, `calculate_global_performance`, `createdefaultuser`.
+### Q7: Danh sách các lệnh CLI & Django Custom Management Commands chính?
+* **Trả lời**: Xem toàn bộ cú pháp và ví dụ chi tiết tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** (tài liệu trung tâm dành riêng cho terminal & scripts). Các lệnh chính bao gồm:
+  - `python manage.py sync_misa [--action=all|download|import] [--file=<PATH>] [--prefix=<PREFIX>] [--period=<PERIOD>]`
+  - `python download_report.py <KEYWORD>`
+  - `python import_specific_file.py <FILE_PATH>`
+  - `python manage.py calculate_bu_performance`, `calculate_global_performance`, `createdefaultuser`
 
 ### Q8: Bảng Nhân viên (`Employee`) có những thuộc tính mới nào?
 * **Trả lời**: `age` (Tuổi) và `gender` (Giới tính).

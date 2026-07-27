@@ -99,20 +99,10 @@ Sự bất nhất này bắt nguồn từ việc copy pattern tính toán lũy k
 ---
 
 ## 4. Custom Django Commands hỗ trợ chạy từ Terminal
-Hệ thống cung cấp 2 lệnh Django Management Command để kế toán hoặc kỹ thuật viên có thể trigger tính toán hiệu suất BU trực tiếp từ Terminal:
-
-1. **Tính hiệu suất cho Tổng công ty (Global):**
-   * **Cú pháp:**
-     ```bash
-     python manage.py calculate_global_performance --month 6 --year 2026
-     ```
-   * **Mô tả:** Chạy tính toán KPI cho toàn Tổng công ty trong kỳ tháng 6/2026 (đã loại bỏ các BU loại trừ và khách hàng nhóm 'Internal' cấu hình ở `settings.py`).
-2. **Tính hiệu suất cho BU cụ thể:**
-   * **Cú pháp:**
-     ```bash
-     python manage.py calculate_bu_performance --bu_id 70 --month 6 --year 2026
-     ```
-   * **Mô tả:** Chạy tính toán KPI cho đơn vị kinh doanh có ID = 70 (và các đơn vị con của nó) trong kỳ tháng 6/2026 (đã loại bỏ các BU/Khách hàng loại trừ).
+Xem chi tiết cú pháp và tất cả tùy chọn tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** (Mục 2: Django Custom Management Commands). Các lệnh chính:
+- `python manage.py calculate_global_performance --month 6 --year 2026`
+- `python manage.py calculate_bu_performance --bu_id 70 --month 6 --year 2026`
+- `python manage.py sync_misa [--action=all|download|import] [--file=<PATH>]`
 
 ---
 
@@ -156,14 +146,8 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
 10. Click vào biểu tượng **Excel** trên thanh công cụ và chọn **"Xuất Excel (dạng dữ liệu)"**.
 11. Chờ 20 giây để hệ thống MISA kết xuất, mở khay download (dùng 3 indicator nhận diện chuẩn Commit `57a0e59`: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`) và click **"Tải tệp"** (ô mới nhất) để lưu về máy.
 
-* **Tải riêng từng báo cáo qua CLI Command:**
-  Hệ thống hỗ trợ script CLI [`download_report.py`](file:///d:/Sources/dashboard-report/download_report.py) để tải riêng từng loại báo cáo MISA theo keyword mà không cần chạy lại toàn bộ:
-  ```bash
-  python download_report.py <KEYWORD> [--period "Tháng này"]
-  # Ví dụ: python download_report.py BAN_HANG
-  # Ví dụ: python download_report.py SO_DU_NH
-  # Ví dụ: python download_report.py ALL --period "Năm nay"
-  ```
+* **Tải riêng từng báo cáo / Nạp file Excel rời vào CSDL:**
+  Xem hướng dẫn đầy đủ tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** — Mục 3.1 (`download_report.py`) và Mục 3.2 (`import_specific_file.py`) và Mục 2.1 (`sync_misa --action import --file <PATH>`).
 
 ---
 
@@ -292,7 +276,7 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
 
 ## 20. Nạp Dữ Liệu Mục Tiêu Kế Hoạch Năm & Tháng vào `BUTargetPlan` (July 23, 2026 Seeding)
 * **Nguồn dữ liệu**: Bóc tách từ Báo cáo Kế toán *"SỐ LIỆU MỤC TIÊU ĐƯỢC GIAO VÀ CAM KẾT TỪ BỘ PHẬN"* (Hình ảnh ngày 22/07/2026).
-* **Script Tái sử dụng**: Đã tạo script [scripts/seed_target_plans.py](file:///d:/Sources/dashboard-report/scripts/seed_target_plans.py) cho phép nạp và cập nhật lại toàn bộ mục tiêu theo lệnh: `python scripts/seed_target_plans.py`.
+* **Script Tái sử dụng**: [scripts/seed_target_plans.py](file:///d:/Sources/dashboard-report/scripts/seed_target_plans.py) — `python scripts/seed_target_plans.py`.
 * **Bảng Chỉ tiêu Kế hoạch đã nạp thành công**:
   1. **TỔNG TOÀN CÔNG TY (`TOTAL_CORP`)**: Quản lý `BOD & Kế toán` | DT Năm `724.025` tỷ, DT Tháng `65.605` tỷ | Thu tiền Năm `594.875` tỷ, Thu tiền Tháng `64.528` tỷ | Tồn kho `200` tỷ | Tiền cuối kỳ `30` tỷ | Nợ ngân hàng `175` tỷ | OPEX Tháng `4.851` tỷ.
   2. **`BU_ELEVATOR` (Thang máy)**: Quản lý `Mr Tiến Dũng` | DT Năm `499` tỷ, DT Tháng `46.205` tỷ | Thu tiền Năm `382.175` tỷ, Thu tiền Tháng `37.769` tỷ.
@@ -363,49 +347,3 @@ Hệ thống bổ sung thêm tính năng gửi báo cáo qua email từ Frontend
   2. **Modular MISA Automation (`accounting/misa/`)**: Tách Playwright UI automation (`browser.py`, `locators.py`, `report_exporter.py`, `automation.py`). `accounting/misa_tasks.py` re-export 100% Celery tasks.
   3. **Modular Views & Models Packages (`accounting/views/`, `accounting/models/`)**: Tách monolith `views.py` và `models.py` thành các submodule chuyên biệt (`dashboard_api.py`, `collection_api.py`, `organization.py`, `performance.py`...), giữ wrapper re-export 100% tương thích ngược.
   4. **Django Custom Management Command (`sync_misa.py`)**: Gom toàn bộ các script bảo trì rải rác ngoài thư mục root thành câu lệnh Django chuẩn hóa: `python manage.py sync_misa --action=all|download|import --prefix=... --period=...`.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
