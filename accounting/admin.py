@@ -138,8 +138,9 @@ class JobTitleAdmin(admin.ModelAdmin):
 
 class EmployeeAssignmentInline(admin.TabularInline):
     model = EmployeeAssignment
+    fk_name = 'employee'
     extra = 1
-    fields = ('department', 'title', 'start_date', 'end_date')
+    fields = ('department', 'title', 'manager', 'start_date', 'end_date')
 
 
 @admin.register(Employee)
@@ -152,8 +153,8 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(EmployeeAssignment)
 class EmployeeAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('assignment_id', 'employee', 'department', 'title', 'start_date', 'end_date')
-    search_fields = ('employee__employee_code', 'employee__full_name', 'department__department_name', 'title__title_name')
+    list_display = ('assignment_id', 'employee', 'department', 'title', 'manager', 'start_date', 'end_date')
+    search_fields = ('employee__employee_code', 'employee__full_name', 'manager__employee_code', 'manager__full_name', 'department__department_name', 'title__title_name')
     list_filter = ('department', 'title', 'start_date', 'end_date')
 
 class BUPerformanceDailyInline(admin.TabularInline):

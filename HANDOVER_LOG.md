@@ -10,7 +10,7 @@
   1. `accounting/models/employee.py`: Thêm trường `manager` vào `EmployeeAssignment`.
   2. `accounting/models/organization.py`: Thêm trường `assigned_employee` vào `Customer`.
   3. `accounting/resources/employee.py` & `organization.py`: Thêm logic đọc `Mã người quản lý` & Sales phụ trách.
-- **Current Status**: **COMPLETED** — Đã thêm trường `manager` vào `EmployeeAssignment`, trường `assigned_employee` vào `Customer`, tạo và apply Migration 0042, cập nhật `EmployeeResource` & `CustomerResource`, đồng thời cập nhật tài liệu hệ thống.
+- **Current Status**: **COMPLETED** — Đã thêm trường `manager` vào `EmployeeAssignment`, trường `assigned_employee` vào `Customer`, tạo và apply Migration 0042, cập nhật `EmployeeResource` & `CustomerResource`, sửa lỗi `admin.E202` (`fk_name = 'employee'`) trong `accounting/admin.py` và cập nhật tài liệu hệ thống.
 
 ## [2026-07-29 09:40:00] Task: Document Employee & Manager Debt Calculation Architecture Spec in target.md
 - **Objective**: Ghi nhận toàn bộ Giải pháp Kiến trúc 4 Trụ cột tính công nợ theo Nhân viên & Người quản lý nhóm (bao gồm góp ý quan trọng về lưu `manager` tại `EmployeeAssignment` để bảo toàn lịch sử SCD Type 2) vào [target.md](file:///d:/Sources/dashboard-report/target.md#L554).
