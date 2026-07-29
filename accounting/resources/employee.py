@@ -71,25 +71,38 @@ class EmployeeResource(ModelResource):
         if title_name:
             JobTitle.objects.get_or_create(title_name=title_name)
 
-        # Lưu dept_code và title_name vào row để after_save_instance dùng
+        # 6. Lấy mã người quản lý trực tiếp
+        manager_code = str(row.get('Mã người quản lý') or row.get('Mã quản lý') or '').strip()
+
+        # Lưu dept_code, title_name và manager_code vào row để after_save_instance dùng
         row['_dept_code'] = dept_code
         row['_title_name'] = title_name
+        row['_manager_code'] = manager_code
 
     def after_save_instance(self, instance, row, **kwargs):
         """Tạo/cập nhật EmployeeAssignment sau khi Employee đã được lưu."""
         dept_code = row.get('_dept_code', '')
         title_name = row.get('_title_name', '')
+        manager_code = row.get('_manager_code', '')
 
         if dept_code and title_name:
             dept = Department.objects.filter(department_code=dept_code).first()
             title = JobTitle.objects.filter(title_name=title_name).first()
+            manager_emp = Employee.objects.filter(employee_code=manager_code).first() if manager_code else None
+
             if dept and title:
-                EmployeeAssignment.objects.get_or_create(
+                assignment, created = EmployeeAssignment.objects.get_or_create(
                     employee=instance,
                     department=dept,
                     title=title,
-                    defaults={'start_date': datetime.now().date()}
+                    defaults={
+                        'start_date': datetime.now().date(),
+                        'manager': manager_emp
+                    }
                 )
+                if not created and manager_emp and assignment.manager != manager_emp:
+                    assignment.manager = manager_emp
+                    assignment.save()
 
     def import_field(self, field, obj, data, is_m2m=False, **kwargs):
         """Override để xử lý date_of_birth và is_active đúng kiểu."""

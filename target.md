@@ -550,3 +550,59 @@ Giải quyết triệt để 100% lỗi nghẽn giao diện khi MISA xuất hi�
    - Thử bấm nút đóng thông minh (`Đóng`, `Hủy`, `Đã hiểu`, `Nhắc lại sau`, `Bỏ qua`...) trước; nếu không biến mất sẽ xóa trực tiếp phần tử khỏi DOM (`element.remove()`).
    - Tự động xóa các lớp phủ mờ (`.ms-overlay`, `.dx-overlay-shader`) và khôi phục `pointer-events: auto` cho giao diện chính.
 
+---
+
+## 13. Kiến Trúc Tính Toán Công Nợ Theo Nhân Viên & Người Quản Lý Nhóm (Employee & Manager Debt Architecture Spec)
+
+### 13.1. Mục Tiêu Nghiệp Vụ
+Tính toán và phân bổ chỉ số Công nợ (Nợ trong hạn, Nợ quá hạn, Nợ xấu) theo phân cấp Nhân viên Sales phụ trách trực tiếp và Người quản lý nhóm (Trưởng nhóm / Trưởng phòng / Giám đốc), giúp đôn đốc thu nợ hiệu quả theo mô hình phân cấp quản trị.
+
+### 13.2. Giải Pháp Kiến Trúc 4 Trụ Cột
+
+#### Trụ Cột 1: Thiết Kế Mối Liên Kết Dữ Liệu (Data Relationships)
+1. **Khách hàng $\rightarrow$ Sales phụ trách (`Customer.assigned_employee`)**:
+   - Thêm trường `assigned_employee = models.ForeignKey(Employee, null=True, blank=True, verbose_name="Nhân viên phụ trách")` vào model `Customer`.
+   - Mỗi Khách hàng sẽ do 1 Sales trực tiếp phụ trách. Toàn bộ dư nợ từ `ReceivablesAgeing` của khách hàng sẽ quy về cho Sales đó.
+2. **Bảo tồn Lịch sử Quản lý theo Thời gian (`EmployeeAssignment.manager` - SCD Type 2)**:
+   - ⭐ **Quy tắc thiết kế quan trọng**: Trường `manager` (`ForeignKey(Employee, null=True, blank=True, related_name='managed_assignments')`) **BẮT BUỘC lưu ở bảng `EmployeeAssignment`**, KHÔNG lưu ở bảng `Employee`.
+   - **Lý do nghiệp vụ**: Sếp của một nhân viên có thể thay đổi theo thời gian (chuyển nhóm/chuyển phòng ban). Việc lưu ở `EmployeeAssignment` kết hợp `start_date` và `end_date` giúp bảo toàn 100% tính chính xác của số liệu công nợ trong quá khứ khi đối soát theo kỳ báo cáo (`start_date <= query_date <= end_date`).
+
+#### Trụ Cột 2: Model Lưu Trữ Báo Cáo Công Nợ (`EmployeeReceivableSummary`)
+Tạo model mới lưu chốt số liệu công nợ nhân viên và nhóm theo kỳ báo cáo:
+```python
+class EmployeeReceivableSummary(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, verbose_name="Nhân viên")
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, verbose_name="Phòng ban")
+    reporting_period = models.CharField(max_length=7, db_index=True, verbose_name="Kỳ báo cáo") # YYYY-MM
+    is_manager = models.BooleanField(default=False, verbose_name="Là Trưởng nhóm/Quản lý")
+
+    # Chỉ số công nợ cá nhân (Own Debt)
+    own_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cá nhân")
+    own_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn cá nhân")
+    own_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn cá nhân")
+    own_overdue_above_60 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn >60 ngày")
+    own_overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ xấu >120 ngày")
+
+    # Chỉ số công nợ nhóm / quản lý (Team / Managed Debt - Cộng dồn đệ quy)
+    team_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cả nhóm")
+    team_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn cả nhóm")
+    team_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn cả nhóm")
+    team_overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ xấu cả nhóm")
+    subordinate_count = models.IntegerField(default=0, verbose_name="Số nhân viên cấp dưới")
+```
+
+#### Trụ Cột 3: Động Cơ Tính Toán & Thuật Toán Cộng Dồn Đệ Quy (Calculation Engine)
+- **Bước 1 (Nợ cá nhân)**: Quét `ReceivablesAgeing` trong kỳ, group by `customer__assigned_employee`, tính tổng `own_total_debt`, `own_overdue_total`...
+- **Bước 2 (Nợ quản lý nhóm)**: Với mỗi Trưởng nhóm / Trưởng phòng, truy vấn danh sách nhân viên cấp dưới trực thuộc tại mốc thời gian `reporting_period` từ `EmployeeAssignment`, thực hiện cộng dồn đệ quy:
+  $$\text{team\_total\_debt} = \text{own\_total\_debt} + \sum_{i \in \text{cấp dưới}} \text{own\_total\_debt}(i)$$
+
+#### Trụ Cột 4: REST API & Drill-Down Dashboard Views
+- `GET /api/v1/receivables/employees/`: Trả về danh sách nợ Sales (lọc theo Phòng ban, Mức nợ quá hạn).
+- `GET /api/v1/receivables/managers/`: Trả về danh sách công nợ Quản lý (xem tổng hợp cả nhóm và drill-down chi tiết từng Sales trực thuộc).
+
+### 13.3. Lộ Trình Triển Khai (Roadmap)
+- **Phase 1**: Bổ sung `manager` trong `EmployeeAssignment` và `assigned_employee` trong `Customer`. Tạo migration & cập nhật `EmployeeResource` import Excel.
+- **Phase 2**: Tạo model `EmployeeReceivableSummary` & viết service tính toán công nợ cá nhân + đệ quy quản lý.
+- **Phase 3**: Tạo Django Command `python manage.py calculate_employee_debt` & REST API drill-down.
+
+

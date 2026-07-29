@@ -54,6 +54,14 @@ class Customer(models.Model):
         blank=True, 
         verbose_name="Đơn vị kinh doanh quản lý"
     )
+    assigned_employee = models.ForeignKey(
+        "Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_customers",
+        verbose_name="Nhân viên Sales phụ trách"
+    )
 
     has_revenue = models.BooleanField(
         default=True,

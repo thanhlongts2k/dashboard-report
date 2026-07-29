@@ -141,6 +141,14 @@ class EmployeeAssignment(models.Model):
         related_name='employee_assignments',
         verbose_name="Chức danh"
     )
+    manager = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='managed_assignments',
+        verbose_name="Người quản lý trực tiếp"
+    )
     start_date = models.DateField(
         verbose_name="Ngày bắt đầu"
     )

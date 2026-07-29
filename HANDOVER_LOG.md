@@ -4,6 +4,20 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-29 09:45:00] Task: Phase 1 Implementation - Employee & Manager Debt Data Relationships
+- **Objective**: Bổ sung liên kết `manager` trong `EmployeeAssignment` và `assigned_employee` trong `Customer`, tạo Django migration và cập nhật các Excel Resource tương ứng.
+- **Planned Modifications**:
+  1. `accounting/models/employee.py`: Thêm trường `manager` vào `EmployeeAssignment`.
+  2. `accounting/models/organization.py`: Thêm trường `assigned_employee` vào `Customer`.
+  3. `accounting/resources/employee.py` & `organization.py`: Thêm logic đọc `Mã người quản lý` & Sales phụ trách.
+- **Current Status**: **COMPLETED** — Đã thêm trường `manager` vào `EmployeeAssignment`, trường `assigned_employee` vào `Customer`, tạo và apply Migration 0042, cập nhật `EmployeeResource` & `CustomerResource`, đồng thời cập nhật tài liệu hệ thống.
+
+## [2026-07-29 09:40:00] Task: Document Employee & Manager Debt Calculation Architecture Spec in target.md
+- **Objective**: Ghi nhận toàn bộ Giải pháp Kiến trúc 4 Trụ cột tính công nợ theo Nhân viên & Người quản lý nhóm (bao gồm góp ý quan trọng về lưu `manager` tại `EmployeeAssignment` để bảo toàn lịch sử SCD Type 2) vào [target.md](file:///d:/Sources/dashboard-report/target.md#L554).
+- **Files Modified**:
+  1. `target.md`: Thêm Mục `13. Kiến Trúc Tính Toán Công Nợ Theo Nhân Viên & Người Quản Lý Nhóm (Employee & Manager Debt Architecture Spec)`.
+- **Current Status**: **COMPLETED** — Đã ghi nhận tri thức cố định vào `target.md`.
+
 ## [2026-07-29 09:15:00] Task: Audit and Reorganize Root Project Scripts
 - **Objective**: Rà soát 7 script tại thư mục gốc (`root`), giữ lại 2 script CLI lõi (`download_report.py`, `import_specific_file.py`), chuyển 2 script debug/test (`test_download_ban_hang.py`, `test_import_customer_group.py`) sang `scripts/`, và lưu trữ 3 script dư thừa (`run_import.py`, `run_sync_so_du_nh.py`, `run_sync_tai_khoan_ct.py`) vào `scripts/legacy/`.
 - **Planned Modifications**:

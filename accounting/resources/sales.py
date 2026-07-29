@@ -189,6 +189,11 @@ class CustomerResource(BulkCreateResource):
         column_name='Mã thống kê',
         widget=ForeignKeyWidget(BusinessUnit, 'code')
     )
+    assigned_employee = fields.Field(
+        attribute='assigned_employee',
+        column_name='Mã nhân viên phụ trách',
+        widget=ForeignKeyWidget(Employee, 'employee_code')
+    )
     
     code = fields.Field(attribute='code', column_name='Mã khách hàng')
     name = fields.Field(attribute='name', column_name='Tên khách hàng')
@@ -203,7 +208,7 @@ class CustomerResource(BulkCreateResource):
     class Meta:
         model = Customer
         import_id_fields = ['code']
-        fields = ('code', 'name', 'group', 'address', 'business_unit', 'has_revenue')
+        fields = ('code', 'name', 'group', 'address', 'business_unit', 'assigned_employee', 'has_revenue')
         skip_unchanged = True
         report_skipped = True
 
