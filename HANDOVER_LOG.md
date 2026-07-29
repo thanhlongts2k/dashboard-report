@@ -4,6 +4,12 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-29 09:00:00] Task: Persist 7-Report MISA Playwright Automation Spec in target.md
+- **Objective**: Lưu trữ toàn bộ quy trình 100% chi tiết của 7 báo cáo MISA vào `target.md` (Mục 6.3) làm tri thức cố định (Memory Persistence) cho các AI agent kế thừa.
+- **Files Modified**:
+  1. `target.md`: Thêm Mục `6.3. Danh sách từng bước chi tiết cho 7 Báo Cáo MISA Web (Chuẩn Mã Nguồn)`.
+- **Current Status**: **COMPLETED** — Đã ghi nhận tri thức vào `target.md`.
+
 ## [2026-07-29 08:30:00] Task: Fix Parameter Selection Popup Closing Bug in MISA Automation
 - **Objective**: Khắc phục triệt để sự cố modal "Chọn tham số báo cáo" bị đóng/ẩn tự động khi đang điền kỳ báo cáo ("Tháng này"/"Năm nay"), làm nghẽn toàn bộ tiến trình tải báo cáo Playwright MISA.
 - **Planned Modifications**:

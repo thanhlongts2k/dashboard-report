@@ -157,6 +157,110 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   3. Chạy JS script để tìm dòng khớp chính xác mã tài khoản và tick chọn checkbox của dòng đó.
 * **Bỏ qua Bước 5 ("Chọn tất cả")**: Báo cáo `TAI_KHOAN_CT` **bắt buộc loại trừ khỏi bước "Chọn tất cả"** (`if prefix != 'TAI_KHOAN_CT':`) để tránh việc nút "Chọn tất cả" chạy đè làm hủy/thay đổi trạng thái tick của 5 tài khoản đã chọn ở bước trước.
 
+### 6.3. Danh sách từng bước chi tiết cho 7 Báo Cáo MISA Web (Chuẩn Mã Nguồn)
+
+#### 1. Báo cáo `BAN_HANG` (Sổ chi tiết bán hàng)
+- **URL**: `https://actapp.misa.vn/app/SA/ReportAnalysis/RPDynamicViewer/SalesBookDetailDefault`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `SalesBookDetailDefault`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"** (xác nhận trạng thái `checked-true`).
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật` (như `FUJI_Nhật`, `Nippon_Nhật`).
+  5. Chọn **Kỳ báo cáo**: Mở combobox Kỳ báo cáo, chọn `"Tháng này"` (hoặc `"Năm nay"`).
+  6. **Tích Chọn tất cả**: Tích ô **"Chọn tất cả"** cho danh sách *Vật tư hàng hóa* **VÀ** *Khách hàng* (delay 1.0s giữa các lần click).
+  7. Click nút **"Đồng ý" / "Xem báo cáo"**.
+  8. *Auto-dismiss alert*: Nếu MISA bật popup cảnh báo *"Bạn chưa chọn..."*, tự động chụp screenshot debug, bấm **"Đóng"**, kích hoạt lại **"Chọn tất cả"** và bấm lại **"Đồng ý"**.
+  9. ⭐ **BƯỚC ĐẶC BIỆT - Chọn Mẫu chuẩn**: Đợi dữ liệu tải xong (timeout 30s) $\rightarrow$ Click nút bánh răng cài đặt lưới (`.mi-setting__list-bold`) $\rightarrow$ Chọn mẫu **`"Mẫu chuẩn."`** $\rightarrow$ Chờ 5s reload.
+  10. ⭐ **BƯỚC ĐẶC BIỆT - Xóa lịch sử tải cũ**: Bấm Panel quản lý tải tệp (`.ms-download`) $\rightarrow$ Click **"Xóa hết lịch sử tải tệp"** $\rightarrow$ Bấm **"Có"** xác nhận $\rightarrow$ Đóng panel.
+  11. **Yêu cầu Xuất Excel**: Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu hiện popup).
+  12. **Tải file về**: Chờ 20s MISA kết xuất ngầm $\rightarrow$ Mở lại Panel Quản lý tải tệp $\rightarrow$ Chờ nút **"Tải tệp"** (mới nhất) xuất hiện với `page.expect_download(timeout=45000)` $\rightarrow$ Lưu file về `media/auto_imports/BAN_HANG_YYYYMMDD_HHMMSS.xlsx`.
+
+#### 2. Báo cáo `MUA_HANG` (Sổ chi tiết mua hàng)
+- **URL**: `https://actapp.misa.vn/app/PU/ReportAnalysis/RPDynamicViewer/PUDetailPurchaseByInventoryItemDynamic`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `PUDetailPurchaseByInventoryItemDynamic`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
+  5. Chọn **Kỳ báo cáo**: `"Tháng này"` (hoặc `"Năm nay"`).
+  6. **Tích Chọn tất cả**: Tích ô **"Chọn tất cả"** cho danh sách *Vật tư hàng hóa* **VÀ** *Nhà cung cấp* (delay 1.0s).
+  7. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
+  8. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
+  10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/MUA_HANG_YYYYMMDD_HHMMSS.xlsx`.
+
+#### 3. Báo cáo `TON_KHO` (Tổng hợp tồn kho)
+- **URL**: `https://actapp.misa.vn/app/IN/ReportAnalysis/RPDynamicViewer/INInventoryBalanceSummary`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `INInventoryBalanceSummary`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
+  5. Chọn **Kỳ báo cáo**: `"Tháng này"` (hoặc `"Năm nay"`).
+  6. **Tích Chọn tất cả**: Tích ô **"Chọn tất cả"** cho danh sách *Vật tư hàng hóa* / *Kho* (delay 1.0s).
+  7. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
+  8. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
+  10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/TON_KHO_YYYYMMDD_HHMMSS.xlsx`.
+
+#### 4. Báo cáo `CONG_NO_NCC` (Tổng hợp công nợ phải trả nhà cung cấp)
+- **URL**: `https://actapp.misa.vn/app/PU/ReportAnalysis/RPDynamicViewer/PUPayableSummaryBySupplier`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `PUPayableSummaryBySupplier`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
+  5. Chọn **Kỳ báo cáo**: `"Tháng này"` (hoặc `"Năm nay"`).
+  6. **Tích Chọn tất cả**: Tích ô **"Chọn tất cả"** cho danh sách *Nhà cung cấp* (delay 1.0s).
+  7. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
+  8. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
+  10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/CONG_NO_NCC_YYYYMMDD_HHMMSS.xlsx`.
+
+#### 5. Báo cáo `TUOI_NO_KH` (Chi tiết công nợ theo tuổi nợ)
+- **URL**: `https://actapp.misa.vn/app/PU/ReportAnalysis/RPDynamicViewer/ReceivableDetailByDebtAge`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `ReceivableDetailByDebtAge`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
+  5. ⭐ **BƯỚC BỎ QUA**: **Bỏ qua bước chọn Kỳ Báo Cáo** (Form MISA báo cáo này không có ô Chọn Kỳ).
+  6. **Tích Chọn tất cả**: Tích ô **"Chọn tất cả"** cho danh sách *Khách hàng* (delay 1.0s).
+  7. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
+  8. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
+  10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/TUOI_NO_KH_YYYYMMDD_HHMMSS.xlsx`.
+
+#### 6. Báo cáo `TAI_KHOAN_CT` (Sổ chi tiết các tài khoản) — BÁO CÁO ĐẶC BIỆT
+- **URL**: `https://actapp.misa.vn/app/RP/ReportList/RPDynamicViewer/GLAccountLedger`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `GLAccountLedger`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
+  5. ⭐ **BƯỚC ĐẶC BIỆT 1 - Chọn Bậc**: Click ô combobox **Bậc** $\rightarrow$ Chọn **`1`** (fallback bàn phím `Home` $\rightarrow$ `ArrowDown` $\rightarrow$ `Enter`).
+  6. ⭐ **BƯỚC ĐẶC BIỆT 2 - Lọc chọn 5 Tài khoản**: Gõ từng mã tài khoản vào ô *"Nhập từ khóa tìm kiếm"*, chờ 1.5s filter rồi tích chọn dòng khớp qua JS: `111` (Tiền mặt), `112` (Tiền gửi NH), `341` (Vay & nợ thuê tài chính), `641` (CP Bán hàng), `642` (CP QLDN).
+  7. ⭐ **BƯỚC BỎ QUA**: **BỎ QUA hoàn toàn ô "Chọn tất cả"** (không chọn tất cả tài khoản).
+  8. Chọn **Kỳ báo cáo**: `"Tháng này"` (hoặc `"Năm nay"`).
+  9. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
+  10. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  11. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
+  12. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/TAI_KHOAN_CT_YYYYMMDD_HHMMSS.xlsx`.
+
+#### 7. Báo cáo `SO_DU_NH` (Bảng kê số dư ngân hàng) — BÁO CÁO ĐẶC BIỆT
+- **URL**: `https://actapp.misa.vn/app/BA/ReportAnalysis/RPDynamicViewer/BAListOfBalance`
+- **Từng bước thực hiện**:
+  1. Mở URL báo cáo `BAListOfBalance`.
+  2. Click nút **"Chọn tham số"**.
+  3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
+  4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
+  5. Chọn **Kỳ báo cáo**: `"Tháng này"` (hoặc `"Năm nay"`).
+  6. **Tích Chọn tất cả**: Tích ô **"Chọn tất cả"** cho danh sách *Tài khoản ngân hàng* (delay 1.0s).
+  7. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
+  8. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
+  10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/SO_DU_NH_YYYYMMDD_HHMMSS.xlsx`. *(Nạp CSDL và Lọc bỏ STK 113611393939 do Celery Worker thực thi sau khi nhận diện file Excel)*.
+
 * **Tải riêng từng báo cáo / Nạp file Excel rời vào CSDL:**
   Xem hướng dẫn đầy đủ tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** — Mục 3.1 (`download_report.py`) và Mục 3.2 (`import_specific_file.py`) và Mục 2.1 (`sync_misa --action import --file <PATH>`).
 
