@@ -4,7 +4,8 @@ import sys
 # Đảm bảo in ký tự tiếng Việt không bị lỗi cp1252 trên Windows Terminal
 sys.stdout.reconfigure(encoding='utf-8')
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 
 import django

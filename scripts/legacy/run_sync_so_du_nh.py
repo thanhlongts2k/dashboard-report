@@ -1,10 +1,15 @@
+"""
+Script chạy đồng bộ Bảng kê số dư ngân hàng (SO_DU_NH) thủ công. (Legacy)
+Ghi chú: Đã có lệnh tiêu chuẩn `python manage.py sync_misa --prefix=SO_DU_NH` thay thế.
+"""
 import os
 import sys
 import asyncio
 from datetime import datetime
 
 # Setup path and Django Environment
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 
 import django

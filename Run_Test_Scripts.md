@@ -19,7 +19,7 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Tính lại KPI 1 BU | `python manage.py calculate_bu_performance` ([Mục 3.4](#34-tính-lại-kpi-cho-bu-cụ-thể)) |
 | Tính lại KPI Tổng công ty | `python manage.py calculate_global_performance` ([Mục 3.5](#35-tính-lại-kpi-tổng-công-ty)) |
 | Xem Snapshot CSDL thời điểm hiện tại | `python scripts/show_snapshot.py` ([Mục 5.4](#54-xem-báo-cáo-data-snapshot-csdl-ngay-lập-tức-show_snapshotpy)) |
-| Debug quá trình tải MISA | `python test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
+| Debug quá trình tải MISA | `python scripts/test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
 | Nạp lại dữ liệu nhiều tháng | `python scripts/reimport_months_1_to_7.py` ([Mục 5.1](#51-nạp-lại-dữ-liệu-nhiều-tháng-reimport_months_1_to_7py)) |
 | Tạo tài khoản admin | `python manage.py createdefaultuser` ([Mục 6.1](#61-tạo-tài-khoản-admin-mặc-định)) |
 
@@ -311,13 +311,13 @@ python manage.py calculate_global_performance --month=6 --year=2026
 
 ### 4.1. Debug tải báo cáo Bán hàng (`test_download_ban_hang.py`)
 
-* **File nguồn**: [test_download_ban_hang.py](file:///d:/Sources/dashboard-report/test_download_ban_hang.py)
+* **File nguồn**: [scripts/test_download_ban_hang.py](file:///d:/Sources/dashboard-report/scripts/test_download_ban_hang.py)
 * **Tác dụng**: Chạy thử tải báo cáo Bán hàng (`BAN_HANG`) ở chế độ **có giao diện** (`headless=False`) — mở cửa sổ trình duyệt Chromium thật để developer quan sát từng bước Playwright tương tác với MISA. Dùng khi cần debug popup, selector, hoặc luồng tải mới.
 
 ```powershell
 # Mở Chromium có giao diện, đăng nhập MISA và thực hiện tải báo cáo BAN_HANG
 # → Theo dõi trực tiếp quá trình bot tương tác với MISA trên màn hình
-python test_download_ban_hang.py
+python scripts/test_download_ban_hang.py
 ```
 
 > [!TIP]

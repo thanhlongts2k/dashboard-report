@@ -1,3 +1,7 @@
+"""
+Script chạy đồng bộ Sổ chi tiết tài khoản (TAI_KHOAN_CT) thủ công. (Legacy)
+Ghi chú: Đã có lệnh tiêu chuẩn `python manage.py sync_misa --prefix=TAI_KHOAN_CT` thay thế.
+"""
 import os
 import sys
 import asyncio
@@ -5,7 +9,8 @@ import calendar
 from datetime import datetime
 
 # Setup path and Django Environment
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 
 import django

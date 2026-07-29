@@ -10,6 +10,8 @@ logging.basicConfig(
 )
 
 # Setup Django Environment
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 django.setup()
 

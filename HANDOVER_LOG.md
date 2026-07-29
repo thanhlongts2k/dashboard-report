@@ -4,6 +4,13 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-29 09:15:00] Task: Audit and Reorganize Root Project Scripts
+- **Objective**: Rà soát 7 script tại thư mục gốc (`root`), giữ lại 2 script CLI lõi (`download_report.py`, `import_specific_file.py`), chuyển 2 script debug/test (`test_download_ban_hang.py`, `test_import_customer_group.py`) sang `scripts/`, và lưu trữ 3 script dư thừa (`run_import.py`, `run_sync_so_du_nh.py`, `run_sync_tai_khoan_ct.py`) vào `scripts/legacy/`.
+- **Planned Modifications**:
+  1. Di chuyển file và cập nhật import path.
+  2. Đồng bộ tài liệu `Run_Test_Scripts.md` và `DocumentAPI_Report2026.md`.
+- **Current Status**: **COMPLETED** — Đã tái cấu trúc 7 script tại root, chuyển các file debug sang `scripts/`, lưu trữ script cũ vào `scripts/legacy/`, tạo script dọn dẹp `scratch/clean_old_root_files.py` và cập nhật tài liệu hệ thống.
+
 ## [2026-07-29 09:05:00] Task: Document `scripts/show_snapshot.py` in `Run_Test_Scripts.md`
 - **Objective**: Tìm và bổ sung tài liệu hướng dẫn sử dụng cho script in Snapshot CSDL `scripts/show_snapshot.py` vào [Run_Test_Scripts.md](file:///d:/Sources/dashboard-report/Run_Test_Scripts.md) (Mục 5.4 và Bảng Mục Lục Nhanh).
 - **Files Modified**:

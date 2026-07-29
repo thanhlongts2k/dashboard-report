@@ -1,25 +1,14 @@
 """
-Script chạy import thủ công một hoặc nhiều file Excel vào hệ thống.
+Script chạy import thủ công một hoặc nhiều file Excel vào hệ thống. (Legacy)
 
 Cách dùng:
     1. Import một file cụ thể:
-       .venv\Scripts\python.exe run_import.py "<đường_dẫn_file>"
+       .venv\Scripts\python.exe scripts/legacy/run_import.py "<đường_dẫn_file>"
 
     2. Tự động quét và import toàn bộ các file trong thư mục `media/auto_imports`:
-       .venv\Scripts\python.exe run_import.py
+       .venv\Scripts\python.exe scripts/legacy/run_import.py
 
-Các loại file được hỗ trợ (theo prefix tên file):
-    - KHACH_HANG_*.xlsx      → Danh sách khách hàng (được ưu tiên import trước)
-    - BAN_HANG_*.xlsx        → Dữ liệu bán hàng
-    - MUA_HANG_*.xlsx        → Dữ liệu mua hàng
-    - TON_KHO_*.xlsx         → Tồn kho
-    - CONG_NO_NCC_*.xlsx     → Công nợ nhà cung cấp
-    - TUOI_NO_KH_*.xlsx      → Tuổi nợ khách hàng
-    - TAI_KHOAN_CT_*.xlsx    → Sổ chi tiết tài khoản
-
-Sau khi import thành công, hệ thống sẽ tự động:
-    1. Tính toán lại KPI cho tất cả các Business Unit
-    2. Đồng bộ dữ liệu tồn kho Warehouse
+Ghi chú: Đã có lệnh tiêu chuẩn `python manage.py sync_misa --action=import` và `python import_specific_file.py` thay thế.
 """
 
 import os
@@ -29,7 +18,8 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Setup Django Environment TRƯỚC KHI import bất kỳ module nào của Django
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 
 import django
@@ -54,7 +44,7 @@ def main():
         if len(sys.argv) >= 2 and os.path.isdir(sys.argv[1]):
             scan_dir = sys.argv[1]
         else:
-            scan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'media', 'auto_imports')
+            scan_dir = os.path.join(PROJECT_ROOT, 'media', 'auto_imports')
 
         scan_dir = os.path.normpath(scan_dir)
         print("=" * 60)
@@ -95,8 +85,7 @@ def main():
     else:
         file_path = sys.argv[1]
         if not os.path.isabs(file_path):
-            project_root = os.path.dirname(os.path.abspath(__file__))
-            file_path = os.path.normpath(os.path.join(project_root, file_path))
+            file_path = os.path.normpath(os.path.join(PROJECT_ROOT, file_path))
         
         target_files.append(file_path)
 
