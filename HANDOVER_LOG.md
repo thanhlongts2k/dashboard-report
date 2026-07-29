@@ -4,6 +4,12 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-29 09:05:00] Task: Document `scripts/show_snapshot.py` in `Run_Test_Scripts.md`
+- **Objective**: Tìm và bổ sung tài liệu hướng dẫn sử dụng cho script in Snapshot CSDL `scripts/show_snapshot.py` vào [Run_Test_Scripts.md](file:///d:/Sources/dashboard-report/Run_Test_Scripts.md) (Mục 5.4 và Bảng Mục Lục Nhanh).
+- **Files Modified**:
+  1. `Run_Test_Scripts.md`: Bổ sung Mục `5.4. Xem Báo Cáo Data Snapshot CSDL Ngay Lập Tức (show_snapshot.py)` và bảng mục lục.
+- **Current Status**: **COMPLETED** — Đã cập nhật tài liệu đầy đủ.
+
 ## [2026-07-29 09:00:00] Task: Persist 7-Report MISA Playwright Automation Spec in target.md
 - **Objective**: Lưu trữ toàn bộ quy trình 100% chi tiết của 7 báo cáo MISA vào `target.md` (Mục 6.3) làm tri thức cố định (Memory Persistence) cho các AI agent kế thừa.
 - **Files Modified**:

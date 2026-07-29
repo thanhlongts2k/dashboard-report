@@ -18,6 +18,7 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Nạp 1 file Excel rời vào DB | `python import_specific_file.py <path>` ([Mục 3.3](#33-nạp-file-excel-rời-vào-csdl-import_specific_filepy)) |
 | Tính lại KPI 1 BU | `python manage.py calculate_bu_performance` ([Mục 3.4](#34-tính-lại-kpi-cho-bu-cụ-thể)) |
 | Tính lại KPI Tổng công ty | `python manage.py calculate_global_performance` ([Mục 3.5](#35-tính-lại-kpi-tổng-công-ty)) |
+| Xem Snapshot CSDL thời điểm hiện tại | `python scripts/show_snapshot.py` ([Mục 5.4](#54-xem-báo-cáo-data-snapshot-csdl-ngay-lập-tức-show_snapshotpy)) |
 | Debug quá trình tải MISA | `python test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
 | Nạp lại dữ liệu nhiều tháng | `python scripts/reimport_months_1_to_7.py` ([Mục 5.1](#51-nạp-lại-dữ-liệu-nhiều-tháng-reimport_months_1_to_7py)) |
 | Tạo tài khoản admin | `python manage.py createdefaultuser` ([Mục 6.1](#61-tạo-tài-khoản-admin-mặc-định)) |
@@ -355,6 +356,25 @@ python scripts/import_customer_group.py
 
 ```powershell
 python scripts/seed_target_plans.py
+```
+
+### 5.4. Xem Báo Cáo Data Snapshot CSDL Ngay Lập Tức (`show_snapshot.py`)
+
+* **File nguồn**: [scripts/show_snapshot.py](file:///d:/Sources/dashboard-report/scripts/show_snapshot.py)
+* **Tác dụng**: Script CLI hỗ trợ **in nhanh toàn bộ báo cáo Snapshot số liệu thực tế trong CSDL hiện tại** (Doanh thu MTD/YTD, Thực thu MTD/YTD, Tồn kho, Tiền mặt, Nợ NH, OPEX) cho Tổng công ty và từng đơn vị kinh doanh (BU) dưới dạng danh sách dễ đọc trên Terminal, hiển thị chính xác vết thời gian chốt số liệu (`NGÀY CHỐT SỐ LIỆU: HH:MM:SS DD/MM/YYYY`).
+
+```powershell
+# Xem Snapshot CSDL Tháng hiện tại (mặc định: Tháng 7/2026) cho Tổng công ty và các BU
+python scripts/show_snapshot.py
+
+# Xem Snapshot cho kỳ tháng khác (ví dụ: Tháng 6/2026)
+python scripts/show_snapshot.py --month 6 --year 2026
+
+# Xem Snapshot riêng cho 1 BU cụ thể (ví dụ: BU_ELEVATOR hoặc HPC)
+python scripts/show_snapshot.py --bu BU_ELEVATOR
+
+# Hiển thị đầy đủ tất cả các BU (kể cả các BU inactive chưa phát sinh số liệu)
+python scripts/show_snapshot.py --show-all
 ```
 
 ---
