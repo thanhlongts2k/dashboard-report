@@ -509,7 +509,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{target_period}']",
                     f"text='{target_period}'"
                 ]
-                period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=3000)
+                period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=3000, close_blockers=False)
                 if period_el:
                     try:
                         await period_el.click(force=True)
@@ -519,7 +519,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 else:
                     logger.warning(f"Could not find '{target_period}' in dropdown. Trying keyboard type fallback...")
                     try:
-                        await ky_input.click(click_count=3)
+                        await ky_input.click(force=True, click_count=3)
                         await ky_input.type(target_period)
                         await asyncio.sleep(0.5)
                         await page.keyboard.press("Enter")

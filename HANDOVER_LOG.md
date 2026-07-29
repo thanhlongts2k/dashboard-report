@@ -4,6 +4,30 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-29 08:30:00] Task: Fix Parameter Selection Popup Closing Bug in MISA Automation
+- **Objective**: Khắc phục triệt để sự cố modal "Chọn tham số báo cáo" bị đóng/ẩn tự động khi đang điền kỳ báo cáo ("Tháng này"/"Năm nay"), làm nghẽn toàn bộ tiến trình tải báo cáo Playwright MISA.
+- **Planned Modifications**:
+  1. `accounting/misa/report_exporter.py`: Loại bỏ phím `Escape` (`await page.keyboard.press("Escape")`) tại L506 & L535. Bỏ các lệnh `close_misa_popups(page)` thừa vãi ngay sau khi bật Modal (L416) và trước khi tương tác Kỳ báo cáo (L508, L537). Truyền `close_blockers=False` khi tìm dropdown options.
+  2. `accounting/misa/browser.py`: Củng cố hàm JS `get_global_anti_popup_script()` (bảo vệ tuyệt đối các modal chứa `input`, `Kỳ báo cáo`, `Từ ngày`, `Đến ngày`, `Tài khoản`).
+  3. `DocumentAPI_Report2026.md` & `target.md`: Đồng bộ tài liệu kỹ thuật về cơ chế bảo vệ Modal Tham Số.
+- **Current Status**: **COMPLETED** — Đã loại bỏ phím Escape, dọn dẹp các lệnh close_misa_popups thừa, củng cố script Smart Anti-Popup bảo vệ Modal Tham Số và đồng bộ tài liệu hệ thống.
+
+## [2026-07-29 08:15:00] Task: Triển khai Global Smart Anti-Popup Engine cho MISA Automation
+- **Objective**: Triệt hạ 100% các loại thông báo, quảng cáo, banner, dialog cảnh báo bất ngờ của MISA bằng thuật toán Phân loại thông minh (Smart Detection) + Init Script Injection toàn cục.
+- **Files Modified**:
+  1. `accounting/misa/browser.py`: Tái cấu trúc `close_misa_popups(page)` thành **Smart Anti-Popup Engine** — phân biệt Modal Tham Số Báo Cáo vs Pop-up rác, tự bấm đóng hoặc xóa thẳng khỏi DOM. Bổ sung `get_global_anti_popup_script()`.
+  2. `accounting/misa/automation.py`: Inject global anti-popup script via `context.add_init_script()`.
+  3. `accounting/misa/report_exporter.py`: Gọi dọn dẹp popup thông minh ngay sau khi bật Modal Tham số Báo cáo.
+- **Current Status**: **COMPLETED** — Đã triển khai xong code, sẵn sàng chạy test.
+
+## [2026-07-29 08:00:00] Task: Fix ms-popup blocking Kỳ báo cáo selection — Download failures
+- **Objective**: Khắc phục lỗi `ms-popup` chặn click vào combo `Kỳ báo cáo` → gây timeout 30s → download manager không có file → toàn bộ report download thất bại.
+- **Root Cause**: Sau khi click "Chọn tham số", MISA hiện `ms-popup` (thông báo info, không phải concurrent login). Code cũ chỉ close popup có text "Đã có máy khác sử dụng" → miss popup dạng khác → `ms-popup` còn hiển thị và block pointer events lên combo input.
+- **Files Modified**:
+  1. `accounting/misa/browser.py` (L212-238): Mở rộng JS để close **mọi** `ms-popup` đang visible — thử click close button trước, fallback ẩn bằng CSS.
+  2. `accounting/misa/report_exporter.py` (L500-543): Thêm `Escape` keypress + `handle_misa_popups()` trước khi click `ky_input`. Fallback `click_count=3` đổi sang `force=True`.
+- **Current Status**: **COMPLETED** — Fix applied, cần verify ở lần chạy tự động sáng 30/07/2026.
+
 ## [2026-07-27 15:28:00] Task: Implement Employee Management System (Department, JobTitle, Employee, EmployeeAssignment) & Excel Import
 - **Objective**: Thiết kế và triển khai các Model Django (`Department`, `JobTitle`, `Employee`, `EmployeeAssignment`), Resource import Excel `Danh_sach_nhan_vien.xlsx`, và đăng ký Django Admin.
 - **Files Modified**:

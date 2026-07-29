@@ -430,3 +430,19 @@ EmployeeAssignment:
 - **Import via folder scan**: Đặt file vào `media/auto_imports/DANH_SACH_NHAN_VIEN_*.xlsx` → Celery task tự động nhận diện prefix `DANH_SACH_NHAN_VIEN`.
 - **Lưu ý**: `skip_delete=True` — import nhân viên **KHÔNG** xóa dữ liệu cũ (upsert mode).
 
+---
+
+## 12. Hệ thống Chống Popup Tự động Toàn cục (Global Smart Anti-Popup Engine)
+
+### 12.1. Mục tiêu & Nguyên lý
+Giải quyết triệt để 100% lỗi nghẽn giao diện khi MISA xuất hiện các thông báo, banner quảng cáo, cảnh báo nâng cấp, hoặc pop-up hệ thống ngẫu nhiên làm cản trở tiến trình tự động tải báo cáo Playwright.
+
+### 12.2. Cơ chế Hoạt động (Phân loại Thông minh - Smart Detection)
+1. **Phân biệt Modal Tham số vs Pop-up Rác**:
+   - **Giữ lại**: Modal chứa tiêu đề/nút *"Chọn tham số"*, *"Đồng ý"*, *"Xem báo cáo"*, *"Kỳ báo cáo"*.
+   - **Tiêu diệt**: Mọi dialog/popup khác (`.ms-popup`, `.dx-dialog-wrapper`, `.con-ms-popup`).
+2. **Auto-Clean JS Injection**:
+   - Tự động inject qua `context.add_init_script()` chạy liên tục bằng `MutationObserver` trên mọi frame/sub-frame.
+   - Thử bấm nút đóng thông minh (`Đóng`, `Hủy`, `Đã hiểu`, `Nhắc lại sau`, `Bỏ qua`...) trước; nếu không biến mất sẽ xóa trực tiếp phần tử khỏi DOM (`element.remove()`).
+   - Tự động xóa các lớp phủ mờ (`.ms-overlay`, `.dx-overlay-shader`) và khôi phục `pointer-events: auto` cho giao diện chính.
+

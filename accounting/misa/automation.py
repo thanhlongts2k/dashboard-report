@@ -55,6 +55,15 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
             )
 
         context.set_default_timeout(30000)
+        
+        # Inject Smart Anti-Popup Engine script globally across all pages and sub-frames
+        from .browser import get_global_anti_popup_script
+        try:
+            await context.add_init_script(get_global_anti_popup_script())
+            logger.info("Successfully injected Global Smart Anti-Popup Engine script into browser context.")
+        except Exception as e:
+            logger.warning(f"Could not inject init script: {e}")
+
         page = await context.new_page()
         
         try:

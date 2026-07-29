@@ -184,9 +184,112 @@ async def find_locator_in_any_frame(page, selectors, timeout=3000, close_blocker
     return None, None
 
 
+def get_global_anti_popup_script():
+    """Trả về đoạn JS anti-popup toàn cục có thể dùng với context.add_init_script()."""
+    return """
+    (() => {
+        const cleanPopups = () => {
+            try {
+                // 1. Phân biệt & xử lý các Dialog / Popup / Overlay
+                const dialogs = document.querySelectorAll('.ms-popup, .ms-message-box, .dx-dialog-wrapper, .con-ms-popup, .popup-start-use, .popup-survey, .v-dialog');
+                dialogs.forEach(el => {
+                    const style = window.getComputedStyle(el);
+                    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
+                    
+                    const text = (el.textContent || '').normalize('NFC');
+                    
+                    // GIỮ LẠI: Nếu là Form chọn Tham số Báo cáo
+                    const isParamModal = (
+                        text.includes('Tham số') || 
+                        text.includes('Chọn tham số') || 
+                        text.includes('Đồng ý') || 
+                        text.includes('Xem báo cáo') || 
+                        text.includes('Kỳ báo cáo') ||
+                        text.includes('Bao gồm số liệu chi nhánh') ||
+                        text.includes('Từ ngày') ||
+                        text.includes('Đến ngày') ||
+                        text.includes('Tài khoản') ||
+                        text.includes('Chi nhánh') ||
+                        text.includes('Tháng này') ||
+                        text.includes('Năm nay')
+                    ) && (el.querySelector('input, button, .ms-button, .ms-combo') !== null);
+                    
+                    if (isParamModal) return;
+                    
+                    // TIÊU DIỆT POPUP RÁC / THÔNG BÁO / QUẢNG CÁO
+                    const closeBtn = el.querySelector(
+                        '.ms-button--close, button.close, [aria-label="close"], .header-close, ' +
+                        '.icon-close, .ms-icon-close, [class*="close"], .ms-button--cancel, .btn-close'
+                    ) || Array.from(el.querySelectorAll('button, div.ms-button, a, span')).find(b => {
+                        const btnText = (b.textContent || '').trim().normalize('NFC');
+                        return /^(Đóng|Hủy|Đã hiểu|Nhắc lại sau|Bỏ qua|Đã biết|Tiếp tục|Cancel|Close|X)$/i.test(btnText);
+                    });
+
+                    if (closeBtn) {
+                        try { closeBtn.click(); } catch(e) {}
+                    }
+                    
+                    el.style.display = 'none';
+                    el.style.pointerEvents = 'none';
+                    try { el.remove(); } catch(e) {}
+                });
+
+                // 2. Xóa các Lớp phủ mờ (Backdrops) nếu KHÔNG có Modal Tham Số
+                const hasActiveParamModal = Array.from(document.querySelectorAll('.ms-popup, .v-dialog, .con-ms-popup, .dx-dialog-wrapper')).some(p => {
+                    const style = window.getComputedStyle(p);
+                    const t = (p.textContent || '').normalize('NFC');
+                    return style.display !== 'none' && (
+                        t.includes('Đồng ý') || 
+                        t.includes('Xem báo cáo') || 
+                        t.includes('Kỳ báo cáo') ||
+                        t.includes('Tham số') ||
+                        t.includes('Bao gồm số liệu chi nhánh')
+                    );
+                });
+
+                if (!hasActiveParamModal) {
+                    document.querySelectorAll('.ms-overlay, .ms-popup--background, .dx-overlay-shader, .v-overlay').forEach(bg => {
+                        bg.style.display = 'none';
+                        bg.style.pointerEvents = 'none';
+                        try { bg.remove(); } catch(e) {}
+                    });
+                }
+
+                // 3. Re-enable pointer events trên body
+                if (document.body && document.body.style.pointerEvents === 'none') {
+                    document.body.style.pointerEvents = 'auto';
+                }
+            } catch (err) {}
+        };
+
+        // Chạy ngay, thiết lập MutationObserver & setInterval 500ms để bắt mọi popup mới hiện lên
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', cleanPopups);
+        } else {
+            cleanPopups();
+        }
+        
+        try {
+            const observer = new MutationObserver(() => cleanPopups());
+            observer.observe(document.documentElement || document.body, { 
+                childList: true, 
+                subtree: true, 
+                attributes: true, 
+                attributeFilter: ['style', 'class', 'hidden'] 
+            });
+        } catch (e) {}
+
+        try {
+            setInterval(cleanPopups, 500);
+        } catch (e) {}
+    })();
+    """
+
+
 async def close_misa_popups(page):
-    logger.info("Handling MISA popups/overlays...")
+    logger.info("Executing Smart Anti-Popup Engine across all frames...")
     
+    # 1. Xử lý Concurrent Login nếu có
     for frame in page.frames:
         for selector in CONCURRENT_LOGIN_SELECTORS:
             try:
@@ -198,6 +301,7 @@ async def close_misa_popups(page):
             except Exception:
                 pass
     
+    # 2. Xử lý Nút 'Nhắc lại sau'
     for frame in page.frames:
         for selector in NHAC_LAI_SELECTORS:
             try:
@@ -209,33 +313,14 @@ async def close_misa_popups(page):
             except Exception:
                 pass
 
-    logger.info("Hiding MISA ad/welcome popup overlays via JS...")
+    # 3. Chạy Smart Anti-Popup JS Engine trên tất cả các frames
+    anti_popup_js = get_global_anti_popup_script()
     for frame in page.frames:
         try:
-            await frame.evaluate("""() => {
-                const popups = document.querySelectorAll('.ms-popup, .ms-message-box, .dx-dialog-wrapper');
-                popups.forEach(el => {
-                    const text = (el.textContent || '').normalize('NFC');
-                    if (text.includes('Đã có máy khác sử dụng') || text.includes('tiếp tục làm việc trên máy này')) {
-                        const closeBtn = el.querySelector('button, .ms-button, .dx-button, [role="button"]');
-                        if (closeBtn) {
-                            closeBtn.click();
-                        }
-                    }
-                });
-
-                const elements = document.querySelectorAll('.popup-start-use, .popup-survey, .ms-component.con-ms-popup');
-                elements.forEach(el => {
-                    const text = (el.textContent || '').normalize('NFC');
-                    if (text.includes('Chào') || text.includes('Thông tư 99') || text.includes('bắt đầu sử dụng') || text.includes('TT99') || text.includes('TT 99') || text.includes('Sắp hết hạn phần mềm')) {
-                        el.style.display = 'none';
-                        el.style.opacity = '0';
-                        el.style.pointerEvents = 'none';
-                    }
-                });
-            }""")
+            await frame.evaluate(anti_popup_js)
         except Exception:
             pass
             
-    logger.info("Force-hid potential ad/expiration overlays via JS in all frames.")
+    logger.info("Smart Anti-Popup Engine execution completed.")
     return True
+
