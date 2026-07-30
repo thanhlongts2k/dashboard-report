@@ -1,5 +1,5 @@
 from .misa_api import (
-    LoginAPI, GoogleLoginAPI, BranchViewSet, CustomerViewSet,
+    LoginAPI, GoogleLoginAPI, ActivateUserAPIView, BranchViewSet, CustomerViewSet,
     EmployeeViewSet, BusinessUnitViewSet, SalesTransactionViewSet,
     AccountDetailViewSet
 )
@@ -16,7 +16,7 @@ from .dashboard_api import (
 )
 
 __all__ = [
-    'LoginAPI', 'GoogleLoginAPI', 'BranchViewSet', 'CustomerViewSet',
+    'LoginAPI', 'GoogleLoginAPI', 'ActivateUserAPIView', 'BranchViewSet', 'CustomerViewSet',
     'EmployeeViewSet', 'BusinessUnitViewSet', 'SalesTransactionViewSet',
     'AccountDetailViewSet', 'ReceivablesAgeingViewSet', 'SupplierViewSet',
     'SupplierGroupViewSet', 'SupplierDebtViewSet', 'WarehouseViewSet',

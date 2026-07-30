@@ -100,7 +100,7 @@ ROOT_URLCONF = 'report2026.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -234,11 +234,15 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER if EMAIL_HOST_USER else 'noreply@haophuong.com')
 EMAIL_DISPLAY_NAME = env('EMAIL_DISPLAY_NAME', default='Hao Phuong Reporting System')
 
-# Cấu hình Google OAuth2 Login
+# Cấu hình Email Admin Nhận Thông Báo SSO & Hệ Thống
+ADMIN_NOTIFICATION_EMAILS = env.list('ADMIN_NOTIFICATION_EMAILS', default=[])
+
+# Cấu hình Google OAuth2 Login & Frontend App URL
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
+FRONTEND_URL = env('FRONTEND_URL', default='https://report.haophuong.com/')
 
 # Logging Configuration
 LOGGING = {

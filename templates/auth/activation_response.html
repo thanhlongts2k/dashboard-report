@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Kích Hoạt Tài Khoản Thành Công</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; max-width: 500px; }
+        .icon { font-size: 60px; color: #28a745; margin-bottom: 15px; }
+        h2 { color: #333; margin-bottom: 10px; }
+        p { color: #555; font-size: 15px; line-height: 1.5; }
+        .badge { background-color: #e8f5e9; color: #2e7d32; padding: 6px 12px; border-radius: 20px; font-weight: bold; word-break: break-all; }
+        .btn-home { display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #0056b3; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">🎉</div>
+        <h2>Kích Hoạt Mức 2 Thành Công!</h2>
+        <p>Tài khoản <span class="badge">{{ user.email }}</span> đã được chuyển sang trạng thái <b>Hoạt Động (Active)</b>.</p>
+        <p>Người dùng hiện đã có thể đăng nhập vào hệ thống Report2026 bằng tài khoản Google của họ.</p>
+        <a href="{{ login_url|default:'/' }}" class="btn-home">Về Trang Chủ Hệ Thống</a>
+    </div>
+</body>
+</html>

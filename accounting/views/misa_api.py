@@ -1,5 +1,8 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import HttpResponse
+from django.shortcuts import render
 from knox.views import LoginView as KnoxLoginView
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
@@ -12,6 +15,10 @@ from accounting.serializers import (
     BranchSerializer, CustomerSerializer, EmployeeSerializer,
     BusinessUnitSerializer, SalesTransactionSerializer, AccountDetailSerializer,
     GoogleLoginSerializer
+)
+from accounting.services import (
+    generate_activation_token, verify_activation_token,
+    send_sso_registration_admin_notification, send_user_activation_success_email
 )
 
 class LoginAPI(KnoxLoginView):
@@ -64,8 +71,18 @@ class GoogleLoginAPI(KnoxLoginView):
                 }
             )
 
+            if created:
+                # Sinh link kích hoạt nhanh cho Admin
+                act_token = generate_activation_token(user.id)
+                scheme = request.scheme
+                host = request.get_host()
+                activation_url = f"{scheme}://{host}/api/auth/activate-user/?token={act_token}"
+                
+                # Gửi email thông báo cho Admin
+                send_sso_registration_admin_notification(user, activation_url)
+
             if not user.is_active:
-                return Response({'error': 'Tài khoản đã được tạo, cần được kích hoạt mức 2. Vui lòng liên hệ IT để được hỗ trợ.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Tài khoản đã được tạo, cần được kích hoạt mức 2. Thông báo đã được gửi tới Admin để xác nhận. Vui lòng kiểm tra mail nếu được kích hoạt thành công'}, status=status.HTTP_400_BAD_REQUEST)
 
             login(request, user)
             return super().post(request, format=None)
@@ -74,6 +91,39 @@ class GoogleLoginAPI(KnoxLoginView):
             return Response({'error': f'Google ID token không hợp lệ hoặc đã hết hạn: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': f'Lỗi hệ thống khi xác thực Google: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ActivateUserAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        token = request.query_params.get('token')
+        if not token:
+            return render(request, 'auth/activation_error.html', {'error_message': 'Mã kích hoạt không hợp lệ hoặc thiếu tham số token.'}, status=400)
+
+        user_id = verify_activation_token(token)
+        if not user_id:
+            return render(request, 'auth/activation_error.html', {'error_message': 'Link kích hoạt không hợp lệ hoặc đã hết hạn (sau 7 ngày).'}, status=400)
+
+        try:
+            user = User.objects.get(id=user_id)
+            frontend_url = getattr(settings, 'FRONTEND_URL', None)
+            if frontend_url:
+                login_url = frontend_url
+            else:
+                scheme = request.scheme
+                host = request.get_host()
+                login_url = f"{scheme}://{host}/"
+
+            if not user.is_active:
+                user.is_active = True
+                user.save()
+                send_user_activation_success_email(user, login_url=login_url)
+
+            return render(request, 'auth/activation_response.html', {'user': user, 'login_url': login_url})
+        except User.DoesNotExist:
+            return render(request, 'auth/activation_error.html', {'error_message': 'Không tìm thấy tài khoản người dùng tương ứng.'}, status=404)
+
 
 class BranchViewSet(viewsets.ModelViewSet):
     queryset = Branch.objects.all()

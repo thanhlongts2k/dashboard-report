@@ -22,6 +22,7 @@ from accounting.serializers import (
 )
 from accounting.filters import BUPerformanceDailyFilter, BUPerformanceFilter
 from accounting.tasks import update_single_bu_performance
+from accounting.services import get_formatted_from_email
 
 logger = logging.getLogger(__name__)
 
@@ -226,12 +227,7 @@ class SendEmailAPIView(APIView):
         requested_name = validated_data.get('from_name')
         requested_from = validated_data.get('from_email')
         
-        smtp_user = getattr(settings, 'EMAIL_HOST_USER', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@example.com'
-        
-        default_display_name = getattr(settings, 'EMAIL_DISPLAY_NAME', 'Hao Phuong Reporting System')
-        display_name = requested_name.strip() if (requested_name and requested_name.strip()) else default_display_name
-        
-        from_email = f'"{display_name}" <{smtp_user}>'
+        from_email = get_formatted_from_email(override_display_name=requested_name)
             
         uploaded_file = request.FILES.get('file')
         file_name = validated_data.get('file_name')

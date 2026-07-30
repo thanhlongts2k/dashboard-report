@@ -4,6 +4,35 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-30 13:17:00] Task: Refactor Email & Web Response HTML to Django Templates
+- **Objective**: Tái cấu trúc (Refactor) toàn bộ chuỗi HTML hardcode trong `sso_notifier.py` và `misa_api.py` sang các file Django HTML Templates chuẩn (`templates/emails/` và `templates/auth/`).
+- **Planned Modifications**:
+  1. `templates/emails/admin_sso_notification.html`: [NEW] Template Email gửi Admin.
+  2. `templates/emails/user_activation_success.html`: [NEW] Template Email gửi User.
+  3. `templates/auth/activation_response.html`: [NEW] Template trang Web phản hồi kích hoạt thành công.
+  4. `templates/auth/activation_error.html`: [NEW] Template trang Web phản hồi lỗi kích hoạt.
+  5. `accounting/services/sso_notifier.py`: Sử dụng `render_to_string`.
+  6. `accounting/views/misa_api.py`: Sử dụng `render(request, ...)`.
+  7. `accounting/views/dashboard_api.py`: Tái sử dụng helper `get_formatted_from_email()`.
+  8. `report2026/settings.py`: Khai báo `ADMIN_NOTIFICATION_EMAILS` và `DEFAULT_FROM_EMAIL` fallback.
+  9. `guildSendMail.md`: Cập nhật hướng dẫn `.env`.
+  9. `DocumentAPI_Report2026.md`: Cập nhật Mục 14 cấu trúc Template.
+  10. `target.md`: Cập nhật kiến trúc và sơ đồ luồng Email Template.
+- **Current Status**: **COMPLETED** — Đã hoàn thành 100% việc tách HTML hardcode sang 4 Django HTML Templates, tích hợp render_to_string và render, cập nhật tài liệu và kiểm thử thành công.
+
+## [2026-07-30 11:30:00] Task: Google SSO New User Email Notification & One-Click Activation Workflow
+- **Objective**: Thêm tính năng tự động gửi Email thông báo tới Admin khi có người dùng mới đăng ký qua Google SSO (`is_active=False`), đính kèm Link Kích hoạt Nhanh (One-Click Activation URL), tự động bật `is_active=True` khi Admin click vào link và gửi mail thông báo cho User.
+- **Files Modified**:
+  1. `accounting/services/sso_notifier.py`: [NEW] Module sinh token ký số `TimestampSigner`, gửi email HTML thông báo cho Admin và User.
+  2. `accounting/services/__init__.py`: Re-export sso_notifier helpers.
+  3. `accounting/views/misa_api.py`: Tích hợp gửi mail thông báo trong `GoogleLoginAPI` và thêm [NEW] `ActivateUserAPIView`.
+  4. `accounting/views/__init__.py`: Re-export `ActivateUserAPIView`.
+  5. `accounting/urls.py`: Đăng ký endpoint `/api/auth/activate-user/`.
+  6. `report2026/settings.py`: Thêm cấu hình `FRONTEND_URL` mặc định `https://report.haophuong.com/`.
+  7. `DocumentAPI_Report2026.md`: Thêm Mục 14 mô tả quy trình & sequence diagram.
+  8. `scratch/test_google_sso_activation.py`: Script kiểm thử tự động toàn bộ luồng.
+- **Current Status**: **COMPLETED** — Đã hoàn thành 100% code, API, email notifier, test script và cập nhật tài liệu.
+
 ## [2026-07-29 11:50:00] Task: Document Phase 2 Business & Architecture Spec for Accountant Consultation
 - **Objective**: Tổng hợp toàn bộ Kiến trúc Kỹ thuật, Thuật toán Dual Mapping, Đệ quy nợ nhóm và Biên soạn Bảng 4 câu hỏi trọng tâm để User làm việc với Kế toán nghiệp vụ.
 - **Files Modified**:

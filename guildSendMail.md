@@ -41,6 +41,12 @@ EMAIL_HOST_USER='your_email@gmail.com'
 # Mật khẩu ứng dụng (App Password) từ Gmail
 EMAIL_HOST_PASSWORD='your_app_password'
 DEFAULT_FROM_EMAIL='your_email@gmail.com'
+
+# Danh sách Email Admin nhận thông báo đăng ký Google SSO & kích hoạt (ngăn cách bởi dấu phẩy)
+ADMIN_NOTIFICATION_EMAILS='admin@haophuong.com,it@haophuong.com'
+
+# Đường dẫn ứng dụng Frontend (dùng cho link Đăng nhập trong email)
+FRONTEND_URL='https://report.haophuong.com/'
 ```
 
 ### 💡 Lưu ý quan trọng khi dùng Gmail làm SMTP:

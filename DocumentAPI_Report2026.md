@@ -535,3 +535,48 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
      - **Bước 2**: Tra cứu Sếp (`manager`) và Phòng ban tại mốc `reporting_period` (ngày cuối tháng) từ `EmployeeAssignment` theo chuẩn SCD Type 2.
      - **Bước 3**: Thuật toán đệ quy Bottom-Up `get_all_subordinate_ids_recursive()` tính toán nợ nhóm (`team_*`) và đếm cấp dưới (`subordinate_count`) cho các Trưởng nhóm / Trưởng phòng.
 3. **Đăng ký Django Admin (`EmployeeReceivableSummaryAdmin`)**: Hỗ trợ xem, lọc theo `reporting_period`, `is_manager`, `department` và quản trị trên giao diện Admin.
+
+---
+
+## 14. Quy Trình Xác Thực Google SSO, Email Thông Báo & Kích Hoạt Mức 2 (One-Click Activation)
+
+### 14.1. Luồng Hoạt Động (Workflow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Người dùng mới
+    participant SSO as API /api/google-login/
+    participant System as System (TimestampSigner)
+    actor Admin as Quản trị viên (Admin)
+    participant ActAPI as API /api/auth/activate-user/
+
+    User->>SSO: Đăng nhập Google SSO (Lần đầu)
+    SSO->>System: Tạo User (is_active=False), Sinh Token Ký Số
+    SSO-->>User: Trả về thông báo: "Cần kích hoạt Mức 2, thông báo đã gửi cho Admin"
+    System->>Admin: Gửi Email Thông Báo kèm Link Kích Hoạt Nhanh (URL)
+    Admin->>ActAPI: Bấm Link Kích Hoạt trong Email (GET /api/auth/activate-user/?token=...)
+    ActAPI->>System: Giải mã Token, chuyển user.is_active = True
+    ActAPI->>User: Gửi Email Thông báo "Tài khoản đã kích hoạt thành công!"
+    ActAPI-->>Admin: Trả về trang HTML thông báo Kích hoạt Thành công!
+```
+
+### 14.2. API Endpoint Kích Hoạt Tài Khoản (`/api/auth/activate-user/`)
+
+* **Đường dẫn**: `GET /api/auth/activate-user/`
+* **Xác thực**: `AllowAny` (Xác thực an toàn bằng Token Ký số mã hoá `TimestampSigner`).
+* **Query Parameters**:
+  - `token`: Mã token ký số có thời hạn (ví dụ: `19833b2...`).
+* **Phản hồi**:
+  - **HTTP 200 OK**: Render template HTML `templates/auth/activation_response.html` thông báo kích hoạt thành công cho Admin và tự động gửi email chào mừng (sử dụng template `templates/emails/user_activation_success.html`) tới User.
+  - **HTTP 400 Bad Request**: Render template HTML `templates/auth/activation_error.html` báo lỗi token không hợp lệ hoặc đã hết hạn.
+
+### 14.3. Thư Mục Django HTML Templates (`templates/`)
+
+Toàn bộ chuỗi HTML gửi Mail và giao diện Web đã được tách bạch 100% sang thư mục Templates chuẩn Django:
+- `templates/emails/admin_sso_notification.html`: Giao diện Email thông báo cho Admin (kèm nút kích hoạt nhanh).
+- `templates/emails/user_activation_success.html`: Giao diện Email chào mừng User (kèm nút Đăng Nhập `FRONTEND_URL`).
+- `templates/auth/activation_response.html`: Giao diện trang Web thông báo Kích Hoạt Thành Công cho Admin.
+- `templates/auth/activation_error.html`: Giao diện trang Web thông báo Lỗi Kích Hoạt.
+
+
