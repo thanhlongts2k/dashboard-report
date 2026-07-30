@@ -60,12 +60,12 @@ class GoogleLoginAPI(KnoxLoginView):
                     'email': email,
                     'first_name': given_name or name,
                     'last_name': family_name,
-                    'is_active': True
+                    'is_active': False
                 }
             )
 
             if not user.is_active:
-                return Response({'error': 'Tài khoản người dùng đã bị khóa.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Tài khoản đã được tạo, cần được kích hoạt mức 2. Vui lòng liên hệ IT để được hỗ trợ.'}, status=status.HTTP_400_BAD_REQUEST)
 
             login(request, user)
             return super().post(request, format=None)
