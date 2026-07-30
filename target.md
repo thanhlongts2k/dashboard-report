@@ -600,9 +600,26 @@ class EmployeeReceivableSummary(models.Model):
 - `GET /api/v1/receivables/employees/`: Trả về danh sách nợ Sales (lọc theo Phòng ban, Mức nợ quá hạn).
 - `GET /api/v1/receivables/managers/`: Trả về danh sách công nợ Quản lý (xem tổng hợp cả nhóm và drill-down chi tiết từng Sales trực thuộc).
 
-### 13.3. Lộ Trình Triển Khai (Roadmap)
-- **Phase 1**: Bổ sung `manager` trong `EmployeeAssignment` và `assigned_employee` trong `Customer`. Tạo migration & cập nhật `EmployeeResource` import Excel.
-- **Phase 2**: Tạo model `EmployeeReceivableSummary` & viết service tính toán công nợ cá nhân + đệ quy quản lý.
-- **Phase 3**: Tạo Django Command `python manage.py calculate_employee_debt` & REST API drill-down.
+### 13.3. Lộ Trình Triển Khai & Trạng Thái Hiện Tại (Status Log)
+
+> [!IMPORTANT]
+> **TRẠNG THÁI HIỆN TẠI**: ⭐ **MỤC ƯU TIÊN HÀNG ĐẦU — TẠM PENDING CHỜ TRAO ĐỔI LẠI VỚI KẾ TOÁN NGHIỆP VỤ**
+> - **Tài liệu nghiệp vụ & Bộ câu hỏi**: Đã biên soạn chi tiết tại [docs/Phase2_Accounting_Business_Spec.md](file:///d:/Sources/dashboard-report/docs/Phase2_Accounting_Business_Spec.md).
+> - **Lý do Pending**: Cần làm việc lại với Kế toán nghiệp vụ để chốt 4 quy tắc: (1) Quy nợ Khách hàng ngoài cho Sales nào, (2) Nợ tạm ứng nhân viên TK 141/1388 có tính không, (3) Phân định nợ cá nhân vs nợ quản lý của Trưởng phòng, (4) Quy tắc chốt nợ theo mốc lịch sử SCD Type 2.
+
+- ✅ **Phase 1: Model Relationships & Excel Resources** — **COMPLETED**
+  - Đã thêm `manager` vào `EmployeeAssignment` (SCD Type 2) và `assigned_employee` vào `Customer`.
+  - Cập nhật `EmployeeResource` & `CustomerResource` đọc cột Excel.
+  - Apply thành công Migration 0042 & 0043.
+
+- ✅ **Phase 2: Model `EmployeeReceivableSummary` & Debt Calculation Engine** — **CODE COMPLETED**
+  - Model `EmployeeReceivableSummary` ([accounting/models/performance.py](file:///d:/Sources/dashboard-report/accounting/models/performance.py#L113)).
+  - Service Engine `update_employee_receivable_summary` ([accounting/services/employee_debt_calculator.py](file:///d:/Sources/dashboard-report/accounting/services/employee_debt_calculator.py)) với Dual Mapping và Bottom-Up Manager Rollup.
+  - Đã đăng ký `EmployeeReceivableSummaryAdmin` trên Django Admin.
+  - Bộ Script tiện ích: [scripts/detect_manager_titles.py](file:///d:/Sources/dashboard-report/scripts/detect_manager_titles.py), [scripts/auto_assign_managers.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_managers.py), [scripts/show_department_tree.py](file:///d:/Sources/dashboard-report/scripts/show_department_tree.py), [scripts/auto_assign_customer_sales.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_customer_sales.py).
+
+- ⏸️ **Phase 3 & 4: REST API Endpoints & Frontend Dashboard Component** — **PENDING (Temporary Pause)**
+  - Đang tạm dừng để User chốt lại quy tắc nghiệp vụ với Kế toán. Bất cứ lúc nào Kế toán chốt xong, sẽ kích hoạt lại để hoàn thiện Phase 3 & 4.
+
 
 

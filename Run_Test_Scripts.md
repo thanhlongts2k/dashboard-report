@@ -19,6 +19,10 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Tính lại KPI 1 BU | `python manage.py calculate_bu_performance` ([Mục 3.4](#34-tính-lại-kpi-cho-bu-cụ-thể)) |
 | Tính lại KPI Tổng công ty | `python manage.py calculate_global_performance` ([Mục 3.5](#35-tính-lại-kpi-tổng-công-ty)) |
 | Xem Snapshot CSDL thời điểm hiện tại | `python scripts/show_snapshot.py` ([Mục 5.4](#54-xem-báo-cáo-data-snapshot-csdl-ngay-lập-tức-show_snapshotpy)) |
+| Phát hiện Chức danh Quản lý & Trưởng phòng | `python scripts/detect_manager_titles.py` ([Mục 5.5](#55-phát-hiện-chức-danh-quản-lý--trưởng-bộ-phận-detect_manager_titlespy)) |
+| Tự động Gán Sếp cho Nhân viên theo Phòng ban | `python scripts/auto_assign_managers.py` ([Mục 5.6](#56-tự-động-gán-sếp-cho-nhân-viên-theo-phòng-ban-auto_assign_managerspy)) |
+| Xem Cây Phòng ban & Nhân viên Trực thuộc | `python scripts/show_department_tree.py` ([Mục 5.7](#57-xem-cây-phòng-ban-trưởng-bộ-phận--danh-sách-nhân-viên-show_department_treepy)) |
+| Tự động Gán Sales phụ trách Khách hàng từ Sổ Bán hàng | `python scripts/auto_assign_customer_sales.py` ([Mục 5.8](#58-tự-động-gán-sales-phụ-trách-khách-hàng-từ-sổ-bán-hàng-auto_assign_customer_salespy)) |
 | Debug quá trình tải MISA | `python scripts/test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
 | Nạp lại dữ liệu nhiều tháng | `python scripts/reimport_months_1_to_7.py` ([Mục 5.1](#51-nạp-lại-dữ-liệu-nhiều-tháng-reimport_months_1_to_7py)) |
 | Tạo tài khoản admin | `python manage.py createdefaultuser` ([Mục 6.1](#61-tạo-tài-khoản-admin-mặc-định)) |
@@ -375,6 +379,55 @@ python scripts/show_snapshot.py --bu BU_ELEVATOR
 
 # Hiển thị đầy đủ tất cả các BU (kể cả các BU inactive chưa phát sinh số liệu)
 python scripts/show_snapshot.py --show-all
+```
+
+### 5.5. Phát hiện Chức danh Quản lý & Trưởng bộ phận (`detect_manager_titles.py`)
+
+* **File nguồn**: [scripts/detect_manager_titles.py](file:///d:/Sources/dashboard-report/scripts/detect_manager_titles.py)
+* **Tác dụng**: Quét toàn bộ danh mục Chức danh (`JobTitle`) và Danh sách nhân viên trong CSDL, tự động lọc ra các chức danh cấp Quản lý / Trưởng bộ phận (dựa trên các từ khóa như *"Trưởng"*, *"Chủ nhiệm"*, *"Giám đốc"*, *"Quản lý"*, *"Leader"*, *"Manager"*...) và in danh sách nhân viên đang nắm giữ các vị trí quản lý này.
+
+```powershell
+# Quét CSDL và hiển thị danh sách Chức danh & Nhân viên Quản lý
+python scripts/detect_manager_titles.py
+```
+
+### 5.6. Tự động Gán Sếp cho Nhân viên theo Phòng ban (`auto_assign_managers.py`)
+
+* **File nguồn**: [scripts/auto_assign_managers.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_managers.py)
+* **Tác dụng**: Tự động nhận diện Trưởng bộ phận / Quản lý của từng Phòng ban (`Department`) và gán lại `manager` cho toàn bộ nhân viên trong phòng ban đó. Đồng thời tự động liên kết Trưởng phòng tới Trưởng bộ phận cấp trên theo cây `parent_department`.
+
+```powershell
+# Chạy tự động gán Manager cho tất cả nhân viên trong CSDL
+python scripts/auto_assign_managers.py
+```
+
+### 5.7. Xem Cây Phòng ban, Trưởng bộ phận & Danh sách Nhân viên (`show_department_tree.py`)
+
+* **File nguồn**: [scripts/show_department_tree.py](file:///d:/Sources/dashboard-report/scripts/show_department_tree.py)
+* **Tác dụng**: In ra toàn bộ danh sách Đơn vị / Phòng ban (`Department`), Trưởng phòng / Quản lý đại diện của phòng ban đó và danh sách từng Nhân viên trực thuộc kèm theo Sếp trực tiếp phụ trách.
+
+```powershell
+# Sắp xếp mặc định theo Mã NV tăng dần (code)
+python scripts/show_department_tree.py
+
+# Tuỳ chọn sắp xếp theo Tên Chức danh (A-Z)
+python scripts/show_department_tree.py --sort-by title
+
+# Tuỳ chọn sắp xếp theo ID Chức danh (tăng dần)
+python scripts/show_department_tree.py --sort-by title_id
+
+# Tuỳ chọn sắp xếp theo Họ và Tên nhân viên (A-Z)
+python scripts/show_department_tree.py --sort-by name
+```
+
+### 5.8. Tự động Gán Sales phụ trách Khách hàng từ Sổ Bán hàng (`auto_assign_customer_sales.py`)
+
+* **File nguồn**: [scripts/auto_assign_customer_sales.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_customer_sales.py)
+* **Tác dụng**: Tự động phân tích lịch sử Bán hàng (`SalesTransaction`) và gán Nhân viên Sales phát sinh giao dịch nhiều nhất làm Sales phụ trách chính (`Customer.assigned_employee`) cho từng Khách hàng.
+
+```powershell
+# Tự động gán Sales phụ trách cho Khách hàng từ lịch sử Bán hàng
+python scripts/auto_assign_customer_sales.py
 ```
 
 ---

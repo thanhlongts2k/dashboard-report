@@ -5,7 +5,7 @@ from .models import (
     Department, JobTitle, EmployeeAssignment,
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
     AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup, BankBalance,
-    BUTargetPlan, ManualAdjustment
+    BUTargetPlan, ManualAdjustment, EmployeeReceivableSummary
 )
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
@@ -434,4 +434,21 @@ class ManualAdjustmentAdmin(admin.ModelAdmin):
             bu_id = obj.business_unit.id if obj.business_unit else None
             update_single_bu_performance(bu_id, month=obj.month, year=obj.year)
             count += 1
-        messages.success(request, f"✅ Đã recalculate lại KPI thành công cho {count} khoản điều chỉnh!")
+        messages.success(request, f"✅ Đã recalculate lại KPI thành công cho {count} khoản điều chỉnh!")
+
+
+@admin.register(EmployeeReceivableSummary)
+class EmployeeReceivableSummaryAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee', 'department', 'reporting_period', 'is_manager',
+        'own_total_debt', 'own_overdue_total', 'own_overdue_above_120',
+        'team_total_debt', 'team_overdue_total', 'subordinate_count'
+    )
+    list_filter = ('reporting_period', 'is_manager', 'department')
+    search_fields = ('employee__employee_code', 'employee__full_name', 'department__department_name')
+    readonly_fields = (
+        'created_at', 'updated_at', 'own_total_debt', 'own_due_total', 'own_overdue_total',
+        'own_overdue_above_60', 'own_overdue_above_120', 'team_total_debt', 'team_due_total',
+        'team_overdue_total', 'team_overdue_above_120', 'subordinate_count'
+    )
+    ordering = ('-reporting_period', '-is_manager', '-team_total_debt')

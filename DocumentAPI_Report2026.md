@@ -321,6 +321,201 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 ---
 
+- Nếu tính toán cho **tháng hiện tại** (trùng tháng/năm hiện tại): `target_date` tự động lấy ngày hôm nay (`today.date()`).
+  - Nếu tính toán cho **tháng cũ** trong quá khứ: `target_date` tự động lấy ngày cuối cùng của tháng đó (`calendar.monthrange(year, month)[1]`).
+- Hệ thống sẽ chạy vòng lặp cập nhật phát sinh thực tế từng ngày (`BUPerformanceDaily`) bắt đầu từ ngày 1 đến hết ngày `target_date`.
+
+#### 3. Bộ lọc Khách hàng ghi nhận doanh thu (`Customer.has_revenue`)
+- Toàn bộ các truy vấn tính Doanh thu (`SalesTransaction`) và Thực thu (`AccountDetail`) đều được áp dụng bộ lọc bắt buộc:
+  `customer__has_revenue=True`
+
+#### 4. Logic chi tiết tính các chỉ số hiệu suất
+*   **Doanh thu lũy kế tháng**: Tổng hợp từ bảng `SalesTransaction` (cộng cột `actual_sales`).
+    > [!IMPORTANT]
+    > **Đồng bộ hóa công thức Doanh thu:**
+    > - Cả Doanh thu lũy kế tháng (`mtd_revenue_actual`) và Doanh thu phát sinh hàng ngày (`daily_revenue`) đều được đồng bộ hóa sử dụng chung cột **`actual_sales`** (Doanh số thực tế sau giảm trừ) từ bảng `SalesTransaction` để đảm bảo tính nhất quán tuyệt đối.
+*   **Thực thu tiền mặt/ngân hàng (Collection - Quy tắc Kế toán)**: 
+    - Lọc từ sổ chi tiết tài khoản `AccountDetail` các bút toán có:
+      - Tài khoản bắt đầu bằng `111` (tiền mặt) hoặc `112` (tiền gửi ngân hàng).
+      - Tài khoản đối ứng bắt đầu bằng `1311` hoặc `1312` (phải thu khách hàng).
+    - **Công thức tính thực thu**: `coll_actual = debit_amount - credit_amount`.
+*   **Tuổi nợ & Công nợ (Receivables Ageing)**:
+    - Lọc từ bảng `ReceivablesAgeing`.
+    - **Dư nợ cần thu** (`receivable_total`): Tổng cột `total_debt`.
+    - **Nợ quá hạn** (`receivable_overdue`): Tổng cột `overdue_total`.
+*   **Tồn kho KPI**: 
+    - `InventorySummary` -> `Warehouse` -> `BusinessUnit` (thông qua `warehouse__business_unit_id=bu_id`).
+    - **Giá trị tồn kho thực tế** (`inventory_value_actual`) của BU/Tổng công ty được tính bằng tổng cột `closing_value` của bảng `InventorySummary` theo filter BU.
+
+---
+
+### Luồng C: Đồng bộ tồn kho kho hàng (Warehouse Inventory Sync)
+Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu tồn kho chi tiết từ bảng `InventorySummary` nhóm theo kho hàng rồi cập nhật ngược trực tiếp vào các trường tương ứng trong bảng `Warehouse`.
+
+---
+
+## 5. Hướng dẫn chạy và thao tác với dự án dành cho bạn
+
+> [!NOTE]
+> **Nội dung này đã được tách riêng**. Để xem chi tiết hướng dẫn cấu hình môi trường, cài đặt thư viện và cách dùng các lệnh/script kiểm thử terminal, vui lòng tham khảo file: [Run_Test_Scripts.md](Run_Test_Scripts.md)
+
+---
+
+## 6. API Endpoint phục vụ Frontend Dashboard
+
+### Phân quyền & Bảo mật API (Authentication)
+*   Hệ thống yêu cầu xác thực bằng **Knox Token** hoặc **Session**.
+*   Giao thức gọi API (ngoại trừ `/api/login/`) bắt buộc phải đính kèm Header:
+    `Authorization: Token <key_nhận_được_khi_login>`
+
+### Danh sách các API Endpoint:
+
+#### 1. Đăng nhập hệ thống
+*   `POST /api/login/`:
+    *   **Body (JSON)**: `{"username": "...", "password": "..."}`
+    *   **Response (JSON)**: Trả về Token Knox, ngày hết hạn và thông tin cơ bản của user.
+
+#### 2. Đăng xuất hệ thống (Knox Auth)
+*   `POST /api/auth/logout/`: Hủy token hiện tại.
+*   `POST /api/auth/logoutall/`: Hủy toàn bộ token đã cấp cho user.
+
+#### 3. Lấy số liệu Hiệu suất BU theo Tháng (Dashboard chính)
+*   `GET /api/bu-performance/`: Trả về số liệu kế hoạch và thực tế theo tháng kèm theo các trường KPI được tính toán tự động như `revenue_kpi`, `collection_kpi`, `inventory_vs_plan`.
+*   **Query Parameters**:
+    *   `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`: Lọc theo quãng ngày.
+    *   `?month=X`: Tháng (1-12).
+    *   `?year=X`: Năm.
+    *   `?bu_id=X`: ID BU (`null` cho Global, `all` cho toàn bộ).
+
+#### 4. Lấy số liệu Hiệu suất BU theo Ngày (Vẽ biểu đồ)
+*   `GET /api/performance/daily/`: Trả về dữ liệu doanh thu và thực thu phát sinh trong từng ngày của tháng.
+
+#### 5. Lấy số liệu Báo cáo Thu nợ theo BU (Dashboard Thu Nợ)
+*   `GET /api/dashboard/collection-by-bu/`: Trả về 5 chỉ số thu nợ chi tiết theo từng đơn vị kinh doanh chính (`is_main=True`) cho một ngày cụ thể (`?date=YYYY-MM-DD`).
+
+#### 6. Kích hoạt tính toán lại dữ liệu (Manual Trigger)
+*   `POST /api/update-performance/`: Cho phép trigger tính toán và cập nhật lại chỉ số hiệu suất bất đồng bộ qua Celery ngầm.
+
+#### 7. Gửi báo cáo qua email (Send Email API)
+*   `POST /api/reports/send-email/`: Cho phép gửi email đính kèm từ Frontend (Knox Token Auth).
+
+#### 7.1. Đăng nhập qua Google (Single Sign-On Google OAuth2 API)
+*   `POST /api/google-login/`: Đăng nhập bằng Google ID token, phát hành Knox Token cho Frontend.
+
+#### 8. Các API danh mục chi tiết (DRF ViewSets)
+*   `/api/branches/` (Chi nhánh)
+*   `/api/warehouses/` (Kho hàng)
+*   `/api/customers/` (Khách hàng)
+*   `/api/employees/` (Nhân viên — fields: `employee_code`, `full_name`, `gender`, `date_of_birth`, `identity_number`, `phone_number`, `email`, `is_active`)
+*   `/api/products/` (Sản phẩm/Vật tư hàng hóa)
+*   `/api/business-units/` (Đơn vị kinh doanh - BU)
+*   `/api/transactions/` (Chi tiết bán hàng)
+*   `/api/suppliers/` (Nhà cung cấp)
+*   `/api/supplier-groups/` (Nhóm nhà cung cấp)
+*   `/api/supplier-debts/` (Công nợ NCC)
+*   `/api/account-details/` (Sổ chi tiết tài khoản)
+*   `/api/receivables-ageing/` (Chi tiết tuổi nợ)
+*   `/api/purchase-details/` (Chi tiết mua hàng)
+*   `/api/inventory-summaries/` (Tổng hợp tồn kho)
+*   `/api/target-plans/` (Quản lý Chỉ tiêu Kế hoạch)
+*   `/api/adjustments/` (Quản lý Điều chỉnh Phát sinh Ngoại bảng)
+
+---
+
+## 7. Lưu ý kỹ thuật chuyên sâu & Hướng phát triển tương lai
+
+### 7.1. Logic Doanh thu không khớp (Đã giải quyết)
+* **Trạng thái**: **Đã hoàn thành đồng bộ**. Cả doanh thu tháng (`mtd_revenue_actual`) và doanh thu ngày (`daily_revenue`) hiện tại đều sử dụng chung trường `actual_sales` (Doanh số thực tế sau giảm trừ).
+
+### 7.2. Cảnh báo chủ động khi có lỗi (Error Handling & Alerts)
+* **Bối cảnh**: Khi có lỗi định dạng file Excel, hệ thống rollback transaction và ghi nhật ký với trạng thái `ERROR` vào `ImportLog`.
+
+### 7.3. Cơ chế Phân đoạn & Tối ưu hiệu năng nạp dữ liệu (Targeted Chunk Deletion & Bulk Load)
+* **Trạng thái**: **Đã hoàn thành chuyển đổi sang Targeted Chunk Deletion**.
+* **Cơ chế**: Khi nạp file Excel mới, hàm `detect_period_from_filename` trong [accounting/services/period_parser.py](file:///d:/Sources/dashboard-report/accounting/services/period_parser.py) đọc lướt các cột ngày hạch toán/chứng từ để trích xuất dải thời gian `[min_date, max_date]`. Hệ thống chỉ xóa phân đoạn các bản ghi trùng khoảng thời gian này và nạp mới bằng `bulk_create` theo chunk 1,000 dòng.
+
+### 7.4. Cấu trúc cây phân cấp của Business Unit (BU Hierarchy)
+* Bảng `BusinessUnit` sử dụng mối quan hệ đệ quy đơn giản thông qua `parent = models.ForeignKey('self')`. Gọi hàm `bu.get_all_descendant_ids()` để thu thập ID toàn bộ BU con/cháu.
+
+### 7.5. Cơ chế phân quyền xem báo cáo (Row-Level Security / Data Isolation)
+* Hệ thống hiện chưa có Object-level permission. Cần thiết kế thêm `permissions.BasePermission` khi mở rộng API riêng cho các phòng ban độc lập.
+
+---
+
+## 8. Giải đáp các câu hỏi Onboarding thực tế (FAQ dành cho Nhà phát triển)
+
+### Q1: Trường `Customer.has_revenue` được gán thủ công hay import từ đâu?
+* **Trả lời**: Trường này được hỗ trợ **import tự động** thông qua `CustomerResource` (mặc định là `True`) hoặc chỉnh sửa thủ công trên Django Admin.
+
+### Q2: Logic `parent == NULL` xác định Global Company là chủ ý nghiệp vụ hay giải pháp tình thế (workaround)?
+* **Trả lời**: Đây là **chủ ý nghiệp vụ** của HP Co. Quy ước chính xác hiện tại là: chỉ khi `bu_id is None` mới đại diện cho **Tổng công ty (Global)**.
+
+### Q3: Các trường `actual_sales` và `sales_amount` khác nhau như thế nào?
+* **Trả lời**: `sales_amount` là doanh số thô trên hóa đơn. `actual_sales` là doanh số thực tế sau giảm trừ chiết khấu, dùng thống nhất cho Doanh thu MTD và Doanh thu Ngày.
+
+### Q4: Lệnh xóa dữ liệu ở đầu luồng Import Excel là xóa toàn bộ hay xóa tăng dần (incremental)?
+* **Trả lời**: Hệ thống hoạt động theo cơ chế **Targeted Chunk Deletion (Xóa phân đoạn theo dải ngày `[min_date, max_date]`)**, không xóa trắng dữ liệu các tháng khác.
+
+### Q5: Khi import xong, hệ thống có tự động chạy `update_single_bu_performance()` và `sync_warehouse_inventory_data()` không?
+* **Trả lời**: Có. Tự động kích hoạt bất đồng bộ qua Celery tasks (`update_single_bu_performance.delay()` và `sync_warehouse_inventory_data.delay()`).
+
+### Q6: Tại sao kết quả Celery Task hiển thị ký tự mã thoát Unicode và cách khắc phục?
+* **Trả lời**: Lớp `CustomTaskResultAdmin` trong `admin.py` tự động giải mã JSON để render tiếng Việt chuẩn trên Django Admin.
+
+### Q7: Danh sách các lệnh CLI & Django Custom Management Commands chính?
+* **Trả lời**: Xem toàn bộ cú pháp và ví dụ chi tiết tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** (tài liệu trung tâm dành riêng cho terminal & scripts). Các lệnh chính bao gồm:
+  - `python manage.py sync_misa [--action=all|download|import] [--file=<PATH>] [--prefix=<PREFIX>] [--period=<PERIOD>]`
+  - `python download_report.py <KEYWORD>`
+  - `python import_specific_file.py <FILE_PATH>`
+  - `python manage.py calculate_bu_performance`, `calculate_global_performance`, `createdefaultuser`
+
+### Q8: Model `Employee` (Được cấu trúc lại 27/07/2026) có những fields nào?
+* **Trả lời**: `Employee` được chuyển từ `organization.py` → `employee.py` và được tái thiết kế toàn diện:
+  - `employee_code` (VARCHAR 20, UNIQUE — trước đây là `code`)
+  - `full_name` (VARCHAR 100 — trước đây là `name`)
+  - `gender` (CHOICES: `MALE`/`FEMALE`, nullable)
+  - `date_of_birth` (DATE, nullable)
+  - `identity_number` (VARCHAR 20, nullable)
+  - `phone_number` (VARCHAR 20, nullable)
+  - `email` (VARCHAR 100, nullable)
+  - `is_active` (BOOLEAN default True)
+* **Bảng DB mới**: `employees` (trước đây là `accounting_employee`).
+* **Các Model liên quan mới**: `Department` (bảng `departments`), `JobTitle` (bảng `job_titles`), `EmployeeAssignment` (bảng `employee_assignments`).
+* **Backward compat**: `Employee.code` property trả về `employee_code`; `Employee.name` property trả về `full_name`.
+
+---
+
+### Cập nhật bổ sung 24/07/2026 (Tái Cấu Trúc Architecture Modular Packages & Django Command `sync_misa`)
+
+1. **Gói Dịch vụ Nghiệp vụ Lõi (`accounting/services/`)**: `kpi_calculator.py`, `period_parser.py`, `inventory_sync.py`. Wrapper: `tasks.py`.
+2. **Gói Tự động hóa MISA Playwright (`accounting/misa/`)**: `locators.py`, `browser.py`, `report_exporter.py`, `automation.py`. Wrapper: `misa_tasks.py`.
+3. **Gói Django REST Framework Views (`accounting/views/`)**: `misa_api.py`, `collection_api.py`, `inventory_api.py`, `dashboard_api.py`. Wrapper: `views.py`.
+4. **Gói Django Database Models (`accounting/models/`)**: `organization.py`, `employee.py`, `master_data.py`, `transactions.py`, `debt.py`, `performance.py`. Wrapper: `models.py`.
+5. **Gói Import-Export Excel Resources (`accounting/resources/`)**: `bulk.py`, `sales.py`, `purchase.py`, `finance.py`, `debt.py`, `inventory.py`, `employee.py`. Wrapper: `resources.py`.
+6. **Django Custom Management Command (`sync_misa.py`)**: `python manage.py sync_misa --action=all|download|import --prefix=... --period=... --file=...`.
+
+---
+
+### Cập nhật bổ sung 27/07/2026 (Hệ thống Quản lý Nhân sự — Employee Management System)
+
+1. **Model `Employee` tái cấu trúc**: Chuyển từ `organization.py` → `employee.py`. Bảng DB đổi từ `accounting_employee` → `employees`. Fields cũ (`code`, `name`, `age`) được migrate data sang fields mới (`employee_code`, `full_name`) thông qua `RunPython` trong Migration 0041.
+2. **Model mới `Department`** (bảng `departments`): Phân cấp tự tham chiếu (self-FK `parent_department`), import từ `Danh_sach_nhan_vien.xlsx`.
+3. **Model mới `JobTitle`** (bảng `job_titles`): Danh mục chức danh, auto get_or_create khi import Excel.
+4. **Model mới `EmployeeAssignment`** (bảng `employee_assignments`): Lịch sử quá trình công tác (FK → Employee, Department, JobTitle; `start_date`, `end_date`).
+5. **Resource mới `EmployeeResource`** (`accounting/resources/employee.py`): Import `Danh_sach_nhan_vien.xlsx` với logic `before_import_row` (chuẩn hóa gender/date/is_active, get_or_create Department/JobTitle) và `after_save_instance` (tạo EmployeeAssignment). `skip_delete=True` — import không xóa data cũ.
+6. **Fix `sales.py`**: Cập nhật `ForeignKeyWidget(Employee, 'employee_code')` và `Employee.objects.get_or_create(employee_code=...)` khắc phục lỗi import BAN_HANG sau khi migrate.
+7. **Migration 0041**: Thủ công viết lại với đúng thứ tự: (1) Thêm fields mới, (2) RunPython copy data, (3) Xóa fields cũ, (4) Enforce unique index.
+
+---
+
+### Cập nhật bổ sung 29/07/2026 (Global Smart Anti-Popup Engine cho MISA Automation)
+
+1. **Smart Anti-Popup Engine (`accounting/misa/browser.py`)**: Thuật toán thông minh tự động phân biệt giữa Modal Tham số Báo cáo (giữ lại) và các Pop-up rác/thông báo/quảng cáo/cảnh báo ngẫu nhiên. Tự động click nút đóng thông minh hoặc xóa hẳn khỏi DOM (`element.remove()`), đồng thời giải phóng pointer-events & backdrop overlays.
+2. **Global Context Script Injection (`accounting/misa/automation.py`)**: Tự động inject JS Anti-Popup Vệ sĩ thông qua `context.add_init_script()` chạy liên tục ở background trên 100% trang và sub-frames với MutationObserver.
+3. **Report Exporter Integration (`accounting/misa/report_exporter.py`)**: Tự động kích hoạt dọn dẹp popup trước và sau khi bật Modal Tham số Báo cáo và chọn Kỳ báo cáo.
+
+---
+
 ### Cập nhật bổ sung 29/07/2026 (Phase 1 — Thiết lập Mối liên kết Dữ liệu Công nợ Nhân viên & Quản lý Nhóm)
 
 1. **Thêm trường `manager` trong `EmployeeAssignment` (`accounting/models/employee.py`)**: `ForeignKey(Employee, null=True, blank=True, related_name='managed_assignments')` đại diện cho Người quản lý trực tiếp trong từng giai đoạn công tác (`start_date` $\rightarrow$ `end_date`), bảo toàn lịch sử SCD Type 2.
@@ -328,3 +523,15 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 3. **Migration 0042 (`accounting/migrations/0042_employeeassignment_manager_customer_assigned_employee.py`)**: Đã khởi tạo và apply thành công vào SQLite DB.
 4. **Cập nhật `EmployeeResource` (`accounting/resources/employee.py`)**: Đọc tự động cột `Mã người quản lý` / `Mã quản lý` từ file Excel `Danh_sach_nhan_vien.xlsx` để gán Sếp cho `EmployeeAssignment.manager`.
 5. **Cập nhật `CustomerResource` (`accounting/resources/sales.py`)**: Đọc cột `Mã nhân viên phụ trách` từ Excel để gán `assigned_employee` cho Customer.
+
+---
+
+### Cập nhật bổ sung 29/07/2026 (Phase 2 — Model `EmployeeReceivableSummary` & Động Cơ Tính Toán Công Nợ Cá Nhân + Đệ Quy Quản Lý Nhóm)
+
+1. **Model `EmployeeReceivableSummary` (`accounting/models/performance.py`)**: Bảng DB `employee_receivable_summaries` lưu chốt công nợ theo kỳ `reporting_period` (YYYY-MM). Phân tách rõ 2 nhóm chỉ số: **Công nợ cá nhân (`own_*`)** (do các khách hàng mình phụ trách trực tiếp) và **Công nợ nhóm / quản lý (`team_*`)** (cộng dồn đệ quy từ tất cả cấp dưới).
+2. **Service Engine Tính toán Công nợ (`accounting/services/employee_debt_calculator.py`)**:
+   - `update_employee_receivable_summary(reporting_period=None)`:
+     - **Bước 1**: Hỗ trợ **Dual Mapping** tổng hợp nợ cá nhân (`own_*`): (1) Nợ do Nhân viên nội bộ trực tiếp đứng tên nợ (`Customer.code == Employee.employee_code`), và (2) Nợ của Khách hàng ngoài do Nhân viên Sales phụ trách (`Customer.assigned_employee`).
+     - **Bước 2**: Tra cứu Sếp (`manager`) và Phòng ban tại mốc `reporting_period` (ngày cuối tháng) từ `EmployeeAssignment` theo chuẩn SCD Type 2.
+     - **Bước 3**: Thuật toán đệ quy Bottom-Up `get_all_subordinate_ids_recursive()` tính toán nợ nhóm (`team_*`) và đếm cấp dưới (`subordinate_count`) cho các Trưởng nhóm / Trưởng phòng.
+3. **Đăng ký Django Admin (`EmployeeReceivableSummaryAdmin`)**: Hỗ trợ xem, lọc theo `reporting_period`, `is_manager`, `department` và quản trị trên giao diện Admin.

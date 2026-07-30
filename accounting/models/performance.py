@@ -109,3 +109,38 @@ class InventorySummary(models.Model):
     class Meta:
         verbose_name = "Hàng tồn kho"
         verbose_name_plural = "Danh mục kho (chi tiết hàng có tại kho)"
+
+
+class EmployeeReceivableSummary(models.Model):
+    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='receivable_summaries', verbose_name="Nhân viên")
+    department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True, related_name='employee_receivable_summaries', verbose_name="Phòng ban")
+    reporting_period = models.CharField(max_length=7, db_index=True, verbose_name="Kỳ báo cáo")
+    is_manager = models.BooleanField(default=False, verbose_name="Là Quản lý nhóm/Trưởng phòng")
+
+    # Chỉ số công nợ cá nhân (Own Debt)
+    own_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cá nhân")
+    own_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn cá nhân")
+    own_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn cá nhân")
+    own_overdue_above_60 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn >60 ngày (cá nhân)")
+    own_overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ xấu >120 ngày (cá nhân)")
+
+    # Chỉ số công nợ nhóm / quản lý (Team / Managed Debt - Cộng dồn đệ quy)
+    team_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cả nhóm")
+    team_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn cả nhóm")
+    team_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn cả nhóm")
+    team_overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ xấu cả nhóm (>120 ngày)")
+    subordinate_count = models.IntegerField(default=0, verbose_name="Số nhân viên cấp dưới")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Ngày tạo")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Ngày cập nhật")
+
+    class Meta:
+        db_table = 'employee_receivable_summaries'
+        verbose_name = "Công nợ Nhân viên & Quản lý"
+        verbose_name_plural = "Bảng tổng hợp công nợ Nhân viên & Quản lý"
+        unique_together = ('employee', 'reporting_period')
+
+    def __str__(self):
+        role = "Quản lý" if self.is_manager else "Sales"
+        return f"{self.employee.full_name} ({role}) - Kỳ {self.reporting_period}"
+

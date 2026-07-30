@@ -4,6 +4,49 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-29 11:50:00] Task: Document Phase 2 Business & Architecture Spec for Accountant Consultation
+- **Objective**: Tổng hợp toàn bộ Kiến trúc Kỹ thuật, Thuật toán Dual Mapping, Đệ quy nợ nhóm và Biên soạn Bảng 4 câu hỏi trọng tâm để User làm việc với Kế toán nghiệp vụ.
+- **Files Modified**:
+  1. `docs/Phase2_Accounting_Business_Spec.md`: [NEW] Báo cáo chi tiết nghiệp vụ Phase 2 & Danh sách câu hỏi gửi Kế toán.
+  2. `HANDOVER_LOG.md`: Cập nhật trạng thái bàn giao.
+- **Current Status**: **PENDING (PRIORITY ITEM)** — Phase 1 & 2 đã hoàn thành 100% Code & Docs tại `target.md` và `docs/Phase2_Accounting_Business_Spec.md`. Đang tạm ngưng Phase 3 & 4 để chờ User chốt lại quy tắc với Kế toán nghiệp vụ.
+
+## [2026-07-29 11:20:00] Task: Create Auto-Assign Customer Sales Script (`scripts/auto_assign_customer_sales.py`)
+- **Objective**: Viết script tự động nhận diện Nhân viên Sales phát sinh giao dịch nhiều nhất trong sổ Bán hàng (`SalesTransaction`) và gán làm Sales phụ trách chính (`Customer.assigned_employee`) cho từng Khách hàng.
+- **Files Modified**:
+  1. `scripts/auto_assign_customer_sales.py`: [NEW] Script tự động gán Sales phụ trách Khách hàng từ sổ Bán hàng.
+  2. `Run_Test_Scripts.md`: Bổ sung Mục 5.8 và Bảng Mục Lục Nhanh.
+- **Current Status**: **COMPLETED** — Đã khởi tạo script và cập nhật tài liệu.
+
+## [2026-07-29 10:45:00] Task: Create Department Tree & Staff Inspector Script (`scripts/show_department_tree.py`)
+- **Objective**: Viết script hiển thị danh sách toàn bộ Phòng ban (`Department`), Trưởng phòng/Quản lý đại diện và danh sách từng Nhân viên trực thuộc kèm theo Sếp phụ trách.
+- **Files Modified**:
+  1. `scripts/show_department_tree.py`: [NEW] Script in cây phòng ban và danh sách nhân viên trực thuộc.
+  2. `Run_Test_Scripts.md`: Bổ sung Mục 5.7 và Bảng Mục Lục Nhanh.
+- **Current Status**: **COMPLETED** — Đã bổ sung tham số CLI `--sort-by` cho phép tuỳ chọn sắp xếp danh sách nhân viên theo Mã NV (`code`), Tên Chức danh (`title`), ID Chức danh (`title_id`) hoặc Họ tên (`name`).
+
+## [2026-07-29 10:40:00] Task: Create Auto-Assign Manager Utility Script (`scripts/auto_assign_managers.py`)
+- **Objective**: Viết script tự động nhận diện Trưởng phòng/Quản lý của từng Phòng ban (`Department`) và gán liên kết `manager` cho 100% nhân viên trong phòng ban đó, đồng thời liên kết Trưởng phòng tới Trưởng bộ phận cấp trên theo cây `parent_department`.
+- **Files Modified**:
+  1. `scripts/auto_assign_managers.py`: [NEW] Script tự động gán Manager cho nhân viên theo phòng ban.
+  2. `Run_Test_Scripts.md`: Bổ sung Mục 5.6 và Bảng Mục Lục Nhanh.
+- **Current Status**: **COMPLETED** — Đã khởi tạo script và cập nhật tài liệu.
+
+## [2026-07-29 09:58:00] Task: Create Manager JobTitle & Employee Detection Utility Script (`scripts/detect_manager_titles.py`)
+- **Objective**: Viết script quét tự động danh mục `JobTitle` và `EmployeeAssignment` để phát hiện các Chức danh Quản lý / Trưởng bộ phận và liệt kê nhân viên đang giữ vị trí quản lý.
+- **Files Modified**:
+  1. `scripts/detect_manager_titles.py`: [NEW] Script phát hiện chức danh quản lý và danh sách sếp/trưởng nhóm.
+  2. `Run_Test_Scripts.md`: Bổ sung Mục 5.5 và Bảng Mục Lục Nhanh.
+- **Current Status**: **COMPLETED** — Đã nâng cấp script nhóm chức danh theo Đơn vị / Phòng ban (`Department`) và đếm chính xác số lượng nhân viên thực tế duy nhất (`active & unique`).
+
+## [2026-07-29 09:50:00] Task: Phase 2 Implementation - EmployeeReceivableSummary Model & Debt Calculation Engine
+- **Objective**: Tạo Model `EmployeeReceivableSummary`, khởi tạo Migration 0044 và xây dựng Service Engine `employee_debt_calculator.py` hỗ trợ tính nợ cá nhân + đệ quy cộng dồn nợ nhóm cho Trưởng phòng/Trưởng nhóm.
+- **Planned Modifications**:
+  1. `accounting/models/performance.py`: Tạo model `EmployeeReceivableSummary`.
+  2. `accounting/services/employee_debt_calculator.py`: Tạo engine tính toán nợ cá nhân & đệ quy nợ nhóm.
+  3. `accounting/admin.py`: Đăng ký `EmployeeReceivableSummaryAdmin`.
+- **Current Status**: **COMPLETED** — Đã tạo Model `EmployeeReceivableSummary`, re-export trong `models/__init__.py`, nâng cấp Service Engine `employee_debt_calculator.py` hỗ trợ Dual Mapping (trùng mã NV & assigned_employee) + đệ quy nợ nhóm, đăng ký `EmployeeReceivableSummaryAdmin` và cập nhật tài liệu hệ thống.
+
 ## [2026-07-29 09:45:00] Task: Phase 1 Implementation - Employee & Manager Debt Data Relationships
 - **Objective**: Bổ sung liên kết `manager` trong `EmployeeAssignment` và `assigned_employee` trong `Customer`, tạo Django migration và cập nhật các Excel Resource tương ứng.
 - **Planned Modifications**:
