@@ -12,7 +12,7 @@
   3. `templates/auth/activation_response.html`: [NEW] Template trang Web phản hồi kích hoạt thành công.
   4. `templates/auth/activation_error.html`: [NEW] Template trang Web phản hồi lỗi kích hoạt.
   5. `accounting/services/sso_notifier.py`: Sử dụng `render_to_string`.
-  6. `accounting/views/misa_api.py`: Sử dụng `render(request, ...)`.
+  6. `accounting/views/misa_api.py`: Phân tách thông báo lỗi đăng nhập SSO riêng cho Tài khoản Mới Đăng Ký vs Tài khoản Cũ bị Khóa.
   7. `accounting/views/dashboard_api.py`: Tái sử dụng helper `get_formatted_from_email()`.
   8. `report2026/settings.py`: Khai báo `ADMIN_NOTIFICATION_EMAILS` và `DEFAULT_FROM_EMAIL` fallback.
   9. `guildSendMail.md`: Cập nhật hướng dẫn `.env`.

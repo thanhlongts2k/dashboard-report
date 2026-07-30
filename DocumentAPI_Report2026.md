@@ -551,14 +551,18 @@ sequenceDiagram
     actor Admin as Quản trị viên (Admin)
     participant ActAPI as API /api/auth/activate-user/
 
-    User->>SSO: Đăng nhập Google SSO (Lần đầu)
-    SSO->>System: Tạo User (is_active=False), Sinh Token Ký Số
-    SSO-->>User: Trả về thông báo: "Cần kích hoạt Mức 2, thông báo đã gửi cho Admin"
-    System->>Admin: Gửi Email Thông Báo kèm Link Kích Hoạt Nhanh (URL)
-    Admin->>ActAPI: Bấm Link Kích Hoạt trong Email (GET /api/auth/activate-user/?token=...)
-    ActAPI->>System: Giải mã Token, chuyển user.is_active = True
-    ActAPI->>User: Gửi Email Thông báo "Tài khoản đã kích hoạt thành công!"
-    ActAPI-->>Admin: Trả về trang HTML thông báo Kích hoạt Thành công!
+    User->>SSO: Đăng nhập Google SSO
+    alt Lần đầu đăng ký (created == True)
+        SSO->>System: Tạo User (is_active=False), Sinh Token Ký Số
+        System->>Admin: Gửi Email Thông Báo kèm Link Kích Hoạt Nhanh (URL)
+        SSO-->>User: Trả về 400: "Tài khoản vừa được tạo mới, cần kích hoạt Mức 2..."
+        Admin->>ActAPI: Bấm Link Kích Hoạt trong Email (GET /api/auth/activate-user/?token=...)
+        ActAPI->>System: Giải mã Token, chuyển user.is_active = True
+        ActAPI->>User: Gửi Email Thông báo "Tài khoản đã kích hoạt thành công!"
+        ActAPI-->>Admin: Render trang HTML thông báo Kích hoạt Thành công!
+    else Tài khoản đã bị Admin khóa (is_active == False)
+        SSO-->>User: Trả về 400: "Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa..."
+    end
 ```
 
 ### 14.2. API Endpoint Kích Hoạt Tài Khoản (`/api/auth/activate-user/`)
