@@ -516,6 +516,14 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 ---
 
+### Cập nhật bổ sung 31/07/2026 (Cơ Chế Fail-Fast Cho MISA Download Automation)
+
+1. **Bảo Vệ Chi Nhánh Phụ Thuộc (`report_exporter.py`)**: Bắt buộc click thành công checkbox *"Bao gồm số liệu chi nhánh phụ thuộc"*. Nếu gặp lỗi hoặc bị che khuất, ném ngay `RuntimeError("CRITICAL: Không thể click chọn 'Bao gồm chi nhánh phụ thuộc'...")` dừng tiến trình để tránh tải nhầm file thiếu dữ liệu BU con.
+2. **Bắt Bộc Chọn "Mẫu chuẩn." Cho BAN_HANG**: Nếu nút bánh răng cài đặt lưới báo cáo quá timeout 30s hoặc không tìm thấy menu item *"Mẫu chuẩn."*, ném ngay `RuntimeError("CRITICAL: Không thể chuyển sang 'Mẫu chuẩn.'...")` để ngắt kết nối, tuyệt đối không xuất file dạng mẫu rút gọn/bị filter.
+3. **Bắt Bộc Đúng Kỳ Báo Cáo (`period_option`)**: Loại bỏ cơ chế fallback bàn phím gõ chuỗi mù quáng. Bắt buộc match chính xác item trong UI dropdown. Nếu không chọn được `target_period`, ném lỗi dừng tiến trình lập tức.
+
+---
+
 ### Cập nhật bổ sung 29/07/2026 (Phase 1 — Thiết lập Mối liên kết Dữ liệu Công nợ Nhân viên & Quản lý Nhóm)
 
 1. **Thêm trường `manager` trong `EmployeeAssignment` (`accounting/models/employee.py`)**: `ForeignKey(Employee, null=True, blank=True, related_name='managed_assignments')` đại diện cho Người quản lý trực tiếp trong từng giai đoạn công tác (`start_date` $\rightarrow$ `end_date`), bảo toàn lịch sử SCD Type 2.

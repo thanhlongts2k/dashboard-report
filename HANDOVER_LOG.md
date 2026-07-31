@@ -4,6 +4,16 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-31 11:18:00] Task: Fail-Fast Refactoring for MISA Report Exporter (`report_exporter.py`)
+- **Objective**: Tái cấu trúc (Refactor) module download MISA `accounting/misa/report_exporter.py` sang cơ chế **Fail-Fast**. Ném Exception dừng tiến trình lập tức nếu không chọn được ô "Bao gồm chi nhánh phụ thuộc", không chọn được "Mẫu chuẩn." hoặc chọn sai Kỳ báo cáo.
+- **Planned Modifications**:
+  1. `accounting/misa/report_exporter.py`: 
+     - Sửa logic checkbox "Bao gồm chi nhánh phụ thuộc": raise `Exception("CRITICAL: Không thể click chọn 'Bao gồm chi nhánh phụ thuộc'...")` nếu không tick được.
+     - Sửa logic chọn "Mẫu chuẩn." cho `BAN_HANG`: raise `Exception("CRITICAL: Không thể chuyển sang 'Mẫu chuẩn.'...")` nếu quá timeout 30s hoặc không tìm thấy menu item.
+     - Sửa logic chọn Kỳ báo cáo (`period_option`): bắt buộc chọn đúng period bằng UI dropdown, ném lỗi nếu không chọn được.
+  2. `DocumentAPI_Report2026.md`: Cập nhật tài liệu kỹ thuật về cơ chế Fail-Fast bảo vệ dữ liệu import.
+- **Current Status**: **COMPLETED** — Đã hoàn thành 100% việc tái cấu trúc `report_exporter.py` sang cơ chế Fail-Fast, kiểm thử py_compile thành công và cập nhật `DocumentAPI_Report2026.md`.
+
 ## [2026-07-31 09:30:00] Task: Deep Audit Database vs Accountant Snapshot (30/07/2026)
 - **Objective**: Phân tích chuyên sâu 100% chỉ số cả MTD (Tháng 7/2026) lẫn YTD (Lũy kế 01/01 - 30/07) đối soát giữa CSDL Hệ thống và Bảng Snapshot Kế toán (chốt 30/07/2026 lúc 7:00 AM).
 - **Planned Modifications**:
