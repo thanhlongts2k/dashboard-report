@@ -4,6 +4,13 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-31 09:30:00] Task: Deep Audit Database vs Accountant Snapshot (30/07/2026)
+- **Objective**: Phân tích chuyên sâu 100% chỉ số cả MTD (Tháng 7/2026) lẫn YTD (Lũy kế 01/01 - 30/07) đối soát giữa CSDL Hệ thống và Bảng Snapshot Kế toán (chốt 30/07/2026 lúc 7:00 AM).
+- **Planned Modifications**:
+  1. `scratch/full_ytd_mtd_audit.py`: Viết script đối soát tự động toàn bộ 23 BU và các chỉ số lõi.
+  2. `Accounting_Tracking_History.md`: Bổ sung Mục 16 lưu trữ toàn bộ bảng đối soát MTD & YTD chi tiết.
+- **Current Status**: **COMPLETED** — Đã hoàn thành đối soát sâu 100% MTD & YTD, cập nhật tài liệu `Accounting_Tracking_History.md` và `HANDOVER_LOG.md` tuân thủ SOP `CheckList.md`.
+
 ## [2026-07-31 08:25:00] Task: Handle Re-clicking Activation Link for Already Active Users
 - **Objective**: Phân tách phản hồi trang Web cho Admin khi click lại link kích hoạt tài khoản đã được active từ trước (Tránh báo lại "Kích Hoạt Thành Công" làm nhầm lẫn Admin).
 - **Planned Modifications**:

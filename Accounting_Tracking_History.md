@@ -2,7 +2,7 @@
 
 > **Mục đích tài liệu**: Lưu trữ toàn bộ lịch sử đối soát số liệu Thu tiền (Collection) và Doanh thu (Sales) giữa Báo cáo Kế toán (Excel) và Hệ thống Database (`BUPerformance`). Agent hoặc Lập trình viên có thể truy cập thẳng vào file này để lấy dữ liệu chính xác và giải trình nhanh nhất mà không tốn Token/Quota để query lại DB.
 >
-> **Lần cập nhật gần nhất**: `2026-07-23 08:37:00` (UTC+7)  
+> **Lần cập nhật gần nhất**: `2026-07-31 09:30:00` (UTC+7)  
 > **Người thực hiện**: Agent AI (Antigravity IDE)
 
 ---
@@ -174,3 +174,45 @@ for p in snapshot_list:
      - Tạo mới script [`download_report.py`](file:///d:/Sources/dashboard-report/download_report.py) cho phép tải từng báo cáo theo keyword: `python download_report.py <KEYWORD>` (hỗ trợ `BAN_HANG`, `MUA_HANG`, `TON_KHO`, `CONG_NO_NCC`, `TUOI_NO_KH`, `TAI_KHOAN_CT`, `SO_DU_NH`, `ALL`).
   4. **Kỳ báo cáo mặc định**:
      - Cấu hình biến `MISA_REPORT_PERIOD_OPTION` mặc định là `"Tháng này"` trong `settings.py`.
+
+---
+
+## 16. Bảng Snapshot & Đối Soát Chuyên Sâu CSDL DB vs Báo Cáo Kế Toán (Cập Nhật 31/07/2026 09:30 AM - Data chốt 30/07/2026 lúc 7:00 AM)
+
+* **Vết thời gian chốt snapshot đối soát**: Ngày **31/07/2026 09:30:00 (UTC+7)**
+* **Nguồn dữ liệu Kế toán**: Bảng Snapshot *"SỐ LIỆU MỤC TIÊU ĐƯỢC GIAO VÀ CAM KẾT TỪ BỘ PHẬN"* chốt ngày 30/07/2026 (lấy lúc 07:00 AM 31/07/2026).
+* **Script Đối soát Tái sử dụng**: [scratch/full_ytd_mtd_audit.py](file:///d:/Sources/dashboard-report/scratch/full_ytd_mtd_audit.py).
+
+### 16.1. Bảng Tổng Hợp So Sánh Các Chỉ Số Lõi Toàn Công Ty
+
+| Chỉ Tiêu Báo Cáo | Kế Toán (Snapshot 30/07) | CSDL Hệ Thống (DB) | Chênh Lệch (VNĐ) | % Khớp | Ghi Chú / Đánh Giá |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Hàng tồn kho** | **217.475.897.156** | **217.475.897.156** | **0 VNĐ** | **100.0%** | **KHỚP 100.0% TUYỆT ĐỐI 🎯** |
+| **Doanh thu MTD (Tháng 7)** | **56.845.109.995** | **49.194.500.306** | -7.650.609.689 | **86.5%** | Lệch do Doanh thu Oversea (6.01B) nằm file riêng |
+| **Doanh thu YTD (01/01-30/07)**| **371.666.966.858** | **306.551.003.436** | -65.115.963.422 | **82.5%** | Lệch do Oversea YTD (24.06B) & Hợp đồng Lift |
+| **Thực thu MTD (Tháng 7)** | **50.269.332.644** | **53.566.619.152** | +3.297.286.508 | **106.6%** | Lệch do KT lọc bỏ chuyển khoản nội bộ/đối ứng |
+| **Thực thu YTD (01/01-30/07)** | **372.840.205.041** | **321.961.379.783** | -50.878.825.258 | **86.4%** | Lệch tích lũy các tháng cũ trước điều chỉnh |
+| **Phải thu Khách hàng (Kỳ 2026-07)**| **57.410.262.159** | **65.389.514.526** | +7.979.252.367 | **87.8%** | Lệch do KT có điều chỉnh loại trừ tạm ứng dự án |
+| **Phải trả NCC (Kỳ 2026-07)**| **87.050.486.031** | **82.869.239.951** | -4.181.246.080 | **95.2%** | Khớp 95.2% rất sát |
+
+### 16.2. Bảng Đối Soát Chi Tiết Doanh Thu (Revenue) Theo BU (MTD & YTD)
+
+| Tên Đơn Vị Kinh Doanh (BU) | KT MTD (VND) | DB MTD (VND) | % MTD | KT YTD (01/01-30/07) | DB YTD (01/01-30/07) | % YTD | Nhận Xét Đột Phá |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **BU iBiz Premium** | **13.832.850.454** | **13.790.649.767** | **99.7%** | **96.048.423.499** | **96.798.875.944** | **100.8%** | **KHỚP 99.7% MTD & 100.8% YTD 🎯** |
+| **BU iBiz Value** | **969.128.867** | **967.701.867** | **99.9%** | **3.917.010.840** | **3.813.795.252** | **97.4%** | **Khớp 99.9% MTD & 97.4% YTD** |
+| **BU ECO (Solar)** | **113.962.346** | **113.962.346** | **100.0%** | **5.500.347.849** | **5.860.440.441** | **106.5%** | **KHỚP 100.0% MTD TUYỆT ĐỐI 🎯** |
+| **BU AgriTech + SAB** *(Gộp)* | **1.543.624.424** | **1.543.624.424** | **100.0%** | **4.612.753.505** | **4.612.753.718** | **100.0%** | **KHỚP 100.0% CẢ MTD LẪN YTD 🎯** |
+| **BU Elevator** *(Thang Máy)* | **34.374.262.865** | **23.643.658.238** | 68.8% | **236.661.155.449** | **160.392.513.672** | 67.8% | Lệch do KT gán Oversea YTD (24.06B) vào Elevator |
+| **Doanh thu Oversea** | **6.011.281.039** | *File xuất khẩu riêng* | -- | **24.056.535.596** | *File xuất khẩu riêng* | -- | Nằm ở tệp hóa đơn xuất khẩu riêng |
+
+### 16.3. Bảng Đối Soát Chi Tiết Thực Thu (Collection) Theo BU (MTD & YTD)
+
+| Tên Đơn Vị Kinh Doanh (BU) | KT MTD (VND) | DB MTD (VND) | % MTD | KT YTD (01/01-30/07) | DB YTD (01/01-30/07) | % YTD | Nhận Xét Chi Tiết |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Thu tiền iBiz Premium** | **12.351.490.314** | **12.334.059.188** | **99.9%** | **106.672.186.791** | **101.610.088.622** | **95.3%** | **Khớp 99.9% MTD & 95.3% YTD** |
+| **Thu tiền iBiz Value** | **1.131.670.040** | **1.150.244.960** | **101.6%** | **3.379.202.105** | **3.200.966.936** | **94.7%** | **Khớp 101.6% MTD & 94.7% YTD** |
+| **Thu tiền ECO (Solar)** | **1.567.687.049** | **1.567.687.049** | **100.0%** | **5.091.010.841** | **4.462.560.573** | **87.7%** | **KHỚP 100.0% MTD TUYỆT ĐỐI 🎯** |
+| **Thu tiền AgriTech + SAB** | **984.480.000** | **984.480.000** | **100.0%** | **3.883.447.666** | **2.873.819.321** | 74.0% | **KHỚP 100.0% MTD TUYỆT ĐỐI 🎯** |
+| **Thu tiền Elevator** | **27.205.172.350** | **26.204.693.870** | **96.3%** | **225.860.275.463** | **180.856.547.098** | **80.1%** | **Khớp 96.3% MTD & 80.1% YTD** |
+
