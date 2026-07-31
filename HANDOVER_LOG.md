@@ -4,6 +4,16 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-07-31 08:25:00] Task: Handle Re-clicking Activation Link for Already Active Users
+- **Objective**: Phân tách phản hồi trang Web cho Admin khi click lại link kích hoạt tài khoản đã được active từ trước (Tránh báo lại "Kích Hoạt Thành Công" làm nhầm lẫn Admin).
+- **Planned Modifications**:
+  1. `accounting/views/misa_api.py`: `ActivateUserAPIView` kiểm tra trạng thái `already_active = user.is_active` trước khi kích hoạt. Nếu `already_active == True`, truyền context `already_active=True` sang Template và KHÔNG gửi lại email cho User.
+  2. `templates/auth/activation_response.html`: Hiển thị Banner `ℹ️ Tài Khoản Này Đã Được Kích Hoạt Từ Trước!` nếu `already_active == True`, hiển thị `🎉 Kích Hoạt Mức 2 Thành Công!` nếu vừa mới kích hoạt.
+  3. `DocumentAPI_Report2026.md`: Cập nhật Mục 14 phản hồi API.
+  4. `report2026/settings.py`: Khai báo `BACKEND_URL` để sinh link kích hoạt chuẩn xác cho Admin.
+  5. `target.md`: Cập nhật lịch sử thay đổi.
+- **Current Status**: **COMPLETED** — Đã hoàn thành 100% việc phân tách giao diện phản hồi khi Admin bấm lại link kích hoạt tài khoản đã active từ trước và bổ sung cấu hình BACKEND_URL.
+
 ## [2026-07-30 13:17:00] Task: Refactor Email & Web Response HTML to Django Templates
 - **Objective**: Tái cấu trúc (Refactor) toàn bộ chuỗi HTML hardcode trong `sso_notifier.py` và `misa_api.py` sang các file Django HTML Templates chuẩn (`templates/emails/` và `templates/auth/`).
 - **Planned Modifications**:
@@ -12,7 +22,7 @@
   3. `templates/auth/activation_response.html`: [NEW] Template trang Web phản hồi kích hoạt thành công.
   4. `templates/auth/activation_error.html`: [NEW] Template trang Web phản hồi lỗi kích hoạt.
   5. `accounting/services/sso_notifier.py`: Sử dụng `render_to_string`.
-  6. `accounting/views/misa_api.py`: Phân tách thông báo lỗi đăng nhập SSO riêng cho Tài khoản Mới Đăng Ký vs Tài khoản Cũ bị Khóa.
+  6. `accounting/views/misa_api.py`: Sử dụng `user.last_login is None` để phân tách 3 trạng thái: Mới Đăng Ký vs Thử Đăng Nhập Lại Khi Chờ Duyệt vs Tài Khoản Cũ Bị Khóa.
   7. `accounting/views/dashboard_api.py`: Tái sử dụng helper `get_formatted_from_email()`.
   8. `report2026/settings.py`: Khai báo `ADMIN_NOTIFICATION_EMAILS` và `DEFAULT_FROM_EMAIL` fallback.
   9. `guildSendMail.md`: Cập nhật hướng dẫn `.env`.

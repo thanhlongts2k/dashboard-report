@@ -74,9 +74,13 @@ class GoogleLoginAPI(KnoxLoginView):
             if created:
                 # Sinh link kích hoạt nhanh cho Admin
                 act_token = generate_activation_token(user.id)
-                scheme = request.scheme
-                host = request.get_host()
-                activation_url = f"{scheme}://{host}/api/auth/activate-user/?token={act_token}"
+                backend_url = getattr(settings, 'BACKEND_URL', None)
+                if backend_url:
+                    activation_url = f"{backend_url.rstrip('/')}/api/auth/activate-user/?token={act_token}"
+                else:
+                    scheme = request.scheme
+                    host = request.get_host()
+                    activation_url = f"{scheme}://{host}/api/auth/activate-user/?token={act_token}"
                 
                 # Gửi email thông báo cho Admin
                 send_sso_registration_admin_notification(user, activation_url)
@@ -84,7 +88,10 @@ class GoogleLoginAPI(KnoxLoginView):
                 return Response({'error': 'Tài khoản vừa được tạo mới, cần được kích hoạt Mức 2. Thông báo đã được gửi tới Admin để xác nhận. Vui lòng kiểm tra email sau khi được kích hoạt.'}, status=status.HTTP_400_BAD_REQUEST)
 
             if not user.is_active:
-                return Response({'error': 'Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa. Vui lòng liên hệ Quản trị viên để được hỗ trợ.'}, status=status.HTTP_400_BAD_REQUEST)
+                if user.last_login is None:
+                    return Response({'error': 'Tài khoản của bạn đang trong trạng thái chờ Quản trị viên kích hoạt Mức 2. Vui lòng kiểm tra lại email sau khi được xác nhận.'}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response({'error': 'Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa. Vui lòng liên hệ Quản trị viên để được hỗ trợ.'}, status=status.HTTP_400_BAD_REQUEST)
 
             login(request, user)
             return super().post(request, format=None)
@@ -117,12 +124,17 @@ class ActivateUserAPIView(APIView):
                 host = request.get_host()
                 login_url = f"{scheme}://{host}/"
 
+            already_active = user.is_active
             if not user.is_active:
                 user.is_active = True
                 user.save()
                 send_user_activation_success_email(user, login_url=login_url)
 
-            return render(request, 'auth/activation_response.html', {'user': user, 'login_url': login_url})
+            return render(request, 'auth/activation_response.html', {
+                'user': user, 
+                'login_url': login_url,
+                'already_active': already_active
+            })
         except User.DoesNotExist:
             return render(request, 'auth/activation_error.html', {'error_message': 'Không tìm thấy tài khoản người dùng tương ứng.'}, status=404)
 

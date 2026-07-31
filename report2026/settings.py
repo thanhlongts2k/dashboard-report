@@ -240,9 +240,10 @@ EMAIL_DISPLAY_NAME = env('EMAIL_DISPLAY_NAME', default='Hao Phuong Reporting Sys
 # Cấu hình Email Admin Nhận Thông Báo SSO & Hệ Thống
 ADMIN_NOTIFICATION_EMAILS = env.list('ADMIN_NOTIFICATION_EMAILS', default=[])
 
-# Cấu hình Google OAuth2 Login & Frontend App URL
+# Cấu hình Google OAuth2 Login & App URLs
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
-FRONTEND_URL = env('FRONTEND_URL', default='https://report.haophuong.com/')
+FRONTEND_URL = env('FRONTEND_URL', default=None)
+BACKEND_URL = env('BACKEND_URL', default=None)
 
 # Logging Configuration
 LOGGING = {

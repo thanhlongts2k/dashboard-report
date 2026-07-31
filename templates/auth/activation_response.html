@@ -9,16 +9,23 @@
         .icon { font-size: 60px; color: #28a745; margin-bottom: 15px; }
         h2 { color: #333; margin-bottom: 10px; }
         p { color: #555; font-size: 15px; line-height: 1.5; }
-        .badge { background-color: #e8f5e9; color: #2e7d32; padding: 6px 12px; border-radius: 20px; font-weight: bold; word-break: break-all; }
+        .badge { background-color: #c5f8c9; color: #2e7d32; padding: 6px 12px; border-radius: 20px; font-weight: bold; word-break: break-all; }
         .btn-home { display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #0056b3; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="icon">🎉</div>
-        <h2>Kích Hoạt Mức 2 Thành Công!</h2>
-        <p>Tài khoản <span class="badge">{{ user.email }}</span> đã được chuyển sang trạng thái <b>Hoạt Động (Active)</b>.</p>
-        <p>Người dùng hiện đã có thể đăng nhập vào hệ thống Report2026 bằng tài khoản Google của họ.</p>
+        {% if already_active %}
+            <div class="icon">ℹ️</div>
+            <h2>Tài Khoản Đã Được Kích Hoạt Từ Trước!</h2>
+            <p>Tài khoản <span class="badge">{{ user.email }}</span> đã ở trạng thái <b>Hoạt Động (Active)</b> từ trước đó rồi.</p>
+            <p style="color: #666; font-size: 14px;">Quản trị viên không cần phải thực hiện lại thao tác kích hoạt.</p>
+        {% else %}
+            <div class="icon">🎉</div>
+            <h2>Kích Hoạt Mức 2 Thành Công!</h2>
+            <p>Tài khoản <span class="badge">{{ user.email }}</span> đã được chuyển sang trạng thái <b>Hoạt Động (Active)</b>.</p>
+            <p>Người dùng hiện đã có thể đăng nhập vào hệ thống Report2026 bằng tài khoản Google của họ.</p>
+        {% endif %}
         <a href="{{ login_url|default:'/' }}" class="btn-home">Về Trang Chủ Hệ Thống</a>
     </div>
 </body>

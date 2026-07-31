@@ -47,6 +47,9 @@ ADMIN_NOTIFICATION_EMAILS='admin@haophuong.com,it@haophuong.com'
 
 # Đường dẫn ứng dụng Frontend (dùng cho link Đăng nhập trong email)
 FRONTEND_URL='https://report.haophuong.com/'
+
+# Đường dẫn API Server Backend public (dùng cho link Kích hoạt Mức 2 trong email gửi Admin)
+BACKEND_URL='https://api-vending.haophuong.com'
 ```
 
 ### 💡 Lưu ý quan trọng khi dùng Gmail làm SMTP:

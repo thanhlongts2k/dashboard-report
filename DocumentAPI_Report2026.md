@@ -560,7 +560,9 @@ sequenceDiagram
         ActAPI->>System: Giải mã Token, chuyển user.is_active = True
         ActAPI->>User: Gửi Email Thông báo "Tài khoản đã kích hoạt thành công!"
         ActAPI-->>Admin: Render trang HTML thông báo Kích hoạt Thành công!
-    else Tài khoản đã bị Admin khóa (is_active == False)
+    else Thử đăng nhập lại khi chờ duyệt (created == False & last_login is None)
+        SSO-->>User: Trả về 400: "Tài khoản của bạn đang trong trạng thái chờ Quản trị viên kích hoạt Mức 2..."
+    else Tài khoản cũ đã bị Admin khóa (created == False & last_login is NOT None)
         SSO-->>User: Trả về 400: "Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa..."
     end
 ```
@@ -572,7 +574,7 @@ sequenceDiagram
 * **Query Parameters**:
   - `token`: Mã token ký số có thời hạn (ví dụ: `19833b2...`).
 * **Phản hồi**:
-  - **HTTP 200 OK**: Render template HTML `templates/auth/activation_response.html` thông báo kích hoạt thành công cho Admin và tự động gửi email chào mừng (sử dụng template `templates/emails/user_activation_success.html`) tới User.
+  - **HTTP 200 OK**: Render template HTML `templates/auth/activation_response.html`. Nếu tài khoản chưa active (`already_active=False`), hệ thống chuyển `user.is_active = True`, gửi email chào mừng tới User và hiển thị banner `🎉 Kích Hoạt Mức 2 Thành Công!`. Nếu tài khoản đã active từ trước (`already_active=True`), hệ thống hiển thị banner `ℹ️ Tài Khoản Đã Được Kích Hoạt Từ Trước!` và KHÔNG gửi lại email cho User.
   - **HTTP 400 Bad Request**: Render template HTML `templates/auth/activation_error.html` báo lỗi token không hợp lệ hoặc đã hết hạn.
 
 ### 14.3. Thư Mục Django HTML Templates (`templates/`)
