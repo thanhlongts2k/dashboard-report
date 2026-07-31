@@ -85,13 +85,38 @@ class GoogleLoginAPI(KnoxLoginView):
                 # Gửi email thông báo cho Admin
                 send_sso_registration_admin_notification(user, activation_url)
 
-                return Response({'error': 'Tài khoản vừa được tạo mới, cần được kích hoạt Mức 2. Thông báo đã được gửi tới Admin để xác nhận. Vui lòng kiểm tra email sau khi được kích hoạt.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        'error': (
+                            'Tài khoản vừa được tạo mới, cần được kích hoạt Mức 2. '
+                            'Thông báo đã được gửi tới Admin để xác nhận. '
+                            'Vui lòng kiểm tra email sau khi được kích hoạt.'
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             if not user.is_active:
                 if user.last_login is None:
-                    return Response({'error': 'Tài khoản của bạn đang trong trạng thái chờ Quản trị viên kích hoạt Mức 2. Vui lòng kiểm tra lại email sau khi được xác nhận.'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {
+                            'error': (
+                                'Tài khoản của bạn đang trong trạng thái chờ Quản trị viên kích hoạt Mức 2. '
+                                'Vui lòng kiểm tra lại email sau khi được xác nhận.'
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 else:
-                    return Response({'error': 'Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa. Vui lòng liên hệ Quản trị viên để được hỗ trợ.'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {
+                            'error': (
+                                'Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa. '
+                                'Vui lòng liên hệ Quản trị viên để được hỗ trợ.'
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
             login(request, user)
             return super().post(request, format=None)
