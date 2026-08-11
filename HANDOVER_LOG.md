@@ -4,6 +4,14 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-11 09:36:00] Task: Multi-Account TUOI_NO_KH Export & Import (131 & 1311) - Direct MISA Raw Export Fix
+- **Objective**: Tải và nạp dữ liệu nguyên bản từ MISA cho 2 tài khoản `131` và `1311` báo cáo `TUOI_NO_KH`, loại bỏ hoàn toàn các script Python tự `groupby` gây mất dữ liệu.
+- **Planned Modifications**:
+  1. `accounting/misa/report_exporter.py`: Điều hướng Playwright Crawler chọn tùy chọn xuất Excel trực tiếp từ MISA, gộp file thô nguyên bản của 2 tài khoản `131` và `1311` mà không can thiệp groupby bằng Python.
+  2. Database Cleanup & Import: Xóa sạch data cũ kỳ `2026-08` trong DB (`ReceivablesAgeing.objects.filter(reporting_period='2026-08').delete()`) và nạp file Excel gộp trực tiếp từ MISA vào DB.
+- **Current Status**: **COMPLETED** — Đã tải thành công 2 file thô nguyên bản từ MISA (1,469 dòng TK 131 và 1,383 dòng TK 1311). Đã nạp vào DB và verify lệnh `SELECT COUNT(*)` ghi nhận đúng **2,832 bản ghi** (1,459 dòng TK 131 + 1,373 dòng TK 1311).
+
+
 ## [2026-07-31 11:18:00] Task: Fail-Fast Refactoring for MISA Report Exporter (`report_exporter.py`)
 - **Objective**: Tái cấu trúc (Refactor) module download MISA `accounting/misa/report_exporter.py` sang cơ chế **Fail-Fast**. Ném Exception dừng tiến trình lập tức nếu không chọn được ô "Bao gồm chi nhánh phụ thuộc", không chọn được "Mẫu chuẩn." hoặc chọn sai Kỳ báo cáo.
 - **Planned Modifications**:

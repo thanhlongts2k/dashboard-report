@@ -17,7 +17,7 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Chỉ tải 1 loại báo cáo MISA | `python download_report.py BAN_HANG` ([Mục 3.2](#32-tải-riêng-từng-báo-cáo-misa-download_reportpy)) |
 | Nạp 1 file Excel rời vào DB | `python import_specific_file.py <path>` ([Mục 3.3](#33-nạp-file-excel-rời-vào-csdl-import_specific_filepy)) |
 | Tính lại KPI 1 BU | `python manage.py calculate_bu_performance` ([Mục 3.4](#34-tính-lại-kpi-cho-bu-cụ-thể)) |
-| Tính lại KPI Tổng công ty | `python manage.py calculate_global_performance` ([Mục 3.5](#35-tính-lại-kpi-tổng-công-ty)) |
+| Tính lại KPI Tổng công ty theo Tháng chỉ định | `python manage.py calculate_global_performance` / `python scripts/update_company_total.py` ([Mục 3.5](#35-tính-lại-kpi-tổng-công-ty-theo-tháng-chỉ-định)) |
 | Xem Snapshot CSDL thời điểm hiện tại | `python scripts/show_snapshot.py` ([Mục 5.4](#54-xem-báo-cáo-data-snapshot-csdl-ngay-lập-tức-show_snapshotpy)) |
 | Phát hiện Chức danh Quản lý & Trưởng phòng | `python scripts/detect_manager_titles.py` ([Mục 5.5](#55-phát-hiện-chức-danh-quản-lý--trưởng-bộ-phận-detect_manager_titlespy)) |
 | Tự động Gán Sếp cho Nhân viên theo Phòng ban | `python scripts/auto_assign_managers.py` ([Mục 5.6](#56-tự-động-gán-sếp-cho-nhân-viên-theo-phòng-ban-auto_assign_managerspy)) |
@@ -294,20 +294,23 @@ python manage.py calculate_bu_performance --bu_id=1 --month=7 --year=2026
 
 ---
 
-### 3.5. Tính lại KPI Tổng công ty
+### 3.5. Tính lại KPI Tổng công ty theo Tháng chỉ định
 
-* **File nguồn**: `accounting/management/commands/calculate_global_performance.py`
-* **Tác dụng**: Tính toán lại KPI tích lũy cấp **Tổng công ty (TOTAL_CORP)** — loại trừ các BU trong `EXCLUDED_BU_CODES` (hiện tại: `ĐTCT`). Tự động kích hoạt sau khi bất kỳ BU con nào cập nhật, nhưng có thể chạy thủ công khi cần.
+* **File nguồn**: `accounting/management/commands/calculate_global_performance.py` & `scripts/update_company_total.py`
+* **Tác dụng**: Tính toán lại KPI tích lũy cấp **Tổng công ty (TOTAL_CORP)** — loại trừ các BU trong `EXCLUDED_BU_CODES` (hiện tại: `ĐTCT`).
 
 ```powershell
-# Cú pháp: python manage.py calculate_global_performance --month=<1-12> --year=<YYYY>
+# Cách 1: Tính lại KPI Tổng công ty cho 1 tháng chỉ định (Management Command)
+python manage.py calculate_global_performance --month 7 --year 2026
 
-# Tính lại KPI Tổng công ty tháng 7/2026
-python manage.py calculate_global_performance --month=7 --year=2026
-
-# Tính lại KPI Tổng công ty tháng 6/2026 (kiểm tra lại số cũ)
-python manage.py calculate_global_performance --month=6 --year=2026
+# Cách 2: Tính lũy kế tuần tự từ Tháng 1 -> Tháng chỉ định (Khuyên dùng khi cần đồng bộ YTD chuẩn)
+python scripts/update_company_total.py 7 2026
 ```
+
+> [!TIP]
+> **Khi nào dùng lệnh nào?**
+> - Dùng **Cách 1** khi chỉ cần tính lại 1 tháng đơn lẻ nhanh chóng.
+> - Dùng **Cách 2** (`update_company_total.py`) khi muốn hệ thống tính tuần tự từ Tháng 1 đến tháng chỉ định để số liệu lũy kế YTD chuẩn xác 100%.
 
 ---
 

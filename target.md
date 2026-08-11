@@ -217,10 +217,10 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
   10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/CONG_NO_NCC_YYYYMMDD_HHMMSS.xlsx`.
 
-#### 5. Báo cáo `TUOI_NO_KH` (Chi tiết công nợ theo tuổi nợ)
-- **URL**: `https://actapp.misa.vn/app/PU/ReportAnalysis/RPDynamicViewer/ReceivableDetailByDebtAge`
+#### 5. Báo cáo `TUOI_NO_KH` (Tổng hợp công nợ theo tuổi nợ)
+- **URL**: `https://actapp.misa.vn/app/PU/ReportAnalysis/RPDynamicViewer/ReceivableByDebtAge`
 - **Từng bước thực hiện**:
-  1. Mở URL báo cáo `ReceivableDetailByDebtAge`.
+  1. Mở URL báo cáo `ReceivableByDebtAge`.
   2. Click nút **"Chọn tham số"**.
   3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
   4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.

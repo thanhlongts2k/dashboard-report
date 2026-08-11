@@ -96,7 +96,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     excluded_doc_id_prefixes = getattr(settings, 'EXCLUDED_DOC_ID_PREFIXES', [])
     if excluded_doc_id_prefixes:
         for prefix in excluded_doc_id_prefixes:
-            base_filter &= ~Q(doc_id__startswith=prefix)
+            base_filter &= ~Q(doc_id__istartswith=prefix)
 
     if excluded_cust_group_codes:
         base_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
@@ -234,10 +234,14 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
 
     target_plan = BUTargetPlan.objects.filter(business_unit_id=bu_id, month=month, year=year).first()
     
-    if is_global:
-        adjustments = ManualAdjustment.objects.filter(month=month, year=year, is_active=True)
+    enable_adj = getattr(settings, 'ENABLE_MANUAL_ADJUSTMENTS', False)
+    if enable_adj:
+        if is_global:
+            adjustments = ManualAdjustment.objects.filter(month=month, year=year, is_active=True)
+        else:
+            adjustments = ManualAdjustment.objects.filter(business_unit_id=bu_id, month=month, year=year, is_active=True)
     else:
-        adjustments = ManualAdjustment.objects.filter(business_unit_id=bu_id, month=month, year=year, is_active=True)
+        adjustments = ManualAdjustment.objects.none()
         
     def apply_adj(base_val, metric_code):
         met_adjs = adjustments.filter(metric_type=metric_code)
@@ -377,7 +381,12 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             d_opex_plan = existing_d.daily_opex_plan if existing_d else daily_plan_val
 
         if current_date <= target_date:
-            daily_rev = SalesTransaction.objects.filter(daily_filter & customer_rev_filter).aggregate(
+            daily_sales_filter = daily_filter & customer_rev_filter
+            if excluded_doc_id_prefixes:
+                for prefix in excluded_doc_id_prefixes:
+                    daily_sales_filter &= ~Q(doc_id__istartswith=prefix)
+
+            daily_rev = SalesTransaction.objects.filter(daily_sales_filter).aggregate(
                 total=Sum('actual_sales')
             )['total'] or 0
 

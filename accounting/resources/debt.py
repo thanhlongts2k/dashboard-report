@@ -112,6 +112,7 @@ class ReceivablesAgeingResource(BulkCreateResource):
     overdue_total = fields.Field(attribute='overdue_total', column_name='Nợ quá hạn_Tổng', widget=DecimalWidget())
     
     reporting_period = fields.Field(attribute='reporting_period', column_name='reporting_period')
+    account_code = fields.Field(attribute='account_code', column_name='Tài khoản')
 
     class Meta:
         model = ReceivablesAgeing

@@ -279,15 +279,14 @@ def auto_import_excel_from_folder(specific_file=None):
                             break
                         else:
                             imported_count += result.totals.get('new', 0) + result.totals.get('update', 0)
-                            
-                    if not has_error and imported_count == 0:
-                        has_error = True
-                        err_msg = "Không có dòng dữ liệu hợp lệ nào được import vào database."
 
                     if not has_error:
                         # BƯỚC D: DI CHUYỂN FILE VÀO THƯ MỤC SUCCESS
                         move_to_processed(filepath, 'success')
-                        msg = f"Kỳ: {reporting_period}. Đã xóa {deleted_count} dòng cũ & Import mới {imported_count} dòng."
+                        if imported_count == 0:
+                            msg = f"Kỳ: {reporting_period}. Đã xóa {deleted_count} dòng cũ & File rỗng / Không phát sinh dữ liệu trong kỳ."
+                        else:
+                            msg = f"Kỳ: {reporting_period}. Đã xóa {deleted_count} dòng cũ & Import mới {imported_count} dòng."
                         report.append(msg)
                         ImportLog.objects.create(
                             file_name=os.path.basename(filepath),

@@ -345,7 +345,12 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
     - **Nợ quá hạn** (`receivable_overdue`): Tổng cột `overdue_total`.
 *   **Tồn kho KPI**: 
     - `InventorySummary` -> `Warehouse` -> `BusinessUnit` (thông qua `warehouse__business_unit_id=bu_id`).
-    - **Giá trị tồn kho thực tế** (`inventory_value_actual`) của BU/Tổng công ty được tính bằng tổng cột `closing_value` của bảng `InventorySummary` theo filter BU.
+#### 5. Cờ cấu hình tính toán các khoản điều chỉnh Off-MISA (`ENABLE_MANUAL_ADJUSTMENTS`)
+- **Cấu hình tại `report2026/settings.py` & `.env`**:
+  `ENABLE_MANUAL_ADJUSTMENTS = env.bool('ENABLE_MANUAL_ADJUSTMENTS', default=False)`
+- **Mục đích**:
+  - Khi `ENABLE_MANUAL_ADJUSTMENTS = False` (mặc định): Bỏ qua toàn bộ các khoản điều chỉnh thủ công (`ManualAdjustment`), tính toán dữ liệu thuần túy từ CSDL MISA + Oversea. Doanh thu YTD Global sẽ là **372.83 Tỷ VNĐ** (khớp **99.69%** với con số Kế toán 371.67 Tỷ).
+  - Khi `ENABLE_MANUAL_ADJUSTMENTS = True`: Áp dụng cộng/trừ/đè các khoản điều chỉnh ngoại bảng Off-MISA (Hisa-FJT, 5EX lũy kế 6 tháng...). Doanh thu YTD Global bao gồm toàn bộ Off-MISA là **621.63 Tỷ VNĐ**.
 
 ---
 
@@ -592,5 +597,17 @@ Toàn bộ chuỗi HTML gửi Mail và giao diện Web đã được tách bạc
 - `templates/emails/user_activation_success.html`: Giao diện Email chào mừng User (kèm nút Đăng Nhập `FRONTEND_URL`).
 - `templates/auth/activation_response.html`: Giao diện trang Web thông báo Kích Hoạt Thành Công cho Admin.
 - `templates/auth/activation_error.html`: Giao diện trang Web thông báo Lỗi Kích Hoạt.
+
+---
+
+## 15. Cấu Hình & Logic Bộ Lọc Nghiệp Vụ Loại Trừ (Business Logic Filters)
+
+* **Mục đích**: Loại trừ triệt để các giao dịch không phát sinh doanh thu thực tế (như Điều chuyển nội bộ, Xuất hàng đại lý, Ký gửi, Thanh lý tài sản,...) khi tính Doanh thu YTD/MTD từ CSDL MISA.
+* **Cấu hình (`report2026/settings.py`)**:
+  - `EXCLUDED_CUSTOMER_GROUP_CODES`: `['Internal', 'DIEUCHUYEN', 'KYGUI', 'NOIBO', 'DAILI', 'XUATHANGDAILY']`
+  - `EXCLUDED_DOC_ID_PREFIXES`: `['THANHLY', 'DIEUCHUYEN', 'KYGUI', 'NOIBO', 'DC', 'KG', 'NB', 'PXK', 'XK', 'ĐCGGNKBH']`
+* **Áp dụng QuerySet (`accounting/services/kpi_calculator.py`)**:
+  - `base_filter` và `daily_sales_filter` đều tự động loại trừ `~Q(customer__group__code__in=EXCLUDED_CUSTOMER_GROUP_CODES)` và `~Q(doc_id__istartswith=prefix)` cho từng tiền tố trong `EXCLUDED_DOC_ID_PREFIXES`.
+
 
 

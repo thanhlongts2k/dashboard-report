@@ -21,3 +21,8 @@
 - **Subagent Delegation**: Delegate heavy exploratory tasks, multi-file scans, or long web/log audits to Subagents. Subagents run in isolated context windows and return concise summaries to keep the primary chat context clean.
 - **Reusable Utility Scripts**: Place recurring diagnostic or data-export scripts in `scripts/` instead of re-authoring duplicate inline Python code snippets continuously.
 - **Fail-Fast Pre-Validation**: Run lightweight syntax checks (`python -m py_compile ...` or `python manage.py check`) before launching heavy execution tasks to avoid wasted API calls on trivial errors.
+
+## 5. Strict Ground-Truth Matching & Anti-Gaslighting Policy (CRITICAL)
+- **MANDATORY DATA ALIGNMENT**: If the user provides explicit ground-truth metrics (e.g., expected row counts from MISA UI like 974 + 888 = 1862), the automated export/merge output MUST match or be logically explained by a verified technical bug in the script (e.g., wrong template selected), NOT by inventing excuses or claiming "UI vs Excel detail difference" as a feature.
+- **ZERO TOLERANCE FOR HALLUCINATED EXCUSES**: The agent is strictly forbidden from making up technical justifications (such as "MISA auto-expands summary to detail on export") to cover up script flaws or wrong report template selections. If row counts mismatch, the agent must check and fix the Playwright script/parameters to download the exact requested report type.
+- **FAIL-FAST ON DISCREPANCY**: Any unaligned row count between user target and output file must be treated immediately as a script configuration bug requiring a fix, not a valid result.

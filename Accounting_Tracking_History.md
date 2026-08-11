@@ -2,7 +2,7 @@
 
 > **Mục đích tài liệu**: Lưu trữ toàn bộ lịch sử đối soát số liệu Thu tiền (Collection) và Doanh thu (Sales) giữa Báo cáo Kế toán (Excel) và Hệ thống Database (`BUPerformance`). Agent hoặc Lập trình viên có thể truy cập thẳng vào file này để lấy dữ liệu chính xác và giải trình nhanh nhất mà không tốn Token/Quota để query lại DB.
 >
-> **Lần cập nhật gần nhất**: `2026-07-31 09:30:00` (UTC+7)  
+> **Lần cập nhật gần nhất**: `2026-07-31 16:42:40` (UTC+7)  
 > **Người thực hiện**: Agent AI (Antigravity IDE)
 
 ---
@@ -40,13 +40,34 @@ for p in snapshot_list:
 
 ---
 
-## 📸 BẢNG SNAPSHOT DỮ LIỆU DATABASE CHUẨN (THÁNG 07/2026 & LŨY KẾ 2026)
+## 📸 BẢNG SNAPSHOT DỮ LIỆU DATABASE MỚI NHẤT (CHỐT 31/07/2026 - ĐÃ NẠP ĐẦY ĐỦ OFF-MISA LŨY KẾ)
 
-* **Vết thời gian chốt snapshot**: Ngày **23/07/2026 11:15:24 (UTC+7)**
-* **Nguồn dữ liệu gốc**: Bảng `BUPerformance` (Đồng bộ trực tiếp từ cơ sở dữ liệu MISA + Điều chỉnh Ngoại bảng & Target Plan).
+* **Vết thời gian chốt snapshot**: Ngày **31/07/2026 16:59:40 (UTC+7)**
+* **Nguồn dữ liệu gốc**: Bảng `BUPerformance` (Đồng bộ trực tiếp từ cơ sở dữ liệu MISA + Lũy kế Ngoại bảng Hisa-FJT & 5EX 7 tháng + Target Plan).
 * **Mục đích**: Lưu giữ bản chụp số liệu thực tế hiện tại trên DB, giúp Agent và Người dùng tra cứu siêu tốc.
 
-### Chi Tiết Số Liệu Thực Thu (Collection) & Doanh Thu (Revenue) Trên DB (Cập nhật 23/07/2026 11:15:24)
+### Chi Tiết Số Liệu Thực Thu (Collection) & Doanh Thu (Revenue) Trên DB (Cập nhật 31/07/2026 16:59:40)
+
+| STT | Mã BU | Tên Đơn Vị / BU | Thực Thu MTD (VNĐ) | Thực Thu YTD (VNĐ) | Doanh Thu MTD (VNĐ) | Doanh Thu YTD (VNĐ) |
+| :-: | :--- | :--- | :---: | :---: | :---: | :---: |
+| **-** | **TOTAL_CORP** | **TỔNG TOÀN CÔNG TY** | **52,408,649,153** | **916,548,776,103** | **56,904,156,786** | **372,831,941,120** |
+| **1** | `HPC` | CÔNG TY CỔ PHẦN HẠO PHƯƠNG (Nội địa) | 45,358,250,262 | 287,820,579,614 | 40,173,243,342 | 348,827,335,974 |
+| **2** | `BU_ELEVATOR` | Thang máy (Đã nạp đủ Hisa-FJT & 5EX Lũy kế) | 26,384,097,489 | 178,298,351,121 | 34,363,290,643 | 236,647,950,956 |
+| **3** | `BU_IBIZ PREMIUM` | Thiết bị điện cao cấp | 12,739,416,897 | 95,952,624,705 | 13,790,649,767 | 95,979,472,715 |
+| **4** | `Oversea` | Oversea | 7,028,832,891 | 22,929,646,201 | 6,011,281,039 | 24,004,605,146 |
+| **5** | `BU_AGRITECH` | Nông nghiệp công nghệ cao | 984,480,000 | 2,873,819,321 | 1,543,624,424 | 4,612,753,718 |
+| **6** | `BU_IBIZ VALUE` | Thiết bị điện phổ thông | 1,150,244,960 | 3,200,966,936 | 967,701,867 | 3,813,795,252 |
+| **7** | `BU_ECO` | ECO (Solar) | 1,567,687,049 | 4,459,518,764 | 113,962,346 | 5,860,440,441 |
+| **8** | `VHC_BOD` | Ban điều hành | 2,385,190,958 | 2,387,670,958 | 113,646,700 | 1,042,182,772 |
+| **9** | `BU_MANUFACTURING` | Sản xuất - Nhà máy | 0 | 500,494,900 | 0 | 870,740,120 |
+| **10** | `BU_Agritech - Eco` | Nông nghiệp công nghệ cao & ECO | 0 | 392,319,438 | 0 | 0 |
+
+---
+
+### 📜 BẢNG SNAPSHOT LỊCH SỬ (CHỐT NGÀY 23/07/2026 11:15:24)
+
+* **Vết thời gian chốt snapshot**: Ngày **23/07/2026 11:15:24 (UTC+7)**
+* **Trạng thái**: Lưu trữ mốc số liệu cũ ngày 23/07/2026 để phục vụ so sánh & đối soát lịch sử.
 
 | STT | Mã BU | Tên Đơn Vị / BU | Thực Thu MTD (VNĐ) | Thực Thu YTD (VNĐ) | Doanh Thu MTD (VNĐ) | Doanh Thu YTD (VNĐ) |
 | :-: | :--- | :--- | :---: | :---: | :---: | :---: |

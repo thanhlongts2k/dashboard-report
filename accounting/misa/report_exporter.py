@@ -342,10 +342,146 @@ async def select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341', '
 
     logger.info(f"[TAI_KHOAN_CT] Finished selecting accounts: {accounts}")
 
-async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None):
+async def select_account_for_tuoi_no_kh(page, account_code):
+    """
+    Chọn mã tài khoản đơn (ví dụ '131' hoặc '1311') trong ô Combobox 'Tài khoản *' của báo cáo TUOI_NO_KH.
+    """
+    logger.info(f"[TUOI_NO_KH] Selecting account '{account_code}' in 'Tài khoản *' combobox...")
+    acc_selectors = [
+        "xpath=//label[contains(text(), 'Tài khoản')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+        "xpath=//div[contains(text(), 'Tài khoản')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+        "xpath=//label[contains(text(), 'Tài khoản')]/following::div[contains(@class,'ms-combo')][1]//input",
+        "xpath=//input[contains(@placeholder, 'Tài khoản')]",
+        ".ms-combo input[placeholder*='Tài khoản']"
+    ]
+    acc_input, frame = await find_locator_in_any_frame(page, acc_selectors, timeout=3000)
+    if not acc_input:
+        logger.warning(f"[TUOI_NO_KH] Could not find 'Tài khoản *' combobox input for {account_code}.")
+        return False
+
+    try:
+        await acc_input.click(force=True)
+        await asyncio.sleep(0.5)
+        await page.keyboard.press("Control+A")
+        await page.keyboard.press("Backspace")
+        await acc_input.fill("")
+        await acc_input.type(account_code)
+        await asyncio.sleep(1.0)
+
+        item_selectors = [
+            f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay')]//*[normalize-space(text())='{account_code}']",
+            f"xpath=//div[contains(@class,'dx-item-content') and normalize-space(.)='{account_code}']",
+            f"xpath=//tr[contains(@class,'dx-row')]//td[normalize-space(.)='{account_code}']",
+            f"xpath=//*[contains(@class,'ms-combo-item') or contains(@class,'ms-select-item')][normalize-space(text())='{account_code}']"
+        ]
+        item, _ = await find_locator_in_any_frame(page, item_selectors, timeout=2000)
+        if item:
+            await item.click(force=True)
+            logger.info(f"[TUOI_NO_KH] Clicked dropdown item for account '{account_code}'.")
+        else:
+            logger.warning(f"[TUOI_NO_KH] Dropdown item for '{account_code}' not found directly. Pressing Enter...")
+            await page.keyboard.press("Enter")
+        await asyncio.sleep(0.5)
+        return True
+    except Exception as e:
+        logger.error(f"[TUOI_NO_KH] Error selecting account '{account_code}': {str(e)}")
+        return False
+
+def merge_tuoi_no_kh_excel_files(acc_file_map, final_output_path):
+    """
+    Gộp các file Excel TUOI_NO_KH của từng tài khoản (131, 1311) thành 1 file duy nhất,
+    đồng thời bổ sung cột 'Tài khoản' chứa mã TK tương ứng để phân biệt dữ liệu trong DB.
+    """
+    import openpyxl
+
+    combined_wb = None
+    combined_ws = None
+
+    for acc_code, filepath in acc_file_map.items():
+        if not os.path.exists(filepath):
+            logger.warning(f"[TUOI_NO_KH Merge] Temp file {filepath} not found for account {acc_code}. Skipping.")
+            continue
+
+        try:
+            wb = openpyxl.load_workbook(filepath)
+            ws = wb.active
+
+            header_row_idx = -1
+            for r_idx in range(1, 20):
+                row_vals = [str(cell.value or '').strip() for cell in ws[r_idx]]
+                if 'Mã khách hàng' in row_vals:
+                    header_row_idx = r_idx
+                    break
+
+            if header_row_idx == -1:
+                logger.error(f"[TUOI_NO_KH Merge] Header 'Mã khách hàng' not found in {filepath}.")
+                wb.close()
+                continue
+
+            if not combined_wb:
+                combined_wb = openpyxl.Workbook()
+                combined_ws = combined_wb.active
+                combined_ws.title = ws.title
+
+                for r in range(1, header_row_idx + 2):
+                    row_vals = [cell.value for cell in ws[r]]
+                    if r == header_row_idx:
+                        row_vals.append('Tài khoản')
+                    elif r == header_row_idx + 1:
+                        row_vals.append('')
+                    combined_ws.append(row_vals)
+
+            for r in range(header_row_idx + 2, ws.max_row + 1):
+                row_vals = [cell.value for cell in ws[r]]
+                if any(cell is not None and str(cell).strip() != '' for cell in row_vals):
+                    c0 = str(row_vals[0] or '').strip().lower()
+                    c1 = str(row_vals[1] or '').strip().lower()
+                    if 'cộng' in c0 or 'tổng' in c0 or 'cộng' in c1 or 'tổng' in c1:
+                        continue
+                    row_vals.append(str(acc_code))
+                    combined_ws.append(row_vals)
+
+            wb.close()
+        except Exception as e:
+            logger.error(f"[TUOI_NO_KH Merge] Failed to process temp file {filepath}: {e}")
+
+    if combined_wb:
+        os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
+        combined_wb.save(final_output_path)
+        combined_wb.close()
+        logger.info(f"[TUOI_NO_KH Merge] SUCCESS: Merged accounts {list(acc_file_map.keys())} into {final_output_path}")
+        return True
+    return False
+
+async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None, target_account=None):
     """
     Phục hồi 100% luồng thao tác Playwright pre-commit 773e281~1.
     """
+    if prefix == 'TUOI_NO_KH' and target_account is None:
+        accounts_to_fetch = getattr(settings, 'MISA_TUOI_NO_KH_ACCOUNTS', ['131', '1311'])
+        if len(accounts_to_fetch) > 1:
+            logger.info(f"[TUOI_NO_KH] Multi-account export mode enabled for accounts: {accounts_to_fetch}")
+            acc_file_map = {}
+            scratch_dir = os.path.join(settings.BASE_DIR, 'scratch', 'temp_tuoi_no')
+            os.makedirs(scratch_dir, exist_ok=True)
+
+            for acc in accounts_to_fetch:
+                temp_file = os.path.join(scratch_dir, f"temp_TUOI_NO_KH_{acc}.xlsx")
+                logger.info(f"[TUOI_NO_KH] Executing export for account '{acc}' -> {temp_file}")
+                res = await download_report_from_url(
+                    page, report_url, export_selector, temp_file,
+                    prefix=prefix, skip_parameters=skip_parameters,
+                    period_option=period_option, target_account=acc
+                )
+                if res and os.path.exists(temp_file):
+                    acc_file_map[acc] = temp_file
+
+            if acc_file_map:
+                merged = merge_tuoi_no_kh_excel_files(acc_file_map, output_path)
+                logger.info(f"[TUOI_NO_KH] Preserved raw account files in scratch/temp_tuoi_no/ for verification: {list(acc_file_map.values())}")
+                return merged
+            return False
+
     if report_url:
         logger.info(f"Navigating to report URL: {report_url}")
         try:
@@ -494,6 +630,12 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                         pass
                 except Exception as e:
                     logger.error(f"Error selecting accounts for TAI_KHOAN_CT: {str(e)}")
+
+            if prefix == 'TUOI_NO_KH' and target_account:
+                try:
+                    await select_account_for_tuoi_no_kh(page, target_account)
+                except Exception as e:
+                    logger.error(f"Error selecting account '{target_account}' for TUOI_NO_KH: {str(e)}")
 
             # Step 4: Choose Period ("Tháng này", "Tháng 6", etc.) — Fail-Fast
             skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
@@ -753,20 +895,34 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         await excel_btn.click(force=True)
         await asyncio.sleep(2.5)
 
-        # Step 8: Click "Xuất Excel (dạng dữ liệu)" or "Excel" option
-        dropdown_selectors = [
-            "text='Xuất Excel (dạng dữ liệu)'",
-            "span:has-text('Xuất Excel (dạng dữ liệu)')",
-            "div:has-text('Xuất Excel (dạng dữ liệu)')",
-            ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
-            "xpath=//*[contains(text(), 'dạng dữ liệu')]",
-            "text='Excel'",
-            "span:has-text('Excel')",
-            "div:has-text('Excel')"
-        ]
+        # Step 8: Click Excel export option (dạng báo cáo / dạng tổng hợp cho TUOI_NO_KH, dạng dữ liệu cho các báo cáo khác)
+        if prefix == 'TUOI_NO_KH':
+            dropdown_selectors = [
+                "text='Xuất Excel (dạng báo cáo)'",
+                "span:has-text('Xuất Excel (dạng báo cáo)')",
+                "div:has-text('Xuất Excel (dạng báo cáo)')",
+                ".dx-menu-item-text:has-text('Xuất Excel (dạng báo cáo)')",
+                "text='Mẫu tổng hợp'",
+                "span:has-text('Mẫu tổng hợp')",
+                "text='Excel'",
+                "span:has-text('Excel')",
+                "div:has-text('Excel')"
+            ]
+        else:
+            dropdown_selectors = [
+                "text='Xuất Excel (dạng dữ liệu)'",
+                "span:has-text('Xuất Excel (dạng dữ liệu)')",
+                "div:has-text('Xuất Excel (dạng dữ liệu)')",
+                ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
+                "xpath=//*[contains(text(), 'dạng dữ liệu')]",
+                "text='Excel'",
+                "span:has-text('Excel')",
+                "div:has-text('Excel')"
+            ]
         dropdown_item, _ = await find_locator_in_any_frame(page, dropdown_selectors, timeout=4000, close_blockers=False)
         if dropdown_item:
-            logger.info("Clicking 'Xuất Excel (dạng dữ liệu)' dropdown item...")
+            item_text = await dropdown_item.inner_text()
+            logger.info(f"Clicking Excel export item '{item_text.strip()}' for prefix '{prefix}'...")
             await dropdown_item.click(force=True)
             await asyncio.sleep(2.5)
 

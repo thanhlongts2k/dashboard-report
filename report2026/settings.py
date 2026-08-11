@@ -208,15 +208,19 @@ MISA_REPORTS = {
 
 # Cấu hình kỳ báo cáo mặc định khi xuất từ MISA ('Tháng này' hoặc 'Năm nay')
 MISA_REPORT_PERIOD_OPTION = env('MISA_REPORT_PERIOD_OPTION', default='Tháng này')
+MISA_TUOI_NO_KH_ACCOUNTS = env.list('MISA_TUOI_NO_KH_ACCOUNTS', default=['131', '1311'])
 
 # Cấu hình loại trừ khi tính toán hiệu suất BU
 EXCLUDED_BU_CODES = ['ĐTCT']
 EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']
 
+# Cấu hình cờ bật/tắt tính toán các khoản điều chỉnh thủ công Off-MISA (Hisa-FJT, 5EX, ...)
+ENABLE_MANUAL_ADJUSTMENTS = env.bool('ENABLE_MANUAL_ADJUSTMENTS', default=False)
+
 # Cấu hình nhóm khách hàng Oversea để tính doanh thu tách biệt
 OVERSEA_CUSTOMER_GROUP_CODES = ['Oversea']
 
-# Danh sách tiền tố mã chứng từ bị loại trừ khi tính doanh thu (ví dụ: thanh lý tài sản)
+# Danh sách tiền tố mã chứng từ bị loại trừ khi tính doanh thu (ví dụ: thanh lý tài sản, điều chuyển nội bộ, ký gửi)
 # Để dễ mở rộng, có thể thêm các tiền tố mới vào list này.
 EXCLUDED_DOC_ID_PREFIXES = ['THANHLY']
 

@@ -66,6 +66,7 @@ class ReceivablesAgeing(models.Model):
     overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Quá hạn trên 120 ngày")
     overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ quá hạn")
     reporting_period = models.CharField(max_length=7, db_index=True, blank=True, null=True, verbose_name="Kỳ báo cáo")
+    account_code = models.CharField(max_length=20, null=True, blank=True, default='131', db_index=True, verbose_name="Tài khoản")
 
     class Meta:
         verbose_name = "Chi tiết tuổi nợ"
