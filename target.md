@@ -619,7 +619,7 @@ class EmployeeReceivableSummary(models.Model):
   * **Mặc định**: Tự động lọc ẩn các BU có `overdue_rate = 0.0` hoặc `receivable_total = 0` (chỉ hiển thị 8 BU có phát sinh nợ quá hạn).
   * **Query param `include_all=true`**: Trả về đầy đủ 22 BU vận hành độc lập.
   * **Global Summary**: Bất biến, luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (Tổng nợ TK 1311: 57,082,185,049 VNĐ).
-- `GET /api/debt/bus/<bu_code>/drilldown/` (BU 3-Tier Drilldown): Trả về cấu trúc JSON 3 tầng chi tiết (Cấp 1 BU -> Cấp 2 Key Accounts & BU Teams -> Cấp 3 Khách hàng) kèm cơ chế tự đối soát khớp 0 VNĐ (`is_matched: true`).
+- `GET /api/debt/bus/<bu_code>/drilldown/` (BU 3-Tier Drilldown): Trả về cấu trúc JSON 3 tầng chi tiết (Cấp 1 BU -> Cấp 2 Key Accounts & BU Teams -> Cấp 3 Khách hàng kèm đầy đủ 14 dải tuổi nợ chi tiết `no_due_limit`, `due_0_7`..`due_above_60`, `overdue_0_14`..`overdue_above_120`, `total_debt`) kèm cơ chế tự đối soát khớp 0 VNĐ (`is_matched: true`).
 
 ### 13.3. Lộ Trình Triển Khai & Trạng Thái Hiện Tại (Status Log)
 

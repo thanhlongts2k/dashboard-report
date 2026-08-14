@@ -401,6 +401,11 @@ def auto_import_excel_from_folder(specific_file=None):
     if imported_periods:
         latest_m, latest_y = max(imported_periods)
         latest_period = f"{latest_y:04d}-{latest_m:02d}"
+        try:
+            logger.info(f"Kích hoạt đồng bộ số liệu tồn kho vào Warehouse cho kỳ {latest_period}")
+            sync_warehouse_inventory_data_logic(reporting_period=latest_period)
+        except Exception as wh_err:
+            logger.warning(f"Lỗi khi đồng bộ dữ liệu tồn kho kho hàng: {wh_err}")
         
     # Tự động tính toán và chốt số liệu công nợ Nhân viên & Quản lý nhóm (EmployeeReceivableSummary)
     try:

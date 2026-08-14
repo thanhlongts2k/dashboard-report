@@ -476,7 +476,7 @@ python scripts/report_bu_employee_debt.py --period 2026-07
 
 ### 5.11. Báo Cáo Công Nợ Phân Cấp 3 Tầng Drilldown (`report_3tier_bu_drilldown.py`)
 
-* **File nguồn**: [scripts/report_3tier_bu_drilldown.py](file:///d:/Sources/dashboard-report/scripts/report_bu_employee_debt.py)
+* **File nguồn**: [scripts/report_3tier_bu_drilldown.py](file:///d:/Sources/dashboard-report/scripts/report_3tier_bu_drilldown.py)
 * **Tác dụng**: Xuất báo cáo cấu trúc phân cấp 3 tầng trực quan: [Cấp 1: BU] $\rightarrow$ [Cấp 2: Sales phụ trách] $\rightarrow$ [Cấp 3: Chi tiết từng Khách hàng]. Hỗ trợ xem từng BU hoặc toàn bộ 22 BUs.
 
 ```powershell
@@ -493,7 +493,7 @@ python scripts/report_3tier_bu_drilldown.py --all --period 2026-08
 ### 5.12. Kiểm Thử Bộ REST API Endpoints Công Nợ & Drilldown (`test_debt_apis.py`)
 
 * **File nguồn**: [scripts/test_debt_apis.py](file:///d:/Sources/dashboard-report/scripts/test_debt_apis.py)
-* **Tác dụng**: Chạy tự động 3 bộ test suite kiểm tra: (1) `GET /api/debt/bus/` (All BUs summary & Global); (2) `GET /api/debt/bus/<bu_code>/drilldown/` (3-Tier Drilldown & Đối soát khớp 0 VNĐ); (3) Xử lý lỗi 404 cho BU không tồn tại.
+* **Tác dụng**: Chạy tự động 3 bộ test suite kiểm tra: (1) `GET /api/debt/bus/` (Mặc định lọc nợ quá hạn & param `include_all=true`); (2) `GET /api/debt/bus/<bu_code>/drilldown/` (3-Tier Drilldown, đầy đủ 14 dải tuổi nợ chi tiết ở cấp Khách hàng & Đối soát khớp 0 VNĐ); (3) Xử lý lỗi 404 cho BU không tồn tại.
 
 ```powershell
 python scripts/test_debt_apis.py

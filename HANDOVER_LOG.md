@@ -4,6 +4,20 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-14 15:05:00] Task: Expose Full Aging Buckets at Customer Level in BU Drilldown API
+- **Objective**: Bổ sung đầy đủ 14 trường dải tuổi nợ chi tiết (Trước hạn: `no_due_limit`, `due_0_7`..`due_above_60`, `due_total`; Quá hạn: `overdue_0_14`..`overdue_above_120`, `overdue_total`; `total_debt`) vào cấp Khách hàng trong API `GET /api/debt/bus/<bu_code>/drilldown/`.
+- **Planned Modifications**:
+  1. `accounting/serializers.py`: Cập nhật `CustomerDebtDetailSerializer` khai báo đầy đủ 14 fields dải tuổi nợ.
+  2. `accounting/views/debt_api.py`: Gom và `Sum()` tất cả 14 trường dải tuổi nợ cho từng khách hàng trong `BUDebt3TierDrilldownAPIView`.
+  3. `scripts/test_debt_apis.py`: Cập nhật bộ test verify các trường tuổi nợ chi tiết và in mẫu JSON response.
+  4. `DocumentAPI_Report2026.md` & `target.md`: Cập nhật tài liệu API specs.
+- **Current Status**: **COMPLETED** — Đã hoàn thành 100%:
+  * Đã cập nhật `CustomerDebtDetailSerializer` trong `accounting/serializers.py` với đầy đủ 14 dải tuổi nợ.
+  * Đã cập nhật `BUDebt3TierDrilldownAPIView` trong `accounting/views/debt_api.py` tính tổng tất cả các dải tuổi nợ cho từng khách hàng.
+  * Đã kiểm thử tự động qua `scripts/test_debt_apis.py`: 3/3 test suite pass 100%, verify đầy đủ 14 trường dải tuổi nợ và đối soát khớp 0 VNĐ.
+  * Đã đồng bộ tài liệu `DocumentAPI_Report2026.md` và `target.md`.
+
+
 ## [2026-08-14 14:05:00] Task: Enforce Configurable Target Receivable Accounts Filter (TK 1311)
 - **Objective**: Chuẩn hóa cấu hình danh sách tài khoản công nợ mục tiêu `TARGET_RECEIVABLE_ACCOUNTS = ['1311']`, áp dụng bộ lọc `account_code__in=TARGET_RECEIVABLE_ACCOUNTS` trên toàn bộ hệ thống (kpi_calculator, employee_debt_calculator, debt_api, scripts kiểm thử).
 - **Planned Modifications**:

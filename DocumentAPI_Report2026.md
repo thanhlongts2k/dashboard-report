@@ -422,7 +422,11 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
     *   **Cấp 2 (Sales & Quản lý)**: 
         *   `key_accounts_summary`: Nhóm hợp đồng chiến lược cấp Tổng do Giám đốc Kinh doanh (CCO) phụ trách trực tiếp.
         *   `bu_teams`: Danh sách Trưởng BU, Trưởng bộ phận MB/MN và các Sales trực thuộc.
-    *   **Cấp 3 (Chi tiết Khách hàng)**: Danh sách chi tiết từng khách hàng (Mã KH, Tên KH, Nợ trong hạn, Nợ quá hạn, Tổng nợ KH).
+    *   **Cấp 3 (Chi tiết Khách hàng — Đầy đủ 14 dải tuổi nợ)**:
+        *   *Thông tin*: `customer_code`, `customer_name`
+        *   *Nhóm Trước Hạn*: `no_due_limit`, `due_0_7`, `due_8_14`, `due_15_21`, `due_22_28`, `due_29_60`, `due_above_60`, `due_total`
+        *   *Nhóm Quá Hạn*: `overdue_0_14`, `overdue_15_30`, `overdue_31_45`, `overdue_46_60`, `overdue_61_90`, `overdue_91_120`, `overdue_above_120`, `overdue_total`
+        *   *Tổng dư nợ*: `total_debt`
     *   `reconciliation`: Cơ chế tự kiểm tra đối soát, đảm bảo `drilldown_total == bu_total` (chênh lệch đúng 0 VNĐ, `is_matched: true`).
 *   **Query Parameters**:
     *   `?period=YYYY-MM`: Kỳ báo cáo (ví dụ: `2026-08`).

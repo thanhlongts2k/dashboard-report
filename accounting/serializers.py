@@ -222,9 +222,29 @@ class ManualAdjustmentSerializer(serializers.ModelSerializer):
 class CustomerDebtDetailSerializer(serializers.Serializer):
     customer_code = serializers.CharField()
     customer_name = serializers.CharField()
-    due_total = serializers.DecimalField(max_digits=18, decimal_places=2)
-    overdue_total = serializers.DecimalField(max_digits=18, decimal_places=2)
-    total_debt = serializers.DecimalField(max_digits=18, decimal_places=2)
+    
+    # Nhóm Nợ Trước Hạn (Due / Pre-due Buckets)
+    no_due_limit = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_0_7 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_8_14 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_15_21 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_22_28 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_29_60 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_above_60 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    due_total = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    
+    # Nhóm Nợ Quá Hạn (Overdue Buckets)
+    overdue_0_14 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_15_30 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_31_45 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_46_60 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_61_90 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_91_120 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_above_120 = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    overdue_total = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
+    
+    # Tổng dư nợ
+    total_debt = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
 
 
 class SalesDebtDetailSerializer(serializers.Serializer):

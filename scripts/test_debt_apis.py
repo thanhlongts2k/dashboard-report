@@ -1,8 +1,8 @@
 """
-Script Test & Kiểm Thử Toàn Diện 2 Endpoints REST API Công Nợ (Chuẩn Hóa & Tối Ưu Lọc):
+Script Test & Kiểm Thử Toàn Diện 2 Endpoints REST API Công Nợ (Chuẩn Hóa & Đầy Đủ Dải Tuổi Nợ):
 1. API 1 (Default Filtered): GET /api/debt/bus/?period=2026-08 (Chỉ hiện các BU có nợ quá hạn > 0)
 2. API 1 (Include All): GET /api/debt/bus/?period=2026-08&include_all=true (Hiển thị đầy đủ 22 BU)
-3. API 2: GET /api/debt/bus/BU_ELEVATOR/drilldown/?period=2026-08 (3-Tier Drilldown)
+3. API 2: GET /api/debt/bus/BU_ELEVATOR/drilldown/?period=2026-08 (3-Tier Drilldown + 14 Dải Tuổi Nợ Chi Tiết)
 4. API 2 (Error case): GET /api/debt/bus/NON_EXISTING_BU/drilldown/
 """
 import os
@@ -27,7 +27,7 @@ def test_apis():
     client = APIClient()
 
     print("=" * 110)
-    print("🚀 BẮT ĐẦU KIỂM THỬ 2 REST API ENDPOINTS BÁO CÁO CÔNG NỢ (TỐI ƯU LỌC & DRILLDOWN)")
+    print("🚀 BẮT ĐẦU KIỂM THỬ 2 REST API ENDPOINTS BÁO CÁO CÔNG NỢ (TỐI ƯU LỌC & CHI TIẾT DẢI TUỔI NỢ)")
     print("=" * 110)
 
     # -------------------------------------------------------------
@@ -68,7 +68,7 @@ def test_apis():
     print("  ✅ [PASS TEST 1B]: Hỗ trợ include_all=true trả về đầy đủ 22 BU!")
 
     # -------------------------------------------------------------
-    # TEST 2: API 2 — BÁO CÁO PHÂN CẤP 3 TẦNG DRILLDOWN (BU_ELEVATOR)
+    # TEST 2: API 2 — BÁO CÁO PHÂN CẤP 3 TẦNG DRILLDOWN + 14 DẢI TUỔI NỢ
     # -------------------------------------------------------------
     url_api_2 = '/api/debt/bus/BU_ELEVATOR/drilldown/?period=2026-08'
     print(f"\n📡 [TEST 2] Gọi API 2: {url_api_2}")
@@ -82,10 +82,34 @@ def test_apis():
     print(f"  🏢 [Cấp 1 - BU]: [{t1.get('code')}] {t1.get('name')} | Trưởng BU: {t1.get('manager_name')}")
     print(f"     Tổng nợ BU: {float(t1.get('receivable_total', 0)):>18,.0f} VNĐ | Quá hạn: {float(t1.get('overdue_total', 0)):>18,.0f} VNĐ")
 
+    # Verify 14 Aging Buckets in Customers
+    required_bucket_keys = [
+        'no_due_limit', 'due_0_7', 'due_8_14', 'due_15_21', 'due_22_28', 'due_29_60', 'due_above_60', 'due_total',
+        'overdue_0_14', 'overdue_15_30', 'overdue_31_45', 'overdue_46_60', 'overdue_61_90', 'overdue_91_120', 'overdue_above_120', 'overdue_total',
+        'total_debt'
+    ]
+
+    ka = data2.get('tier_2_and_3', {}).get('key_accounts_summary')
+    sample_cust = None
+    if ka and ka.get('customers'):
+        sample_cust = ka['customers'][0]
+    elif data2.get('tier_2_and_3', {}).get('bu_teams'):
+        for team in data2['tier_2_and_3']['bu_teams']:
+            if team.get('customers'):
+                sample_cust = team['customers'][0]
+                break
+
+    assert sample_cust is not None, "LỖI: Không tìm thấy khách hàng nào trong response drilldown!"
+    for k in required_bucket_keys:
+        assert k in sample_cust, f"LỖI: Khách hàng thiếu trường dải tuổi nợ '{k}'!"
+
+    print("\n  📄 [MẪU 1 KHÁCH HÀNG CÓ ĐẦY ĐỦ 14 DẢI TUỔI NỢ CHI TIẾT]:")
+    print(json.dumps(sample_cust, indent=4, ensure_ascii=False))
+
     recon = data2.get('reconciliation', {})
-    print(f"  🎯 Đối Soát Drilldown: Discrepancy = {float(recon.get('discrepancy', 0)):,.0f} VNĐ | Is Matched = {recon.get('is_matched')}")
+    print(f"\n  🎯 Đối Soát Drilldown: Discrepancy = {float(recon.get('discrepancy', 0)):,.0f} VNĐ | Is Matched = {recon.get('is_matched')}")
     assert recon.get('is_matched') is True, "LỖI: Drilldown total không khớp với BU total!"
-    print("  ✅ [PASS TEST 2]: Drilldown 3 tầng phân cấp chuẩn và đối soát khớp 100% (0 VNĐ chênh lệch)!")
+    print("  ✅ [PASS TEST 2]: Drilldown 3 tầng phân cấp chuẩn, có đầy đủ 14 dải tuổi nợ và đối soát khớp 100% (0 VNĐ chênh lệch)!")
 
     # -------------------------------------------------------------
     # TEST 3: API 2 — 404 NOT FOUND VỚI MÃ BU KHÔNG TỒN TẠI

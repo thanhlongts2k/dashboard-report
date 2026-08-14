@@ -206,23 +206,50 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
             s_code = sales.employee_code if sales else "UNASSIGNED"
             s_name = sales.full_name if sales else "Khách hàng tự do / Chưa gán Sales"
 
-            c_due = a.due_total or (a.total_debt - a.overdue_total)
-            c_ovd = a.overdue_total or Decimal('0')
-            c_tot = a.total_debt or Decimal('0')
-
             if c.code not in cust_agg:
                 cust_agg[c.code] = {
                     "customer_code": c.code,
                     "customer_name": c.name,
                     "sales_code": s_code,
                     "sales_name": s_name,
+                    "no_due_limit": Decimal('0'),
+                    "due_0_7": Decimal('0'),
+                    "due_8_14": Decimal('0'),
+                    "due_15_21": Decimal('0'),
+                    "due_22_28": Decimal('0'),
+                    "due_29_60": Decimal('0'),
+                    "due_above_60": Decimal('0'),
                     "due_total": Decimal('0'),
+                    "overdue_0_14": Decimal('0'),
+                    "overdue_15_30": Decimal('0'),
+                    "overdue_31_45": Decimal('0'),
+                    "overdue_46_60": Decimal('0'),
+                    "overdue_61_90": Decimal('0'),
+                    "overdue_91_120": Decimal('0'),
+                    "overdue_above_120": Decimal('0'),
                     "overdue_total": Decimal('0'),
                     "total_debt": Decimal('0')
                 }
-            cust_agg[c.code]["due_total"] += c_due
-            cust_agg[c.code]["overdue_total"] += c_ovd
-            cust_agg[c.code]["total_debt"] += c_tot
+
+            cust_agg[c.code]["no_due_limit"] += a.no_due_limit or Decimal('0')
+            cust_agg[c.code]["due_0_7"] += a.due_0_7 or Decimal('0')
+            cust_agg[c.code]["due_8_14"] += a.due_8_14 or Decimal('0')
+            cust_agg[c.code]["due_15_21"] += a.due_15_21 or Decimal('0')
+            cust_agg[c.code]["due_22_28"] += a.due_22_28 or Decimal('0')
+            cust_agg[c.code]["due_29_60"] += a.due_29_60 or Decimal('0')
+            cust_agg[c.code]["due_above_60"] += a.due_above_60 or Decimal('0')
+            cust_agg[c.code]["due_total"] += a.due_total or Decimal('0')
+
+            cust_agg[c.code]["overdue_0_14"] += a.overdue_0_14 or Decimal('0')
+            cust_agg[c.code]["overdue_15_30"] += a.overdue_15_30 or Decimal('0')
+            cust_agg[c.code]["overdue_31_45"] += a.overdue_31_45 or Decimal('0')
+            cust_agg[c.code]["overdue_46_60"] += a.overdue_46_60 or Decimal('0')
+            cust_agg[c.code]["overdue_61_90"] += a.overdue_61_90 or Decimal('0')
+            cust_agg[c.code]["overdue_91_120"] += a.overdue_91_120 or Decimal('0')
+            cust_agg[c.code]["overdue_above_120"] += a.overdue_above_120 or Decimal('0')
+            cust_agg[c.code]["overdue_total"] += a.overdue_total or Decimal('0')
+
+            cust_agg[c.code]["total_debt"] += a.total_debt or Decimal('0')
 
         # Group aggregated customers by Sales
         sales_map = defaultdict(lambda: {
@@ -246,7 +273,21 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
             sales_map[s_code]["customers"].append({
                 "customer_code": c_data["customer_code"],
                 "customer_name": c_data["customer_name"],
+                "no_due_limit": c_data["no_due_limit"],
+                "due_0_7": c_data["due_0_7"],
+                "due_8_14": c_data["due_8_14"],
+                "due_15_21": c_data["due_15_21"],
+                "due_22_28": c_data["due_22_28"],
+                "due_29_60": c_data["due_29_60"],
+                "due_above_60": c_data["due_above_60"],
                 "due_total": c_data["due_total"],
+                "overdue_0_14": c_data["overdue_0_14"],
+                "overdue_15_30": c_data["overdue_15_30"],
+                "overdue_31_45": c_data["overdue_31_45"],
+                "overdue_46_60": c_data["overdue_46_60"],
+                "overdue_61_90": c_data["overdue_61_90"],
+                "overdue_91_120": c_data["overdue_91_120"],
+                "overdue_above_120": c_data["overdue_above_120"],
                 "overdue_total": c_data["overdue_total"],
                 "total_debt": c_data["total_debt"]
             })

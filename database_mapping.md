@@ -152,7 +152,7 @@ Các chỉ số KPI chính gồm:
 
 #### D. Báo cáo Tuổi nợ khách hàng (`TUOI_NO_KH`) ➔ Model `ReceivablesAgeing`
 *   **Các trường ánh xạ đúng:** `customer` ➔ `Mã khách hàng`, `branch` ➔ `Chi nhánh`, `doc_date` ➔ `Ngày chứng từ`, `total_debt` ➔ `Tổng nợ`, `due_total` ➔ `Nợ trước hạn_Tổng`, `overdue_total` ➔ `Nợ quá hạn_Tổng`.
-*   **Kết quả sửa đổi:** Đã bổ sung khai báo đầy đủ 14 cột tuổi nợ chi tiết (bao gồm `due_0_7`, `due_8_30`, `overdue_0_14`, `overdue_15_30`...) trong class `ReceivablesAgeingResource`. Dữ liệu được mapping chính xác vào DB.
+*   **Kết quả sửa đổi:** Đã bổ sung khai báo đầy đủ 14 cột tuổi nợ chi tiết (bao gồm `no_due_limit`, `due_0_7`, `due_8_14`, `due_15_21`, `due_22_28`, `due_29_60`, `due_above_60`, `overdue_0_14`, `overdue_15_30`, `overdue_31_45`, `overdue_46_60`, `overdue_61_90`, `overdue_91_120`, `overdue_above_120`) trong class `ReceivablesAgeingResource`. Dữ liệu được mapping chính xác 100% vào DB.
 
 #### E. Báo cáo Sổ chi tiết tài khoản (`TAI_KHOAN_CT`) ➔ Model `AccountDetail`
 *   **Các trường ánh xạ đúng:** `posting_date` ➔ `Ngày hạch toán`, `doc_id` ➔ `Số chứng từ`, `customer` ➔ `Mã đối tượng`, `business_unit` ➔ `Mã thống kê`, `branch` ➔ `Chi nhánh`, `account_number` ➔ `Tài khoản`, `offset_account` ➔ `TK đối ứng`, `debit_amount` ➔ `Phát sinh Nợ`, `credit_amount` ➔ `Phát sinh Có`, `unreasonable_cost` ➔ `CP không hợp lý`, `account_name` ➔ `Tên tài khoản`, `balance_debit` ➔ `Dư Nợ`, `balance_credit` ➔ `Dư Có`, `unit_code` ➔ `Mã đơn vị`, `unit_name` ➔ `Tên đơn vị`.
