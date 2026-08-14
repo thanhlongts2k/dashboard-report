@@ -166,6 +166,11 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
 
     from accounting.models import ReceivablesAgeing
     ageing_filter = Q(reporting_period=f"{year:04d}-{month:02d}")
+    
+    target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+    if target_rec_accounts:
+        ageing_filter &= Q(account_code__in=target_rec_accounts)
+
     if excluded_cust_group_codes:
         ageing_filter &= ~Q(customer__group__code__in=excluded_cust_group_codes)
 

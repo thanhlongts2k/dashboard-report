@@ -4,6 +4,23 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-14 14:05:00] Task: Enforce Configurable Target Receivable Accounts Filter (TK 1311)
+- **Objective**: Chuẩn hóa cấu hình danh sách tài khoản công nợ mục tiêu `TARGET_RECEIVABLE_ACCOUNTS = ['1311']`, áp dụng bộ lọc `account_code__in=TARGET_RECEIVABLE_ACCOUNTS` trên toàn bộ hệ thống (kpi_calculator, employee_debt_calculator, debt_api, scripts kiểm thử).
+- **Planned Modifications**:
+  1. `report2026/settings.py`: Khai báo `TARGET_RECEIVABLE_ACCOUNTS = ['1311']` (dạng List có thể mở rộng).
+  2. `accounting/services/kpi_calculator.py`: Bổ sung điều kiện lọc `account_code__in=target_accounts` khi tính công nợ `BUPerformance`.
+  3. `accounting/services/employee_debt_calculator.py`: Bổ sung điều kiện lọc `account_code__in=target_accounts` khi tính nợ `EmployeeReceivableSummary`.
+  4. `accounting/views/debt_api.py`: Áp dụng bộ lọc `account_code__in=target_accounts` trong cả 2 view API (`AllBUsDebtSummaryAPIView` và `BUDebt3TierDrilldownAPIView`).
+  5. `scripts/report_3tier_bu_drilldown.py`, `scripts/report_bu_employee_debt.py`, `scripts/test_debt_apis.py`: Cập nhật bộ lọc tài khoản.
+  6. Chạy lại tính toán KPI (`update_single_bu_performance`) và Nợ Nhân viên (`update_employee_receivable_summary`), kiểm thử và cập nhật `target.md`, `DocumentAPI_Report2026.md`.
+- **Current Status**: **COMPLETED** — Đã hoàn thành 100%:
+  * Đã cấu hình `TARGET_RECEIVABLE_ACCOUNTS = env.list('TARGET_RECEIVABLE_ACCOUNTS', default=['1311'])` tại `report2026/settings.py`.
+  * Đã tích hợp bộ lọc `account_code__in=target_accounts` vào `kpi_calculator.py`, `employee_debt_calculator.py`, `debt_api.py`, `report_3tier_bu_drilldown.py`, `report_bu_employee_debt.py`, `test_debt_apis.py`.
+  * Đã chạy tính toán lại `BUPerformance` và `EmployeeReceivableSummary` kỳ `2026-08`: Tổng 22 BUs = 57,082,185,049 VNĐ, khớp tuyệt đối 100% (0 VNĐ chênh lệch) với Global KPI.
+  * 3/3 Test suites `test_debt_apis.py` PASS 100%.
+  * Đồng bộ cập nhật tài liệu `target.md` và `DocumentAPI_Report2026.md`.
+
+
 ## [2026-08-14 11:25:00] Task: Phase 3 — Build REST API Endpoints for Receivables Debt & 3-Tier Drilldown
 - **Objective**: Thiết kế và triển khai 2 Django REST Framework Endpoints chuẩn hóa:
   1. `GET /api/debt/bus/` (All BUs Summary): Mặc định lọc ẩn các BU có `overdue_rate = 0.0` (chỉ hiển thị các BU có nợ quá hạn > 0), hỗ trợ param `include_all=true` để lấy đủ 22 BU. Global summary bất biến ở mức 129.7 Tỷ.

@@ -618,7 +618,7 @@ class EmployeeReceivableSummary(models.Model):
 - `GET /api/debt/bus/` (All BUs Summary):
   * **Mặc định**: Tự động lọc ẩn các BU có `overdue_rate = 0.0` hoặc `receivable_total = 0` (chỉ hiển thị 8 BU có phát sinh nợ quá hạn).
   * **Query param `include_all=true`**: Trả về đầy đủ 22 BU vận hành độc lập.
-  * **Global Summary**: Bất biến, luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (129,696,981,480 VNĐ).
+  * **Global Summary**: Bất biến, luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (Tổng nợ TK 1311: 57,082,185,049 VNĐ).
 - `GET /api/debt/bus/<bu_code>/drilldown/` (BU 3-Tier Drilldown): Trả về cấu trúc JSON 3 tầng chi tiết (Cấp 1 BU -> Cấp 2 Key Accounts & BU Teams -> Cấp 3 Khách hàng) kèm cơ chế tự đối soát khớp 0 VNĐ (`is_matched: true`).
 
 ### 13.3. Lộ Trình Triển Khai & Trạng Thái Hiện Tại (Status Log)
@@ -642,9 +642,9 @@ class EmployeeReceivableSummary(models.Model):
 
 - ✅ **Phase 3: Báo Cáo Phân Cấp 3 Tầng (3-Tier Drilldown) & Quy Tắc Khớp Số Liệu Tuyệt Đối** — **COMPLETED**
   - **Kiến trúc 3 Tầng**:
-    * **Tầng 1 (Cấp 1: Business Unit)**: Lấy từ `BUPerformance` (22 BU độc lập, loại bỏ mã mẹ `HPC` để chống cộng trùng). Tổng 22 BU = 129,696,981,480 VNĐ (Khớp 100% với Global).
+    * **Tầng 1 (Cấp 1: Business Unit)**: Lấy từ `BUPerformance` (22 BU độc lập, loại bỏ mã mẹ `HPC` để chống cộng trùng). Tổng 22 BU = 57,082,185,049 VNĐ (Khớp 100% với Global).
     * **Tầng 2 (Cấp 2: Sales & Quản lý)**: Phân tách nhóm Key Accounts cấp Tổng (do CCO trực tiếp quản lý) và Cây Quản lý BU (`Trưởng BU -> Trưởng BP -> Sales`).
-    * **Tầng 3 (Cấp 3: Chi tiết Khách hàng)**: Lấy từ `ReceivablesAgeing` với bộ lọc loại trừ khách hàng Nước ngoài (`OVERSEA_CUSTOMER_GROUP_CODES`), đảm bảo tổng nợ tất cả KH của BU khớp chính xác 100% đến từng VNĐ với Tầng 1.
+    * **Tầng 3 (Cấp 3: Chi tiết Khách hàng)**: Lấy từ `ReceivablesAgeing` với bộ lọc loại trừ khách hàng Nước ngoài (`OVERSEA_CUSTOMER_GROUP_CODES`) và chỉ lấy tài khoản mục tiêu `TARGET_RECEIVABLE_ACCOUNTS = ['1311']`, đảm bảo tổng nợ tất cả KH của BU khớp chính xác 100% đến từng VNĐ với Tầng 1.
   - **Bộ Script hoàn chỉnh**:
     * [scripts/report_3tier_bu_drilldown.py](file:///d:/Sources/dashboard-report/scripts/report_3tier_bu_drilldown.py): Báo cáo 3 tầng drilldown chi tiết (hỗ trợ `--bu <CODE>`, `--period <YYYY-MM>`, `--all`).
     * [scripts/report_bu_employee_debt.py](file:///d:/Sources/dashboard-report/scripts/report_bu_employee_debt.py): Báo cáo song song Tổng hợp 22 BU & Bóc tách nợ Nhân viên.

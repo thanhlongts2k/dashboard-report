@@ -218,6 +218,10 @@ MISA_TUOI_NO_KH_ACCOUNTS = env.list('MISA_TUOI_NO_KH_ACCOUNTS', default=['131', 
 EXCLUDED_BU_CODES = ['ĐTCT']
 EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']
 
+# Cấu hình danh sách tài khoản mục tiêu khi tính toán công nợ phải thu thương mại khách hàng (Receivables Debt)
+# Mặc định chỉ lấy TK 1311 (Phải thu khách hàng thương mại). Thiết kế dạng List để dễ mở rộng (1312, 1313...).
+TARGET_RECEIVABLE_ACCOUNTS = env.list('TARGET_RECEIVABLE_ACCOUNTS', default=['1311'])
+
 # Cấu hình cờ bật/tắt tính toán các khoản điều chỉnh thủ công Off-MISA (Hisa-FJT, 5EX, ...)
 ENABLE_MANUAL_ADJUSTMENTS = env.bool('ENABLE_MANUAL_ADJUSTMENTS', default=False)
 

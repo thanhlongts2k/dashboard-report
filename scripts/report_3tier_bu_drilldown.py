@@ -44,9 +44,14 @@ def print_single_bu_drilldown(bu, period='2026-08', limit_cust=10):
     print(f"   👤 Trưởng BU: {mgr_name:<25} | 💰 Tổng nợ BU: {tot_bu_debt:>16,.0f} VNĐ | Trong hạn: {due_bu_debt:>15,.0f} | Quá hạn: {ovd_bu_debt:>15,.0f} ({rate:.1f}%)")
     print("=" * 140)
 
-    # Filter Oversea if not Oversea BU
+    # Filter Oversea and Target Receivable Accounts (1311)
     oversea_groups = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+    target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+
     ageing_filter = Q(reporting_period=period, customer__business_unit=bu)
+    if target_rec_accounts:
+        ageing_filter &= Q(account_code__in=target_rec_accounts)
+
     if bu.code == 'Oversea':
         ageing_filter &= Q(customer__group__code__in=oversea_groups)
     else:

@@ -414,7 +414,7 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
     *   `?include_all=true` *(hoặc `?all=true`)*: 
         *   **Mặc định (`false`)**: Tự động lọc ẩn các BU có `overdue_rate = 0.0` hoặc không có phát sinh nợ quá hạn (loại bỏ các BU nội bộ/vận hành như VHC_KT, VHC_BOD, VHC_TECHCENTER... để tránh loãng Dashboard).
         *   **Khi bật (`true`)**: Trả về đầy đủ toàn bộ 22 Business Units vận hành độc lập.
-*   **Chỉ số Global**: Luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (Tổng nợ: 129.7 Tỷ VNĐ).
+*   **Chỉ số Global**: Luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (Tổng nợ TK 1311: **57,082,185,049 VNĐ (57.08 Tỷ)**, Quá hạn: **11,858,946,783 VNĐ (20.78%)**).
 
 #### 7.3. Báo Cáo Phân Cấp 3 Tầng Drilldown Công Nợ BU (BU 3-Tier Debt Drilldown API)
 *   `GET /api/debt/bus/<str:bu_code>/drilldown/`: Trả về cấu trúc cây phân cấp 3 tầng chi tiết cho một BU cụ thể:
@@ -466,13 +466,18 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 * Hệ thống hiện chưa có Object-level permission. Cần thiết kế thêm `permissions.BasePermission` khi mở rộng API riêng cho các phòng ban độc lập.
 
 ### 7.6. Quy tắc Chống cộng trùng BU mẹ HPC & Cây Quản lý Đa Tầng CCO
-* **Loại trừ mã mẹ `HPC`**: `HPC` là Chi nhánh/Pháp nhân mẹ chứa 18 BU con. Khi truy vấn danh sách 22 BU vận hành độc lập, bắt buộc phải `.exclude(business_unit__code='HPC')`. Tổng 22 BU độc lập cộng lại là **129,696,981,480 VNĐ**, khớp tuyệt đối 100% với Global KPI.
+* **Loại trừ mã mẹ `HPC`**: `HPC` là Chi nhánh/Pháp nhân mẹ chứa 18 BU con. Khi truy vấn danh sách 22 BU vận hành độc lập, bắt buộc phải `.exclude(business_unit__code='HPC')`. Tổng 22 BU độc lập cộng lại là **57,082,185,049 VNĐ (57.08 Tỷ)**, khớp tuyệt đối 100% với Global KPI.
 * **Cây phân cấp Quản lý**: `CCO (Ngô Đình Trung Tân) -> 5 Trưởng BU (Đào Tiến Dũng, Hồ Tôn Nhật Minh, Nguyễn Ngọc Huy Phong, Hồ Xuân Quang, Trần Duy Hiếu) -> Các Trưởng bộ phận MB/MN -> Sales`.
 * **Bộ lọc Khách hàng Nước ngoài (Oversea)**: Khách hàng thuộc nhóm `OVERSEA_CUSTOMER_GROUP_CODES` được lọc tách riêng về BU `Oversea`, đảm bảo số liệu công nợ BU nội địa và BU Oversea luôn khớp 100% không trùng lặp.
 
 ### 7.7. Luồng Tự động hóa Master Data Crawler 5 bước tinh gọn
 * Crawler Playwright tích hợp trong `accounting/misa/report_exporter.py` hỗ trợ tự động tải 2 danh mục gốc: `DANH_SACH_KHACH_HANG` và `DANH_SACH_NHAN_VIEN` qua icon Green Excel trên Grid Toolbar.
 * Thứ tự ưu tiên Celery Auto-sync: Priority 1 (Nhân viên) $\rightarrow$ Priority 2 (Khách hàng) $\rightarrow$ Priority 3 (Báo cáo tài chính) $\rightarrow$ Chốt tính toán công nợ tự động (`update_employee_receivable_summary`).
+
+### 7.8. Cấu hình Danh sách Tài khoản Mục tiêu (`TARGET_RECEIVABLE_ACCOUNTS = ['1311']`)
+* **Nghiệp vụ**: Công nợ thương mại khách hàng chỉ hạch toán trên **Tài khoản 1311** (Phải thu khách hàng thương mại), loại bỏ các khoản công nợ nội bộ hoặc tài khoản khác trong `ReceivablesAgeing`.
+* **Cấu hình mở rộng**: Khai báo biến `TARGET_RECEIVABLE_ACCOUNTS = env.list('TARGET_RECEIVABLE_ACCOUNTS', default=['1311'])` tại `report2026/settings.py` dưới dạng List, giúp dễ dàng mở rộng thêm các tài khoản khác khi nghiệp vụ kế toán yêu cầu.
+* **Đồng bộ hóa**: Toàn bộ hệ thống (`kpi_calculator.py`, `employee_debt_calculator.py`, `debt_api.py` và các test scripts) đều áp dụng bộ lọc đồng nhất: `Q(account_code__in=TARGET_RECEIVABLE_ACCOUNTS)`.
 
 ---
 

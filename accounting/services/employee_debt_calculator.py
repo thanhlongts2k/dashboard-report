@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import Q
+from django.conf import settings
 from accounting.models import (
     Employee, Department, EmployeeAssignment, Customer,
     ReceivablesAgeing, EmployeeReceivableSummary
@@ -89,9 +90,14 @@ def update_employee_receivable_summary(reporting_period=None):
     logger.info(f"👉 Bắt đầu tính toán Công nợ Nhân viên & Quản lý cho kỳ {reporting_period} (Ngày chốt: {target_date})...")
 
     # -------------------------------------------------------------
-    # BƯỚC 1: Lấy danh sách snapshot tuổi nợ trong kỳ
+    # BƯỚC 1: Lấy danh sách snapshot tuổi nợ trong kỳ (Lọc theo TK mục tiêu 1311)
     # -------------------------------------------------------------
-    ageing_records = ReceivablesAgeing.objects.filter(reporting_period=reporting_period)
+    target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+    ageing_filter = Q(reporting_period=reporting_period)
+    if target_rec_accounts:
+        ageing_filter &= Q(account_code__in=target_rec_accounts)
+
+    ageing_records = ReceivablesAgeing.objects.filter(ageing_filter)
     
     # Map tổng hợp dư nợ theo từng Nhân viên (Direct Employee Debt or Assigned Sales)
     emp_own_debts = {}

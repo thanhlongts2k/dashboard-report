@@ -181,9 +181,14 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
             "overdue_rate": rate
         }
 
-        # 3. Cấp 2 & 3: Lọc chi tiết ReceivablesAgeing (Đồng bộ bộ lọc Nước ngoài)
+        # 3. Cấp 2 & 3: Lọc chi tiết ReceivablesAgeing (Đồng bộ bộ lọc Nước ngoài & Tài khoản mục tiêu 1311)
         oversea_groups = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+        target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+
         ageing_filter = Q(reporting_period=period, customer__business_unit=bu)
+        if target_rec_accounts:
+            ageing_filter &= Q(account_code__in=target_rec_accounts)
+
         if bu.code == 'Oversea':
             ageing_filter &= Q(customer__group__code__in=oversea_groups)
         else:
