@@ -35,6 +35,10 @@ REPORT_KEYWORDS = {
     'TUOI_NO_KH': 'Báo cáo Tuổi nợ khách hàng',
     'TAI_KHOAN_CT': 'Báo cáo Sổ chi tiết các tài khoản (111, 112, 341, 641, 642)',
     'SO_DU_NH': 'Báo cáo Bảng kê số dư ngân hàng',
+    'DANH_SACH_KHACH_HANG': 'Danh mục Khách hàng (Master Data)',
+    'DANH_SACH_NHAN_VIEN': 'Danh mục Nhân viên (Master Data)',
+    'KHACH_HANG': 'Danh mục Khách hàng (Master Data)',
+    'NHAN_VIEN': 'Danh mục Nhân viên (Master Data)',
 }
 
 async def download_single(prefix, period=None):

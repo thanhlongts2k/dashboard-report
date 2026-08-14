@@ -48,6 +48,8 @@ def load_and_clean_excel(file_path, prefix):
         required_cols = ['Tên ngân hàng']
     elif prefix in ['DANH_SACH_NHAN_VIEN', 'NHAN_VIEN']:
         required_cols = ['Mã nhân viên', 'Tên nhân viên']
+    elif prefix in ['DANH_SACH_KHACH_HANG', 'KHACH_HANG']:
+        required_cols = ['Mã khách hàng']
 
     for idx, row in df.iterrows():
         row_str = [str(cell).strip() if pd.notna(cell) else "" for cell in row.values]
@@ -148,17 +150,19 @@ def auto_import_excel_from_folder(specific_file=None):
     # 1. Cấu hình đường dẫn
     BASE_IMPORT_PATH = os.path.join(settings.BASE_DIR, 'media', 'auto_imports')
     
-    # 2. Mapping giữa Tiền tố File - Model - Resource
+    # 2. Mapping giữa Tiền tố File - Model - Resource (kèm Priority)
     IMPORT_MAP = {
-        'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource()},
-        'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource()},
-        'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource()},
-        'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource()},
-        'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource()},
-        'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource()},
-        'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource()},
-        'DANH_SACH_NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True},
-        'NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True},
+        'DANH_SACH_NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1},
+        'NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1},
+        'DANH_SACH_KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True},
+        'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True},
+        'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3},
+        'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3},
+        'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3},
+        'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3},
+        'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3},
+        'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
+        'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
     }
 
     # Nếu specific_file được chỉ định → chỉ xử lý đúng 1 file đó (bỏ qua quét thư mục)
@@ -188,7 +192,13 @@ def auto_import_excel_from_folder(specific_file=None):
     imported_periods = set()
     msgFileNotFound = []
 
-    for prefix, files in prefix_to_files.items():
+    # Sắp xếp thứ tự nạp ưu tiên: Priority 1 (Nhân viên) -> Priority 2 (Khách hàng) -> Priority 3 (Báo cáo)
+    sorted_prefix_items = sorted(
+        prefix_to_files.items(), 
+        key=lambda item: IMPORT_MAP[item[0]].get('priority', 3)
+    )
+
+    for prefix, files in sorted_prefix_items:
         if not files:
             msgFileNotFound.append(prefix)
             continue
@@ -218,6 +228,34 @@ def auto_import_excel_from_folder(specific_file=None):
                 
             start_time = timezone.now()
             logger.info(f"[{prefix}] Bắt đầu import từ file: {os.path.basename(filepath)}")
+
+            # Xử lý nạp qua custom importer cho Customer Mapping
+            if config.get('use_custom_importer'):
+                try:
+                    from scripts.import_customer_mapping import import_customer_sales_mapping
+                    import_customer_sales_mapping(filepath, run_calculate=False)
+                    move_to_processed(filepath, 'success')
+                    msg = f"Đã nạp danh mục & mapping khách hàng từ file {os.path.basename(filepath)}"
+                    report.append(msg)
+                    ImportLog.objects.create(
+                        file_name=os.path.basename(filepath),
+                        status='SUCCESS',
+                        message=msg,
+                        start_time=start_time,
+                        end_time=timezone.now()
+                    )
+                except Exception as cus_err:
+                    msg = f"⚠️ Lỗi import mapping khách hàng: {str(cus_err)}"
+                    logger.error(msg)
+                    report.append(msg)
+                    ImportLog.objects.create(
+                        file_name=os.path.basename(filepath),
+                        status='ERROR',
+                        message=msg,
+                        start_time=start_time,
+                        end_time=timezone.now()
+                    )
+                continue
             
             try:
                 with transaction.atomic():
@@ -364,11 +402,15 @@ def auto_import_excel_from_folder(specific_file=None):
         latest_m, latest_y = max(imported_periods)
         latest_period = f"{latest_y:04d}-{latest_m:02d}"
         
+    # Tự động tính toán và chốt số liệu công nợ Nhân viên & Quản lý nhóm (EmployeeReceivableSummary)
     try:
-        sync_warehouse_inventory_data.delay(latest_period)
-    except Exception as celery_err:
-        logger.warning(f"Không thể kết nối đến Redis/Celery ({celery_err}). Thực hiện đồng bộ tồn kho kho hàng đồng bộ...")
-        sync_warehouse_inventory_data(latest_period)
+        from accounting.services.employee_debt_calculator import update_employee_receivable_summary
+        for m, y in sorted(list(imported_periods)):
+            p_str = f"{y:04d}-{m:02d}"
+            logger.info(f"Kích hoạt tính toán công nợ Nhân viên & Quản lý cho kỳ {p_str}")
+            update_employee_receivable_summary(p_str)
+    except Exception as debt_err:
+        logger.warning(f"Lỗi khi tự động tính toán công nợ Nhân viên & Quản lý: {debt_err}")
 
     return "\n".join(report)
 

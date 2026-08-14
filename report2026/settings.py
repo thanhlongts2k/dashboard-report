@@ -204,6 +204,10 @@ MISA_REPORTS = {
     'TUOI_NO_KH': env('MISA_URL_TUOI_NO_KH', default=''),
     'TAI_KHOAN_CT': env('MISA_URL_TAI_KHOAN_CT', default=''),
     'SO_DU_NH': env('MISA_URL_BALISTOFBALANCE', default='https://actapp.misa.vn/app/BA/ReportAnalysis/RPDynamicViewer/BAListOfBalance'),
+    'DANH_SACH_KHACH_HANG': env('MISA_URL_CUSTOMER', default='https://actapp.misa.vn/app/DI/DICustomer'),
+    'DANH_SACH_NHAN_VIEN': env('MISA_URL_EMPLOYEE', default='https://actapp.misa.vn/app/DI/DIEmployee'),
+    'KHACH_HANG': env('MISA_URL_CUSTOMER', default='https://actapp.misa.vn/app/DI/DICustomer'),
+    'NHAN_VIEN': env('MISA_URL_EMPLOYEE', default='https://actapp.misa.vn/app/DI/DIEmployee'),
 }
 
 # Cấu hình kỳ báo cáo mặc định khi xuất từ MISA ('Tháng này' hoặc 'Năm nay')

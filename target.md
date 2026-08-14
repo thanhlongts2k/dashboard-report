@@ -261,6 +261,24 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   9. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).
   10. Chờ 20s $\rightarrow$ Mở Panel Quản lý tải tệp $\rightarrow$ Click **"Tải tệp"** mới nhất $\rightarrow$ Lưu file về `media/auto_imports/SO_DU_NH_YYYYMMDD_HHMMSS.xlsx`. *(Nạp CSDL và Lọc bỏ STK 113611393939 do Celery Worker thực thi sau khi nhận diện file Excel)*.
 
+#### 8. Danh mục `DANH_SACH_KHACH_HANG` (Danh mục Khách hàng & Sales phụ trách) — MASTER DATA
+- **URL**: `https://actapp.misa.vn/app/DI/DICustomer`
+- **Luồng 5 bước tinh gọn**:
+  1. Mở URL Danh mục Khách hàng `DICustomer`.
+  2. Bỏ qua toàn bộ modal tham số/kỳ báo cáo (không có popup tham số).
+  3. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  4. Click icon **Green Excel** trên toolbar Grid (`div[class*='excel']:visible`) $\rightarrow$ Bắt event Direct Download ngay lập tức.
+  5. Lưu file về `media/auto_imports/DANH_SACH_KHACH_HANG_YYYYMMDD_HHMMSS.xlsx` $\rightarrow$ Tự động gán Sales vào `Customer.assigned_employee`.
+
+#### 9. Danh mục `DANH_SACH_NHAN_VIEN` (Danh mục Nhân viên) — MASTER DATA
+- **URL**: `https://actapp.misa.vn/app/DI/DIEmployee`
+- **Luồng 5 bước tinh gọn**:
+  1. Mở URL Danh mục Nhân viên `DIEmployee`.
+  2. Bỏ qua toàn bộ modal tham số/kỳ báo cáo.
+  3. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
+  4. Click icon **Green Excel** trên toolbar Grid (`div[class*='excel']:visible`) $\rightarrow$ Bắt event Direct Download ngay lập tức.
+  5. Lưu file về `media/auto_imports/DANH_SACH_NHAN_VIEN_YYYYMMDD_HHMMSS.xlsx` $\rightarrow$ Tự động nạp vào `Employee`.
+
 * **Tải riêng từng báo cáo / Nạp file Excel rời vào CSDL:**
   Xem hướng dẫn đầy đủ tại **[Run_Test_Scripts.md](Run_Test_Scripts.md)** — Mục 3.1 (`download_report.py`) và Mục 3.2 (`import_specific_file.py`) và Mục 2.1 (`sync_misa --action import --file <PATH>`).
 
@@ -612,14 +630,23 @@ class EmployeeReceivableSummary(models.Model):
   - Cập nhật `EmployeeResource` & `CustomerResource` đọc cột Excel.
   - Apply thành công Migration 0042 & 0043.
 
-- ✅ **Phase 2: Model `EmployeeReceivableSummary` & Debt Calculation Engine** — **CODE COMPLETED**
+- ✅ **Phase 2: Model `EmployeeReceivableSummary`, Calculation Engine & Master Data Crawler** — **COMPLETED**
   - Model `EmployeeReceivableSummary` ([accounting/models/performance.py](file:///d:/Sources/dashboard-report/accounting/models/performance.py#L113)).
   - Service Engine `update_employee_receivable_summary` ([accounting/services/employee_debt_calculator.py](file:///d:/Sources/dashboard-report/accounting/services/employee_debt_calculator.py)) với Dual Mapping và Bottom-Up Manager Rollup.
   - Đã đăng ký `EmployeeReceivableSummaryAdmin` trên Django Admin.
-  - Bộ Script tiện ích: [scripts/detect_manager_titles.py](file:///d:/Sources/dashboard-report/scripts/detect_manager_titles.py), [scripts/auto_assign_managers.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_managers.py), [scripts/show_department_tree.py](file:///d:/Sources/dashboard-report/scripts/show_department_tree.py), [scripts/auto_assign_customer_sales.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_customer_sales.py).
+  - Master Data Crawler tự động 5 bước tinh gọn (`DANH_SACH_KHACH_HANG`, `DANH_SACH_NHAN_VIEN`) trên `report_exporter.py` và Auto-sync Pipeline ưu tiên (P1: Nhân viên -> P2: Khách hàng -> P3: Báo cáo -> Chốt nợ tự động).
+  - Quy tắc phân cấp Quản lý chuẩn hóa: CCO (Giám đốc Kinh doanh) -> Trưởng BU -> Trưởng bộ phận MB/MN -> Sales.
 
-- ⏸️ **Phase 3 & 4: REST API Endpoints & Frontend Dashboard Component** — **PENDING (Temporary Pause)**
-  - Đang tạm dừng để User chốt lại quy tắc nghiệp vụ với Kế toán. Bất cứ lúc nào Kế toán chốt xong, sẽ kích hoạt lại để hoàn thiện Phase 3 & 4.
+- ✅ **Phase 3: Báo Cáo Phân Cấp 3 Tầng (3-Tier Drilldown) & Quy Tắc Khớp Số Liệu Tuyệt Đối** — **COMPLETED**
+  - **Kiến trúc 3 Tầng**:
+    * **Tầng 1 (Cấp 1: Business Unit)**: Lấy từ `BUPerformance` (22 BU độc lập, loại bỏ mã mẹ `HPC` để chống cộng trùng). Tổng 22 BU = 129,696,981,480 VNĐ (Khớp 100% với Global).
+    * **Tầng 2 (Cấp 2: Sales & Quản lý)**: Phân tách nhóm Key Accounts cấp Tổng (do CCO trực tiếp quản lý) và Cây Quản lý BU (`Trưởng BU -> Trưởng BP -> Sales`).
+    * **Tầng 3 (Cấp 3: Chi tiết Khách hàng)**: Lấy từ `ReceivablesAgeing` với bộ lọc loại trừ khách hàng Nước ngoài (`OVERSEA_CUSTOMER_GROUP_CODES`), đảm bảo tổng nợ tất cả KH của BU khớp chính xác 100% đến từng VNĐ với Tầng 1.
+  - **Bộ Script hoàn chỉnh**:
+    * [scripts/report_3tier_bu_drilldown.py](file:///d:/Sources/dashboard-report/scripts/report_3tier_bu_drilldown.py): Báo cáo 3 tầng drilldown chi tiết (hỗ trợ `--bu <CODE>`, `--period <YYYY-MM>`, `--all`).
+    * [scripts/report_bu_employee_debt.py](file:///d:/Sources/dashboard-report/scripts/report_bu_employee_debt.py): Báo cáo song song Tổng hợp 22 BU & Bóc tách nợ Nhân viên.
+    * [scripts/import_customer_mapping.py](file:///d:/Sources/dashboard-report/scripts/import_customer_mapping.py): Nạp mapping KH - Sales và tự động tính toán.
+    * [scripts/auto_assign_managers.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_managers.py): Tự động gán cây quản lý đa cấp SCD Type 2.
 
 
 

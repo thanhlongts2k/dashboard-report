@@ -23,6 +23,9 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Tự động Gán Sếp cho Nhân viên theo Phòng ban | `python scripts/auto_assign_managers.py` ([Mục 5.6](#56-tự-động-gán-sếp-cho-nhân-viên-theo-phòng-ban-auto_assign_managerspy)) |
 | Xem Cây Phòng ban & Nhân viên Trực thuộc | `python scripts/show_department_tree.py` ([Mục 5.7](#57-xem-cây-phòng-ban-trưởng-bộ-phận--danh-sách-nhân-viên-show_department_treepy)) |
 | Tự động Gán Sales phụ trách Khách hàng từ Sổ Bán hàng | `python scripts/auto_assign_customer_sales.py` ([Mục 5.8](#58-tự-động-gán-sales-phụ-trách-khách-hàng-từ-sổ-bán-hàng-auto_assign_customer_salespy)) |
+| Nạp Danh mục Khách hàng & Mapping Sales | `python scripts/import_customer_mapping.py` ([Mục 5.9](#59-nạp-danh-mục-khách-hàng--mapping-sales-phụ-trách-import_customer_mappingpy)) |
+| Báo cáo Công nợ BU & Nhân viên kỳ chỉ định | `python scripts/report_bu_employee_debt.py` ([Mục 5.10](#510-báo-cáo-công-nợ-toàn-diện-theo-bu--nhân-viên-report_bu_employee_debtpy)) |
+| Báo cáo Phân cấp Công nợ 3 tầng (BU -> Sales -> KH) | `python scripts/report_3tier_bu_drilldown.py` ([Mục 5.11](#511-báo-cáo-công-nợ-phân-cấp-3-tầng-drilldown-report_3tier_bu_drilldownpy)) |
 | Debug quá trình tải MISA | `python scripts/test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
 | Nạp lại dữ liệu nhiều tháng | `python scripts/reimport_months_1_to_7.py` ([Mục 5.1](#51-nạp-lại-dữ-liệu-nhiều-tháng-reimport_months_1_to_7py)) |
 | Tạo tài khoản admin | `python manage.py createdefaultuser` ([Mục 6.1](#61-tạo-tài-khoản-admin-mặc-định)) |
@@ -201,6 +204,8 @@ python manage.py sync_misa --action=download --prefix=TON_KHO --period="Năm nay
 | `TUOI_NO_KH` | Tuổi nợ khách hàng | `ReceivablesAgeing` |
 | `TAI_KHOAN_CT` | Sổ chi tiết TK 111/112/341/641/642 | `AccountDetail` |
 | `SO_DU_NH` | Bảng kê số dư ngân hàng | `BankBalance` |
+| `DANH_SACH_KHACH_HANG` | Danh mục Khách hàng & Sales phụ trách | `Customer` |
+| `DANH_SACH_NHAN_VIEN` | Danh mục Nhân viên & Quản trị | `Employee` |
 
 ---
 
@@ -210,6 +215,12 @@ python manage.py sync_misa --action=download --prefix=TON_KHO --period="Năm nay
 * **Tác dụng**: Script CLI nhẹ hơn — **chỉ thực hiện Bước 1** (tải file Excel từ MISA về `media/auto_imports/`). Dùng khi cần tải thủ công 1 loại báo cáo cụ thể mà không chạy cả pipeline.
 
 ```powershell
+# Tải Danh mục Nhân viên (Master Data)
+python download_report.py DANH_SACH_NHAN_VIEN
+
+# Tải Danh mục Khách hàng & Sales phụ trách (Master Data)
+python download_report.py DANH_SACH_KHACH_HANG
+
 # Tải báo cáo Bán hàng (BAN_HANG)
 python download_report.py BAN_HANG
 
@@ -231,7 +242,7 @@ python download_report.py TAI_KHOAN_CT
 # Tải báo cáo Số dư ngân hàng (SO_DU_NH)
 python download_report.py SO_DU_NH
 
-# Tải TẤT CẢ 7 loại báo cáo — tương đương sync_misa --action=download
+# Tải TẤT CẢ các loại báo cáo & danh mục
 python download_report.py ALL
 
 # Tải TẤT CẢ báo cáo với kỳ báo cáo là "Năm nay"
@@ -431,6 +442,51 @@ python scripts/show_department_tree.py --sort-by name
 ```powershell
 # Tự động gán Sales phụ trách cho Khách hàng từ lịch sử Bán hàng
 python scripts/auto_assign_customer_sales.py
+```
+
+### 5.9. Nạp Danh mục Khách hàng & Mapping Sales Phụ Trách (`import_customer_mapping.py`)
+
+* **File nguồn**: [scripts/import_customer_mapping.py](file:///d:/Sources/dashboard-report/scripts/import_customer_mapping.py)
+* **Tác dụng**: Đọc file Excel danh mục khách hàng (`media/auto_imports/Danh_sach_khach_hang.xlsx`), tự động thêm mới nhân viên Sales nếu chưa có, gán mã Sales phụ trách vào `Customer.assigned_employee` (bulk upsert), và tự động kích hoạt tính toán chốt số liệu công nợ `EmployeeReceivableSummary` theo kỳ chỉ định.
+
+```powershell
+# Nạp danh mục khách hàng và tự động chốt công nợ kỳ 2026-08 (Mặc định)
+python scripts/import_customer_mapping.py --period 2026-08
+
+# Chỉ định file Excel tuỳ chọn
+python scripts/import_customer_mapping.py --file "media/auto_imports/Danh_sach_khach_hang.xlsx" --period 2026-08
+
+# Nạp mapping nhưng không chạy lại engine tính nợ
+python scripts/import_customer_mapping.py --no-calc
+```
+
+### 5.10. Báo Cáo Công Nợ Toàn Diện Theo BU & Nhân Viên (`report_bu_employee_debt.py`)
+
+* **File nguồn**: [scripts/report_bu_employee_debt.py](file:///d:/Sources/dashboard-report/scripts/report_bu_employee_debt.py)
+* **Tác dụng**: Xuất đồng thời 2 báo cáo công nợ chuyên sâu từ CSDL: (1) Tổng hợp công nợ 22 Business Units (BU), tỷ lệ nợ quá hạn; (2) Bóc tách công nợ cá nhân (`own_total_debt`) và nợ nhóm (`team_total_debt`) của từng Sales và Quản lý theo từng BU/Phòng ban.
+
+```powershell
+# Chạy báo cáo công nợ kỳ 2026-08 (Mặc định)
+python scripts/report_bu_employee_debt.py --period 2026-08
+
+# Chạy báo cáo công nợ kỳ khác
+python scripts/report_bu_employee_debt.py --period 2026-07
+```
+
+### 5.11. Báo Cáo Công Nợ Phân Cấp 3 Tầng Drilldown (`report_3tier_bu_drilldown.py`)
+
+* **File nguồn**: [scripts/report_3tier_bu_drilldown.py](file:///d:/Sources/dashboard-report/scripts/report_bu_employee_debt.py)
+* **Tác dụng**: Xuất báo cáo cấu trúc phân cấp 3 tầng trực quan: [Cấp 1: BU] $\rightarrow$ [Cấp 2: Sales phụ trách] $\rightarrow$ [Cấp 3: Chi tiết từng Khách hàng]. Hỗ trợ xem từng BU hoặc toàn bộ 22 BUs.
+
+```powershell
+# Xem phân cấp 3 tầng cho 1 BU (Mặc định: BU_ELEVATOR, kỳ 2026-08)
+python scripts/report_3tier_bu_drilldown.py --bu BU_ELEVATOR --period 2026-08
+
+# Xem cho BU khác (ví dụ: BU_IBIZ PREMIUM)
+python scripts/report_3tier_bu_drilldown.py --bu "BU_IBIZ PREMIUM" --period 2026-08
+
+# Hiển thị tất cả 22 BU liên tiếp
+python scripts/report_3tier_bu_drilldown.py --all --period 2026-08
 ```
 
 ---

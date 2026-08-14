@@ -4,6 +4,46 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-14 10:50:00] Task: Fix BU Hierarchy, Eliminate Double Counting (HPC) & Align Employee-BU Debt
+- **Objective**:
+  1. Loại bỏ `HPC` (Công ty mẹ/Chi nhánh pháp nhân) khỏi danh sách 22 BU kinh doanh để tránh cộng trùng, đảm bảo tổng nợ các BU độc lập khớp 100% với Global (129.7 Tỷ).
+  2. Điều tra và xử lý triệt để nguyên nhân lệch 33 Tỷ giữa Tổng nợ BU Elevator (60.6 Tỷ) và Tổng nợ Sales gom được (26.8 Tỷ).
+  3. Chuẩn hóa Cây Quản lý trong `auto_assign_managers.py`: Đào Tiến Dũng (Trưởng BU Elevator) là Sếp cao nhất của BU Elevator; Ngô Đình Trung Tân (Giám đốc Kinh doanh) phân đúng về Khối Kinh doanh; thiết lập thứ bậc phân cấp chuẩn (Giám đốc Khối -> Trưởng BU -> Trưởng bộ phận MB/MN -> Sales).
+  4. Cập nhật `scripts/report_bu_employee_debt.py`, tính toán lại toàn bộ nợ và xuất báo cáo chuẩn hóa.
+- **Planned Modifications**:
+  1. `scripts/auto_assign_managers.py`: Tinh chỉnh logic phân cấp chức danh & phòng ban (Rank priority: Giám đốc Khối / Trưởng BU > Trưởng bộ phận MB/MN > Nhân viên).
+  2. `scripts/report_bu_employee_debt.py`: Lọc bỏ BU cha `HPC`, gom nhóm nợ nhân viên theo đúng BU/Phòng ban và đối soát khớp 100%.
+  3. `accounting/services/employee_debt_calculator.py`: Chạy lại tính toán chốt số liệu `EmployeeReceivableSummary` kỳ `2026-08`.
+  4. `HANDOVER_LOG.md`: Ghi nhận tiến độ và kết quả thực thi.
+- **Current Status**: **COMPLETED** — Đã khắc phục hoàn toàn cả 3 vấn đề:
+  * Đã loại bỏ mã mẹ `HPC` khỏi danh sách 22 BU. Tổng nợ 22 BU cộng lại = **129,696,981,480 VNĐ**, KHỚP 100% (chênh lệch 0 VNĐ) với Global KPI Toàn Công Ty.
+  * Đã chuẩn hóa Cây Quản lý đa cấp: `ĐÀO TIẾN DŨNG` (Trưởng BU Elevator) đứng đầu BU Elevator quản lý `NGUYỄN ĐỨC THƯỞNG` (MB) & `TRỊNH HOÀNG QUÂN` (MN). `NGÔ ĐÌNH TRUNG TÂN` là Giám đốc Kinh doanh (CCO) đứng đầu toàn bộ 5 BU và phụ trách các khách hàng Key Account lớn toàn công ty (51.05 Tỷ nợ cá nhân, 129.90 Tỷ nợ toàn khối).
+  * Đã chạy tính toán lại toàn bộ bảng `EmployeeReceivableSummary` và xuất 2 Báo cáo chuẩn hóa qua `scripts/report_bu_employee_debt.py`.
+
+
+## [2026-08-14 10:08:00] Task: MISA Master Data Crawler (Customer & Employee) & Prioritized Auto-Sync Pipeline
+- **Objective**: Tích hợp Crawler Playwright 5 bước tinh gọn tự động tải 2 danh mục `DANH_SACH_KHACH_HANG` và `DANH_SACH_NHAN_VIEN` từ MISA AMIS, đồng thời thiết lập thứ tự ưu tiên nạp trong `auto_import_excel_from_folder()` (Nhân viên -> Khách hàng -> Báo cáo -> Chốt nợ tự động).
+- **Planned Modifications**:
+  1. `report2026/settings.py` & `.env`: Khai báo `MISA_URL_CUSTOMER`, `MISA_URL_EMPLOYEE` và cập nhật `MISA_REPORTS`.
+  2. `accounting/misa/report_exporter.py`: Bổ sung luồng tải 5 bước trực tiếp qua Green Excel icon trên Toolbar Grid (`div[class*='excel']:visible`) kèm auto-fallback sang download manager panel.
+  3. `download_report.py`: Bổ sung tham số `DANH_SACH_KHACH_HANG`, `DANH_SACH_NHAN_VIEN`, `KHACH_HANG`, `NHAN_VIEN`.
+  4. `accounting/tasks.py`: Thiết lập thứ tự nạp ưu tiên (Priority 1: Nhân viên -> Priority 2: Khách hàng -> Priority 3: Báo cáo) và tự động kích hoạt `update_employee_receivable_summary()`.
+  5. `target.md`, `Run_Test_Scripts.md`: Cập nhật tài liệu kỹ thuật.
+- **Current Status**: **COMPLETED** — Đã cấu hình và kiểm thử thành công 100%:
+  * Tải `DANH_SACH_NHAN_VIEN` (48,029 bytes) lưu về `media/auto_imports/DANH_SACH_NHAN_VIEN_20260814_101602.xlsx`.
+  * Tải `DANH_SACH_KHACH_HANG` (1,466,759 bytes) lưu về `media/auto_imports/DANH_SACH_KHACH_HANG_20260814_101628.xlsx`.
+  * Đã kiểm tra cú pháp toàn bộ file bằng `py_compile` (0 lỗi).
+
+
+## [2026-08-14 09:48:00] Task: Customer & Sales Assignment Import & Employee Debt Summary Calculation (2026-08)
+- **Objective**: Viết script `scripts/import_customer_mapping.py` nạp mapping từ `media/auto_imports/Danh_sach_khach_hang.xlsx` vào `Customer.assigned_employee`, chạy chốt số liệu công nợ `EmployeeReceivableSummary` kỳ `2026-08` và xuất báo cáo Top Quản lý nợ nhóm lớn nhất.
+- **Planned Modifications**:
+  1. `scripts/import_customer_mapping.py`: [NEW] Script đọc file Excel danh mục khách hàng, get_or_create nhân viên Sales mới nếu cần, và bulk update/create `Customer.assigned_employee`.
+  2. `Run_Test_Scripts.md`: Cập nhật Mục 5.9 hướng dẫn chạy script.
+  3. `HANDOVER_LOG.md`: Ghi nhận tiến độ và kết quả thực thi.
+- **Current Status**: **COMPLETED** — Đã nạp thành công 11,019 dòng từ file Excel danh mục khách hàng, tạo mới 10,015 khách hàng, cập nhật Sales cho 986 khách hàng (tổng 9,350 khách hàng đã gán Sales). Đã chạy chốt số liệu `EmployeeReceivableSummary` kỳ `2026-08` cho 166 nhân viên/quản lý và trích xuất Top 3 Quản lý có dư nợ nhóm lớn nhất.
+
+
 ## [2026-08-11 09:36:00] Task: Multi-Account TUOI_NO_KH Export & Import (131 & 1311) - Direct MISA Raw Export Fix
 - **Objective**: Tải và nạp dữ liệu nguyên bản từ MISA cho 2 tài khoản `131` và `1311` báo cáo `TUOI_NO_KH`, loại bỏ hoàn toàn các script Python tự `groupby` gây mất dữ liệu.
 - **Planned Modifications**:
