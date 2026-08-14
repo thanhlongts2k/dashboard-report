@@ -215,3 +215,51 @@ class ManualAdjustmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ManualAdjustment
         fields = '__all__'
+
+
+# --- SERIALIZERS CHO BÁO CÁO CÔNG NỢ & DRILLDOWN 3 TẦNG ---
+
+class CustomerDebtDetailSerializer(serializers.Serializer):
+    customer_code = serializers.CharField()
+    customer_name = serializers.CharField()
+    due_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    overdue_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    total_debt = serializers.DecimalField(max_digits=18, decimal_places=2)
+
+
+class SalesDebtDetailSerializer(serializers.Serializer):
+    employee_code = serializers.CharField()
+    employee_name = serializers.CharField()
+    title = serializers.CharField()
+    role = serializers.CharField()
+    receivable_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    due_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    overdue_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    customer_count = serializers.IntegerField()
+    customers = CustomerDebtDetailSerializer(many=True)
+
+
+class BUDebtSummarySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+    manager_name = serializers.CharField()
+    receivable_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    due_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    overdue_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    overdue_rate = serializers.FloatField()
+    performance_id = serializers.IntegerField(allow_null=True)
+
+
+class GlobalDebtSummarySerializer(serializers.Serializer):
+    receivable_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    due_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    overdue_total = serializers.DecimalField(max_digits=18, decimal_places=2)
+    overdue_rate = serializers.FloatField()
+    bu_count = serializers.IntegerField()
+
+
+class AllBUsDebtResponseSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    global_summary = GlobalDebtSummarySerializer()
+    bus = BUDebtSummarySerializer(many=True)

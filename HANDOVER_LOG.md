@@ -4,6 +4,22 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-14 11:25:00] Task: Phase 3 — Build REST API Endpoints for Receivables Debt & 3-Tier Drilldown
+- **Objective**: Thiết kế và triển khai 2 Django REST Framework Endpoints chuẩn hóa:
+  1. `GET /api/debt/bus/` (All BUs Summary): Mặc định lọc ẩn các BU có `overdue_rate = 0.0` (chỉ hiển thị các BU có nợ quá hạn > 0), hỗ trợ param `include_all=true` để lấy đủ 22 BU. Global summary bất biến ở mức 129.7 Tỷ.
+  2. `GET /api/debt/bus/<bu_code>/drilldown/` (BU 3-Tier Drilldown): Trả về cấu trúc 3 tầng (BU -> Key Accounts / Sales / Managers -> Customers) kèm đối soát khớp 0 VNĐ (`is_matched: true`).
+- **Planned Modifications**:
+  1. `accounting/views/debt_api.py`: Xây dựng các API Views `AllBUsDebtSummaryAPIView` và `BUDebt3TierDrilldownAPIView`.
+  2. `accounting/views/__init__.py`: Export các View mới.
+  3. `accounting/urls.py`: Đăng ký routes chuẩn gọn gàng `/debt/bus/` và `/debt/bus/<str:bu_code>/drilldown/`.
+  4. `HANDOVER_LOG.md`, `target.md`, `DocumentAPI_Report2026.md`, `Run_Test_Scripts.md`, `database_mapping.md`: Đồng bộ toàn bộ tài liệu dự án.
+- **Current Status**: **COMPLETED** — Đã hoàn thành và kiểm thử thành công 100%:
+  * Khai báo serializers trong `accounting/serializers.py`: `CustomerDebtDetailSerializer`, `SalesDebtDetailSerializer`, `BUDebtSummarySerializer`, `AllBUsDebtResponseSerializer`.
+  * Xây dựng Views trong `accounting/views/debt_api.py`: `AllBUsDebtSummaryAPIView` và `BUDebt3TierDrilldownAPIView`.
+  * Đăng ký URL endpoints trong `accounting/urls.py`: `/api/debt/bus/` và `/api/debt/bus/<str:bu_code>/drilldown/`.
+  * Viết script test `scripts/test_debt_apis.py`: 3/3 test suite pass 100% (Khớp số liệu tuyệt đối 0 VNĐ chênh lệch).
+
+
 ## [2026-08-14 10:50:00] Task: Fix BU Hierarchy, Eliminate Double Counting (HPC) & Align Employee-BU Debt
 - **Objective**:
   1. Loại bỏ `HPC` (Công ty mẹ/Chi nhánh pháp nhân) khỏi danh sách 22 BU kinh doanh để tránh cộng trùng, đảm bảo tổng nợ các BU độc lập khớp 100% với Global (129.7 Tỷ).

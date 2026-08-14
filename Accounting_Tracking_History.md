@@ -237,3 +237,34 @@ for p in snapshot_list:
 | **Thu tiền AgriTech + SAB** | **984.480.000** | **984.480.000** | **100.0%** | **3.883.447.666** | **2.873.819.321** | 74.0% | **KHỚP 100.0% MTD TUYỆT ĐỐI 🎯** |
 | **Thu tiền Elevator** | **27.205.172.350** | **26.204.693.870** | **96.3%** | **225.860.275.463** | **180.856.547.098** | **80.1%** | **Khớp 96.3% MTD & 80.1% YTD** |
 
+---
+
+## 17. Đối Soát Số Liệu Công Nợ (Receivables Debt) & Kiến Trúc Phân Cấp 3 Tầng Kỳ 2026-08 (Cập nhật 14/08/2026)
+
+* **Vết thời gian chốt snapshot**: Ngày **14/08/2026 11:35:00 (UTC+7)**
+* **Nguồn dữ liệu gốc**: Báo cáo Tuổi nợ MISA AMIS (`TUOI_NO_KH`) + Danh mục Khách hàng (`Danh_sach_khach_hang.xlsx`) + Danh mục Nhân viên (`Danh_sach_nhan_vien.xlsx`).
+
+### 17.1. Bảng Đối Soát Tổng Dư Nợ 22 Business Units vs Global KPI
+| STT | Mã BU | Tên Business Unit | Tổng Dư Nợ (VNĐ) | Trong Hạn (VNĐ) | Quá Hạn (VNĐ) | Tỷ Lệ Quá Hạn |
+| :---: | :--- | :--- | :---: | :---: | :---: | :---: |
+| **🌐** | **GLOBAL** | **CHỈ SỐ TOÀN CÔNG TY (GLOBAL)** | **129,696,981,480** | **105,979,087,914** | **23,717,893,566** | **18.29%** |
+| **⭐** | **TỔNG 22 BUS** | **TỔNG CỘNG 22 BUSINESS UNITS** | **129,696,981,480** | **105,979,087,914** | **23,717,893,566** | **18.29%** |
+| **🎯** | **ĐỐI SOÁT** | **CHÊNH LỆCH SỐ LIỆU** | **0 VNĐ** | **0 VNĐ** | **0 VNĐ** | **✅ KHỚP 100%** |
+| 1 | `BU_ELEVATOR` | Thang máy | 61,837,499,148 | 49,037,971,376 | 12,799,527,772 | 20.70% |
+| 2 | `BU_IBIZ PREMIUM` | Thiết bị điện cao cấp | 43,505,650,393 | 40,701,628,099 | 2,804,022,294 | 6.45% |
+| 3 | `Oversea` | Oversea | 17,665,312,234 | 13,780,072,258 | 3,885,239,976 | 21.99% |
+| 4 | `BU_MANUFACTURING` | Sản xuất - Nhà máy | 2,183,527,584 | 0 | 2,183,527,584 | 100.00% |
+| 5 | `BU_AGRITECH` | Nông nghiệp công nghệ cao | 2,153,944,858 | 1,501,200,000 | 652,744,858 | 30.30% |
+| 6 | `BU_IBIZ VALUE` | Thiết bị điện phổ thông | 1,550,599,577 | 915,733,733 | 634,865,844 | 40.94% |
+| 7 | `BU_ECO` | ECO (Solar) | 800,139,908 | 42,482,448 | 757,657,460 | 94.69% |
+| 8 | `VHC_HR` | Nhân sự | 307,778 | 0 | 307,778 | 100.00% |
+| 9-22 | *14 BU khác* | *Các BU vận hành nội bộ* | 0 | 0 | 0 | 0.00% |
+
+### 17.2. Các Khám Phá Kiến Trúc & Quy Tắc Kế Toán Đã Chuẩn Hóa
+1. **Loại bỏ mã mẹ `HPC`**: Bảng `BusinessUnit` chứa mã `HPC` là Chi nhánh/Pháp nhân cha chứa 18 BU con. Bắt buộc `.exclude(code='HPC')` để chống cộng trùng.
+2. **Khách hàng Key Accounts Thang máy của Giám đốc Kinh doanh**: Khách hàng HIS Elevator (35.8 Tỷ) được phân cho Sales `2001` (Ngô Đình Trung Tân), kết hợp với team Đào Tiến Dũng (26.84 Tỷ) cấu thành trọn vẹn 61.84 Tỷ của BU Elevator.
+3. **Bộ lọc Nước ngoài (Oversea Filter)**: Các khách hàng thuộc nhóm `OVERSEA_CUSTOMER_GROUP_CODES` (như Thai Vatana Upakorn 2.18 Tỷ) được tách về BU `Oversea`, đảm bảo không bị trừ sót khi tính chi tiết BU Thang máy.
+4. **REST API Endpoints**:
+   - `GET /api/debt/bus/` (mặc định chỉ hiện 8 BU có nợ quá hạn, hỗ trợ `?include_all=true`).
+   - `GET /api/debt/bus/<str:bu_code>/drilldown/` (Phân cấp 3 tầng BU -> Sales -> KH, đối soát khớp 0 VNĐ).
+

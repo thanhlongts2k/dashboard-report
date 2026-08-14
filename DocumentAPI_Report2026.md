@@ -407,6 +407,26 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 #### 7.1. Đăng nhập qua Google (Single Sign-On Google OAuth2 API)
 *   `POST /api/google-login/`: Đăng nhập bằng Google ID token, phát hành Knox Token cho Frontend.
 
+#### 7.2. Tổng hợp Công nợ Tất cả Business Units (All BUs Debt Summary API)
+*   `GET /api/debt/bus/`: Trả về danh sách các Business Unit kèm `receivable_total`, `due_total`, `overdue_total`, `overdue_rate` và chỉ số `global_summary` toàn công ty.
+*   **Query Parameters**:
+    *   `?period=YYYY-MM`: Kỳ báo cáo (ví dụ: `2026-08`, mặc định: kỳ mới nhất trong CSDL).
+    *   `?include_all=true` *(hoặc `?all=true`)*: 
+        *   **Mặc định (`false`)**: Tự động lọc ẩn các BU có `overdue_rate = 0.0` hoặc không có phát sinh nợ quá hạn (loại bỏ các BU nội bộ/vận hành như VHC_KT, VHC_BOD, VHC_TECHCENTER... để tránh loãng Dashboard).
+        *   **Khi bật (`true`)**: Trả về đầy đủ toàn bộ 22 Business Units vận hành độc lập.
+*   **Chỉ số Global**: Luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (Tổng nợ: 129.7 Tỷ VNĐ).
+
+#### 7.3. Báo Cáo Phân Cấp 3 Tầng Drilldown Công Nợ BU (BU 3-Tier Debt Drilldown API)
+*   `GET /api/debt/bus/<str:bu_code>/drilldown/`: Trả về cấu trúc cây phân cấp 3 tầng chi tiết cho một BU cụ thể:
+    *   **Cấp 1 (BU)**: Mã BU, Tên BU, Trưởng BU, Tổng nợ BU, Trong hạn, Quá hạn.
+    *   **Cấp 2 (Sales & Quản lý)**: 
+        *   `key_accounts_summary`: Nhóm hợp đồng chiến lược cấp Tổng do Giám đốc Kinh doanh (CCO) phụ trách trực tiếp.
+        *   `bu_teams`: Danh sách Trưởng BU, Trưởng bộ phận MB/MN và các Sales trực thuộc.
+    *   **Cấp 3 (Chi tiết Khách hàng)**: Danh sách chi tiết từng khách hàng (Mã KH, Tên KH, Nợ trong hạn, Nợ quá hạn, Tổng nợ KH).
+    *   `reconciliation`: Cơ chế tự kiểm tra đối soát, đảm bảo `drilldown_total == bu_total` (chênh lệch đúng 0 VNĐ, `is_matched: true`).
+*   **Query Parameters**:
+    *   `?period=YYYY-MM`: Kỳ báo cáo (ví dụ: `2026-08`).
+
 #### 8. Các API danh mục chi tiết (DRF ViewSets)
 *   `/api/branches/` (Chi nhánh)
 *   `/api/warehouses/` (Kho hàng)
@@ -444,6 +464,15 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 ### 7.5. Cơ chế phân quyền xem báo cáo (Row-Level Security / Data Isolation)
 * Hệ thống hiện chưa có Object-level permission. Cần thiết kế thêm `permissions.BasePermission` khi mở rộng API riêng cho các phòng ban độc lập.
+
+### 7.6. Quy tắc Chống cộng trùng BU mẹ HPC & Cây Quản lý Đa Tầng CCO
+* **Loại trừ mã mẹ `HPC`**: `HPC` là Chi nhánh/Pháp nhân mẹ chứa 18 BU con. Khi truy vấn danh sách 22 BU vận hành độc lập, bắt buộc phải `.exclude(business_unit__code='HPC')`. Tổng 22 BU độc lập cộng lại là **129,696,981,480 VNĐ**, khớp tuyệt đối 100% với Global KPI.
+* **Cây phân cấp Quản lý**: `CCO (Ngô Đình Trung Tân) -> 5 Trưởng BU (Đào Tiến Dũng, Hồ Tôn Nhật Minh, Nguyễn Ngọc Huy Phong, Hồ Xuân Quang, Trần Duy Hiếu) -> Các Trưởng bộ phận MB/MN -> Sales`.
+* **Bộ lọc Khách hàng Nước ngoài (Oversea)**: Khách hàng thuộc nhóm `OVERSEA_CUSTOMER_GROUP_CODES` được lọc tách riêng về BU `Oversea`, đảm bảo số liệu công nợ BU nội địa và BU Oversea luôn khớp 100% không trùng lặp.
+
+### 7.7. Luồng Tự động hóa Master Data Crawler 5 bước tinh gọn
+* Crawler Playwright tích hợp trong `accounting/misa/report_exporter.py` hỗ trợ tự động tải 2 danh mục gốc: `DANH_SACH_KHACH_HANG` và `DANH_SACH_NHAN_VIEN` qua icon Green Excel trên Grid Toolbar.
+* Thứ tự ưu tiên Celery Auto-sync: Priority 1 (Nhân viên) $\rightarrow$ Priority 2 (Khách hàng) $\rightarrow$ Priority 3 (Báo cáo tài chính) $\rightarrow$ Chốt tính toán công nợ tự động (`update_employee_receivable_summary`).
 
 ---
 

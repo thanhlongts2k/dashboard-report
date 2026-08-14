@@ -614,9 +614,12 @@ class EmployeeReceivableSummary(models.Model):
 - **Bước 2 (Nợ quản lý nhóm)**: Với mỗi Trưởng nhóm / Trưởng phòng, truy vấn danh sách nhân viên cấp dưới trực thuộc tại mốc thời gian `reporting_period` từ `EmployeeAssignment`, thực hiện cộng dồn đệ quy:
   $$\text{team\_total\_debt} = \text{own\_total\_debt} + \sum_{i \in \text{cấp dưới}} \text{own\_total\_debt}(i)$$
 
-#### Trụ Cột 4: REST API & Drill-Down Dashboard Views
-- `GET /api/v1/receivables/employees/`: Trả về danh sách nợ Sales (lọc theo Phòng ban, Mức nợ quá hạn).
-- `GET /api/v1/receivables/managers/`: Trả về danh sách công nợ Quản lý (xem tổng hợp cả nhóm và drill-down chi tiết từng Sales trực thuộc).
+#### Trụ Cột 4: REST API & Drill-Down Dashboard Views (Phase 3 Completed)
+- `GET /api/debt/bus/` (All BUs Summary):
+  * **Mặc định**: Tự động lọc ẩn các BU có `overdue_rate = 0.0` hoặc `receivable_total = 0` (chỉ hiển thị 8 BU có phát sinh nợ quá hạn).
+  * **Query param `include_all=true`**: Trả về đầy đủ 22 BU vận hành độc lập.
+  * **Global Summary**: Bất biến, luôn tính toán trên toàn bộ 22 BU chuẩn xác 100% (129,696,981,480 VNĐ).
+- `GET /api/debt/bus/<bu_code>/drilldown/` (BU 3-Tier Drilldown): Trả về cấu trúc JSON 3 tầng chi tiết (Cấp 1 BU -> Cấp 2 Key Accounts & BU Teams -> Cấp 3 Khách hàng) kèm cơ chế tự đối soát khớp 0 VNĐ (`is_matched: true`).
 
 ### 13.3. Lộ Trình Triển Khai & Trạng Thái Hiện Tại (Status Log)
 

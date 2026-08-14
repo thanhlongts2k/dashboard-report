@@ -69,6 +69,12 @@ Các model được định nghĩa chi tiết tại gói [accounting/models/](fi
 ### 2.5. Hàng hóa (`Product`) & Nhóm vật tư hàng hóa (`MaterialGroup`)
 * **Mục đích:** Danh mục sản phẩm, vật tư trong hệ thống.
 
+### 2.6. Nhân sự (`Employee`), Phòng ban (`Department`), Chức danh (`JobTitle`) & Quá trình công tác (`EmployeeAssignment`)
+* **Mục đích:** Quản lý cơ cấu nhân sự, cây tổ chức phân cấp quản lý và lưu vết lịch sử luân chuyển công tác (SCD Type 2).
+* **Liên kết:**
+  * `Customer.assigned_employee`: Gán Sales/Quản lý phụ trách khách hàng.
+  * `EmployeeAssignment.manager`: Lưu thông tin cấp trên trực tiếp tại từng thời kỳ.
+
 ---
 
 ## 3. Dữ liệu Phát sinh từ Excel (Transaction Data)
@@ -106,6 +112,13 @@ Các chỉ số KPI chính gồm:
 * **Mục đích:** Lưu trữ doanh thu và thực thu phát sinh trong từng ngày đơn lẻ của tháng.
 * **Liên kết:** Mỗi bản ghi tham chiếu đến một dòng tổng hợp tháng của `BUPerformance`.
 * **Nghiệp vụ:** Hỗ trợ vẽ biểu đồ đường xu hướng doanh thu/thu tiền hàng ngày của đơn vị kinh doanh.
+
+### 4.3. Tổng hợp Công nợ Nhân sự & Quản lý theo kỳ (`EmployeeReceivableSummary`)
+* **Mục đích:** Lưu trữ bản chụp (Snapshot) số liệu công nợ chốt theo từng kỳ (`reporting_period`) cho từng Nhân viên / Quản lý.
+* **Cơ chế tính toán:** 
+  * Nợ cá nhân (`own_total_debt`): Tổng hợp từ các Khách hàng do Sales phụ trách trực tiếp trong `ReceivablesAgeing`.
+  * Nợ nhóm / Quản lý (`team_total_debt`): Thuật toán Bottom-Up Rollup cộng dồn đệ quy toàn bộ nợ của các nhân viên cấp dưới trực thuộc quản lý.
+* **Phục vụ:** Tối ưu hóa tốc độ truy vấn Dashboard (< 50ms) và phục vụ API Báo cáo Phân cấp Công nợ 3 Tầng Drilldown (`/api/debt/bus/<bu_code>/drilldown/`).
 
 ---
 

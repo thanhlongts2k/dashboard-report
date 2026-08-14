@@ -26,6 +26,7 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Nạp Danh mục Khách hàng & Mapping Sales | `python scripts/import_customer_mapping.py` ([Mục 5.9](#59-nạp-danh-mục-khách-hàng--mapping-sales-phụ-trách-import_customer_mappingpy)) |
 | Báo cáo Công nợ BU & Nhân viên kỳ chỉ định | `python scripts/report_bu_employee_debt.py` ([Mục 5.10](#510-báo-cáo-công-nợ-toàn-diện-theo-bu--nhân-viên-report_bu_employee_debtpy)) |
 | Báo cáo Phân cấp Công nợ 3 tầng (BU -> Sales -> KH) | `python scripts/report_3tier_bu_drilldown.py` ([Mục 5.11](#511-báo-cáo-công-nợ-phân-cấp-3-tầng-drilldown-report_3tier_bu_drilldownpy)) |
+| Test Bộ REST API Endpoints Công nợ (Phase 3) | `python scripts/test_debt_apis.py` ([Mục 5.12](#512-kiểm-thử-bộ-rest-api-endpoints-công-nợ--drilldown-test_debt_apispy)) |
 | Debug quá trình tải MISA | `python scripts/test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
 | Nạp lại dữ liệu nhiều tháng | `python scripts/reimport_months_1_to_7.py` ([Mục 5.1](#51-nạp-lại-dữ-liệu-nhiều-tháng-reimport_months_1_to_7py)) |
 | Tạo tài khoản admin | `python manage.py createdefaultuser` ([Mục 6.1](#61-tạo-tài-khoản-admin-mặc-định)) |
@@ -487,6 +488,15 @@ python scripts/report_3tier_bu_drilldown.py --bu "BU_IBIZ PREMIUM" --period 2026
 
 # Hiển thị tất cả 22 BU liên tiếp
 python scripts/report_3tier_bu_drilldown.py --all --period 2026-08
+```
+
+### 5.12. Kiểm Thử Bộ REST API Endpoints Công Nợ & Drilldown (`test_debt_apis.py`)
+
+* **File nguồn**: [scripts/test_debt_apis.py](file:///d:/Sources/dashboard-report/scripts/test_debt_apis.py)
+* **Tác dụng**: Chạy tự động 3 bộ test suite kiểm tra: (1) `GET /api/debt/bus/` (All BUs summary & Global); (2) `GET /api/debt/bus/<bu_code>/drilldown/` (3-Tier Drilldown & Đối soát khớp 0 VNĐ); (3) Xử lý lỗi 404 cho BU không tồn tại.
+
+```powershell
+python scripts/test_debt_apis.py
 ```
 
 ---
