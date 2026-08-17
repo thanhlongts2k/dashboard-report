@@ -218,6 +218,16 @@ MISA_TUOI_NO_KH_ACCOUNTS = env.list('MISA_TUOI_NO_KH_ACCOUNTS', default=['131', 
 EXCLUDED_BU_CODES = env.list('EXCLUDED_BU_CODES', default=['ĐTCT', 'Oversea', 'VHC_HR'])
 EXCLUDED_CUSTOMER_GROUP_CODES = env.list('EXCLUDED_CUSTOMER_GROUP_CODES', default=['Internal'])
 
+# Danh sách 6 Khối BU Kinh Doanh Cốt Lõi (Core Commercial Business Units)
+CORE_COMMERCIAL_BU_CODES = env.list('CORE_COMMERCIAL_BU_CODES', default=[
+    'BU_ELEVATOR',
+    'BU_IBIZ PREMIUM',
+    'BU_ECO',
+    'BU_MANUFACTURING',
+    'BU_AGRITECH',
+    'BU_IBIZ VALUE'
+])
+
 # Cấu hình danh sách tài khoản mục tiêu khi tính toán công nợ phải thu thương mại khách hàng (Receivables Debt)
 # Mặc định chỉ lấy TK 1311 (Phải thu khách hàng thương mại). Thiết kế dạng List để dễ mở rộng (1312, 1313...).
 TARGET_RECEIVABLE_ACCOUNTS = env.list('TARGET_RECEIVABLE_ACCOUNTS', default=['1311'])

@@ -64,9 +64,12 @@ class AllBUsDebtSummaryAPIView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Query danh sách BU (Loại trừ mã mẹ HPC, Global và các BU loại trừ ngoài phạm vi kinh doanh nội địa)
+        # 1. Query danh sách 6 BU Kinh Doanh Cốt Lõi (Loại trừ mã mẹ HPC, Global và các khối vận hành/loại trừ)
         excluded_bu_codes = getattr(settings, 'EXCLUDED_BU_CODES', ['ĐTCT', 'Oversea', 'VHC_HR'])
-        perfs = BUPerformance.objects.filter(
+        core_bu_codes = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
+            'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE'
+        ])
+        perfs_qs = BUPerformance.objects.filter(
             month=month, year=year
         ).exclude(
             business_unit=None
@@ -74,7 +77,11 @@ class AllBUsDebtSummaryAPIView(views.APIView):
             business_unit__code='HPC'
         ).exclude(
             business_unit__code__in=excluded_bu_codes
-        ).select_related('business_unit').order_by('-receivable_total')
+        )
+        if core_bu_codes:
+            perfs_qs = perfs_qs.filter(business_unit__code__in=core_bu_codes)
+
+        perfs = perfs_qs.select_related('business_unit').order_by('-receivable_total')
 
         bus_data = []
         calc_total_debt = Decimal('0')

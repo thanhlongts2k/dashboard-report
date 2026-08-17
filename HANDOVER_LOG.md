@@ -4,6 +4,14 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-17 15:09:00] Task: Enforce Strict 6 Core Commercial BUs on Backend API — [DONE]
+- **Objective**: Khóa cứng Backend API `GET /api/debt/bus/` chỉ trả về đúng danh sách 6 Khối BU Kinh Doanh Cốt Lõi (`CORE_COMMERCIAL_BU_CODES`), loại bỏ toàn bộ 13 phòng ban vận hành/back-office rỗng khỏi API và Dropdown.
+- **Các thay đổi đã thực hiện**:
+  1. `report2026/settings.py`: Thêm `CORE_COMMERCIAL_BU_CODES = ['BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE']`.
+  2. `accounting/views/debt_api.py`: Áp dụng filter `business_unit__code__in=core_bu_codes` trong `AllBUsDebtSummaryAPIView`.
+  3. `scripts/test_debt_apis.py`: Test suite Pass 100% (3/3 tests).
+- **Trạng thái**: **[DONE]**
+
 ## [2026-08-17 14:51:00] Task: Exclude Oversea & VHC_HR from Domestic Debt Governance Scope — [DONE]
 - **Objective**: Loại bỏ 2 khối không thuộc phạm vi quản trị công nợ kinh doanh nội địa: `Oversea` (Thị trường quốc tế) và `VHC_HR` (Nhân sự nội bộ).
 - **Các thay đổi đã thực hiện**:
