@@ -149,6 +149,12 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
 
     def get(self, request, bu_code, *args, **kwargs):
         period = request.query_params.get('period')
+        employee_code = (
+            request.query_params.get('employee_code') or
+            request.query_params.get('employee') or
+            request.query_params.get('sales_code') or
+            ''
+        ).strip()
         if not period:
             latest_ageing = ReceivablesAgeing.objects.order_by('-reporting_period').first()
             period = latest_ageing.reporting_period if latest_ageing else timezone.now().strftime('%Y-%m')
@@ -319,6 +325,9 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
                 else:
                     sales_map[emp.employee_code]["role"] = "SALES"
 
+        # Check selected employee
+        has_employee_filter = bool(employee_code and employee_code.upper() != 'ALL')
+
         # Separate Key Accounts vs BU Teams
         key_accounts_summary = None
         if '2001' in sales_map:
@@ -327,6 +336,10 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
             cco_data["title"] = "Giám đốc kinh doanh (CCO)"
             cco_data["customer_count"] = len(cco_data["customers"])
             cco_data["customers"].sort(key=lambda x: x["total_debt"], reverse=True)
+            cco_data["is_selected"] = (has_employee_filter and (
+                cco_data["employee_code"].lower() == employee_code.lower() or
+                cco_data["employee_name"].lower() == employee_code.lower()
+            ))
             key_accounts_summary = cco_data
 
         bu_teams = []
@@ -335,6 +348,10 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
                 continue
             s_info["customer_count"] = len(s_info["customers"])
             s_info["customers"].sort(key=lambda x: x["total_debt"], reverse=True)
+            s_info["is_selected"] = (has_employee_filter and (
+                s_info["employee_code"].lower() == employee_code.lower() or
+                s_info["employee_name"].lower() == employee_code.lower()
+            ))
             bu_teams.append(s_info)
 
         # Sort BU Teams by debt descending
@@ -346,6 +363,7 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
 
         response_payload = {
             "period": period,
+            "selected_employee_code": employee_code if has_employee_filter else None,
             "tier_1_bu": tier_1_bu,
             "tier_2_and_3": {
                 "key_accounts_summary": key_accounts_summary,

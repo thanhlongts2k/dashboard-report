@@ -4,6 +4,15 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-17 15:37:00] Task: Deep Linking & URL State Sync for BU & Employee Drilldown — [DONE]
+- **Objective**: Đồng bộ trạng thái Deep Linking vào URL params (`period`, `bu`, `employee`), hỗ trợ F5, back/forward trình duyệt và chia sẻ liên kết trực tiếp đến đúng BU và Nhân viên.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/views/debt_api.py`: `BUDebt3TierDrilldownAPIView` nhận query param `employee_code` (hoặc `sales_code`, `employee`), gắn cờ `is_selected` và trả về `selected_employee_code`.
+  2. `project-dashboard/src/api/agingApi.js`: Cập nhật `fetchBUDebtDrilldown` hỗ trợ param `employee`.
+  3. `project-dashboard/src/pages/DebtAgingReportPage.jsx`: Đồng bộ 2 chiều hoàn chỉnh giữa URL params (`period`, `bu`, `employee`) với React state qua `useSearchParams`, hỗ trợ Deep Link khi load trang và Back/Forward. File đạt 198 dòng (< 200 dòng).
+  4. Test suite và build xác thực 100% (3/3 tests pass, `npm run build` 0 lỗi).
+- **Current Status**: **[DONE]**
+
 ## [2026-08-17 15:09:00] Task: Enforce Strict 6 Core Commercial BUs on Backend API — [DONE]
 - **Objective**: Khóa cứng Backend API `GET /api/debt/bus/` chỉ trả về đúng danh sách 6 Khối BU Kinh Doanh Cốt Lõi (`CORE_COMMERCIAL_BU_CODES`), loại bỏ toàn bộ 13 phòng ban vận hành/back-office rỗng khỏi API và Dropdown.
 - **Các thay đổi đã thực hiện**:
