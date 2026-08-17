@@ -67,6 +67,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             customer_rev_filter &= Q(customer__group__code__in=oversea_cust_group_codes)
         else:
             customer_rev_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
+    elif 'Oversea' in excluded_bu_codes:
+        customer_rev_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
 
     # --- 3. TÍNH DOANH THU & THỰC THU (LŨY KẾ THÁNG) ---
     base_filter = Q(posting_date__month=month, posting_date__year=year) & customer_rev_filter
@@ -179,6 +181,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             ageing_filter &= Q(customer__group__code__in=oversea_cust_group_codes)
         else:
             ageing_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
+    elif 'Oversea' in excluded_bu_codes:
+        ageing_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
 
     if is_global:
         if excluded_bu_ids:

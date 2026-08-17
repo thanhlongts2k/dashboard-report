@@ -215,8 +215,8 @@ MISA_REPORT_PERIOD_OPTION = env('MISA_REPORT_PERIOD_OPTION', default='Tháng nà
 MISA_TUOI_NO_KH_ACCOUNTS = env.list('MISA_TUOI_NO_KH_ACCOUNTS', default=['131', '1311'])
 
 # Cấu hình loại trừ khi tính toán hiệu suất BU
-EXCLUDED_BU_CODES = ['ĐTCT']
-EXCLUDED_CUSTOMER_GROUP_CODES = ['Internal']
+EXCLUDED_BU_CODES = env.list('EXCLUDED_BU_CODES', default=['ĐTCT', 'Oversea', 'VHC_HR'])
+EXCLUDED_CUSTOMER_GROUP_CODES = env.list('EXCLUDED_CUSTOMER_GROUP_CODES', default=['Internal'])
 
 # Cấu hình danh sách tài khoản mục tiêu khi tính toán công nợ phải thu thương mại khách hàng (Receivables Debt)
 # Mặc định chỉ lấy TK 1311 (Phải thu khách hàng thương mại). Thiết kế dạng List để dễ mở rộng (1312, 1313...).

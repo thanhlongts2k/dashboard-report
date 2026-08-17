@@ -4,6 +4,42 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-17 14:51:00] Task: Exclude Oversea & VHC_HR from Domestic Debt Governance Scope — [DONE]
+- **Objective**: Loại bỏ 2 khối không thuộc phạm vi quản trị công nợ kinh doanh nội địa: `Oversea` (Thị trường quốc tế) và `VHC_HR` (Nhân sự nội bộ).
+- **Các thay đổi đã thực hiện**:
+  1. `report2026/settings.py`: Cập nhật `EXCLUDED_BU_CODES = env.list('EXCLUDED_BU_CODES', default=['ĐTCT', 'Oversea', 'VHC_HR'])`.
+  2. `accounting/views/debt_api.py`: Loại trừ các BU trong `EXCLUDED_BU_CODES` khỏi danh sách `bus[]` trong `AllBUsDebtSummaryAPIView`.
+  3. `accounting/services/kpi_calculator.py`: Loại trừ các nhóm khách hàng `Oversea` khỏi `ageing_filter` và `customer_rev_filter` khi tính Global.
+  4. Recalculate lại toàn bộ BUs và Global kỳ `2026-08`.
+  5. Restart Celery worker daemon.
+  6. `scripts/test_debt_apis.py`: Cập nhật và chạy kiểm thử tự động, 3/3 test suite PASS 100%.
+- **Kết quả đối soát số liệu**:
+  - `global_summary.receivable_total`: **55,707,311,450 VNĐ** (~55.71 Tỷ).
+  - `global_summary.overdue_total`: **10,580,990,314 VNĐ** (18.99%).
+  - Số lượng BU kinh doanh cốt lõi: **6 BU** (`BU_ELEVATOR`, `BU_IBIZ PREMIUM`, `BU_ECO`, `BU_MANUFACTURING`, `BU_AGRITECH`, `BU_IBIZ VALUE`).
+  - Tổng nợ 6 BU cộng lại: **55,707,311,450 VNĐ** (Khớp **100% Tuyệt đối 0 VNĐ chênh lệch** so với Global).
+- **Current Status**: **[DONE]**
+
+## [2026-08-17 14:05:00] Task: FIX CRITICAL — Chuẩn Hóa Số Liệu Công Nợ (x2 Bug + Missing Data) — [DONE]
+- **Objective**: Sửa triệt để lỗi sai số x2 trong `global_summary.receivable_total`, xử lý lỗi database field length varchar(20), sửa bug lọc nhầm khách hàng có chữ 'tổng' trong tên, và khớp 100% dữ liệu MISA.
+- **Root Cause & Các điểm lỗi đã khắc phục triệt để**:
+  1. `BUPerformance` tính trên cả TK 131 + TK 1311 → đã recalculate lọc riêng `TARGET_RECEIVABLE_ACCOUNTS = ['1311']`.
+  2. Lỗi `value too long for type character varying(20)` ở `NHAN_VIEN`: `EmployeeResource` thiếu `before_import` header detection dẫn đến map sai cột, và model các trường `employee_code`, `identity_number`, `phone_number`, `account_code` bị ngắn (20 chars) → Đã tăng lên max_length=50..100 và chạy migration `0046_alter_employee_email_alter_employee_employee_code_and_more.py`.
+  3. Lỗi rớt 2 khách hàng (`KH2025/000255` và `PAR2022/002634` tương đương 792.3 triệu): Do `merge_tuoi_no_kh_excel_files` trong `accounting/misa/report_exporter.py` lọc chuỗi `'tổng' in c1` (cột Tên khách hàng) → Đã sửa thành chỉ bỏ qua dòng summary ở cột 0 (`c0.startswith('tổng cộng')`).
+- **Kết quả đối soát sau fix 100%**:
+  - `ReceivablesAgeing` TK 1311 trong DB: **60,117,611,604 VNĐ** (Khớp **100% Tuyệt Đối 0 VNĐ chênh lệch** với dòng Tổng cộng trong file Excel MISA gốc).
+  - `Global BUPerformance`: **57,650,085,327 VNĐ** (Sau khi trừ nhóm `Internal` và BU `ĐTCT` theo chính sách exclusion nghiệp vụ).
+  - `BU_ELEVATOR`: **30,582,719,312 VNĐ** (Khớp drilldown 100% `is_matched: true`).
+  - `BU_IBIZ PREMIUM`: **20,922,010,913 VNĐ**.
+  - `BU_ECO`: **1,244,572,679 VNĐ**.
+  - `BU_MANUFACTURING`: **1,091,763,792 VNĐ**.
+  - `BU_AGRITECH`: **1,076,972,429 VNĐ**.
+  - `BU_IBIZ VALUE`: **789,272,325 VNĐ**.
+  - `Oversea`: **1,942,619,988 VNĐ**.
+  - `VHC_HR`: **153,889 VNĐ**.
+  - Tổng cộng 22 BU: **57,650,085,327 VNĐ** (Chênh lệch với Global = **0 VNĐ**).
+  - Test suite `scripts/test_debt_apis.py`: **3/3 PASS 100%**.
+
 ## [2026-08-14 15:05:00] Task: Expose Full Aging Buckets at Customer Level in BU Drilldown API
 - **Objective**: Bổ sung đầy đủ 14 trường dải tuổi nợ chi tiết (Trước hạn: `no_due_limit`, `due_0_7`..`due_above_60`, `due_total`; Quá hạn: `overdue_0_14`..`overdue_above_120`, `overdue_total`; `total_debt`) vào cấp Khách hàng trong API `GET /api/debt/bus/<bu_code>/drilldown/`.
 - **Planned Modifications**:

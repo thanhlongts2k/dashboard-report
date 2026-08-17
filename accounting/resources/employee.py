@@ -19,11 +19,42 @@ class EmployeeResource(ModelResource):
         import_id_fields = ('employee_code',)
         fields = ('employee_code', 'full_name', 'gender', 'date_of_birth', 'identity_number', 'phone_number', 'email', 'is_active')
 
+    def before_import(self, dataset, **kwargs):
+        """Tự động tìm dòng header chứa 'Mã nhân viên' và loại bỏ các dòng tiêu đề thừa."""
+        required_cols = ['Mã nhân viên', 'Tên nhân viên']
+        header_index = -1
+        current_headers = [str(h).strip() if h else "" for h in dataset.headers]
+        if not any(col in current_headers for col in required_cols):
+            for i, row in enumerate(dataset):
+                row_str = [str(cell).strip() if cell else "" for cell in row]
+                if any(col in row_str for col in required_cols):
+                    header_index = i
+                    break
+
+        if header_index >= 0:
+            dataset.headers = [str(h).strip() if h else "" for h in dataset[header_index]]
+            for _ in range(header_index + 1):
+                del dataset[0]
+
+        # Xóa các dòng trống hoặc dòng tổng cộng ở cuối
+        idx = len(dataset) - 1
+        while idx >= 0:
+            val = str(dataset[idx][0]).strip() if dataset[idx][0] is not None else ""
+            if "Tổng" in val or val == "" or val == "None":
+                del dataset[idx]
+            else:
+                break
+            idx -= 1
+
     def before_import_row(self, row, **kwargs):
         """
         Chuẩn hóa dữ liệu và tự động tạo Department & JobTitle trước khi import Employee.
         EmployeeAssignment được tạo trong after_save_instance.
         """
+        # Chuẩn hóa số điện thoại từ cột 'ĐT di động' nếu 'Số điện thoại' trống
+        if not row.get('Số điện thoại') and row.get('ĐT di động'):
+            row['Số điện thoại'] = row.get('ĐT di động')
+
         # 1. Chuẩn hóa gender
         raw_gender = str(row.get('Giới tính') or '').strip().lower()
         if raw_gender in ['nam', 'male', '1']:

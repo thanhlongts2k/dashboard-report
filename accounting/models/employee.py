@@ -56,13 +56,13 @@ class Employee(models.Model):
     )
 
     employee_code = models.CharField(
-        max_length=20,
+        max_length=50,
         unique=True,
         default='',
         verbose_name="Mã nhân viên"
     )
     full_name = models.CharField(
-        max_length=100,
+        max_length=255,
         default='',
         verbose_name="Họ và tên"
     )
@@ -79,19 +79,19 @@ class Employee(models.Model):
         verbose_name="Ngày sinh"
     )
     identity_number = models.CharField(
-        max_length=20, 
+        max_length=50, 
         null=True, 
         blank=True, 
         verbose_name="Số CMND/CCCD"
     )
     phone_number = models.CharField(
-        max_length=20, 
+        max_length=50, 
         null=True, 
         blank=True, 
         verbose_name="Số điện thoại"
     )
     email = models.CharField(
-        max_length=100, 
+        max_length=150, 
         null=True, 
         blank=True, 
         verbose_name="Email"

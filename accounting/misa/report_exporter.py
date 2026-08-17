@@ -435,8 +435,7 @@ def merge_tuoi_no_kh_excel_files(acc_file_map, final_output_path):
                 row_vals = [cell.value for cell in ws[r]]
                 if any(cell is not None and str(cell).strip() != '' for cell in row_vals):
                     c0 = str(row_vals[0] or '').strip().lower()
-                    c1 = str(row_vals[1] or '').strip().lower()
-                    if 'cộng' in c0 or 'tổng' in c0 or 'cộng' in c1 or 'tổng' in c1:
+                    if c0 in ['tổng cộng', 'tổng', 'cộng'] or c0.startswith('tổng cộng') or c0.startswith('tổng :'):
                         continue
                     row_vals.append(str(acc_code))
                     combined_ws.append(row_vals)

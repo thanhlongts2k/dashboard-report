@@ -64,13 +64,16 @@ class AllBUsDebtSummaryAPIView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Query danh sách 22 BUs (Loại trừ mã mẹ HPC và Global)
+        # 1. Query danh sách BU (Loại trừ mã mẹ HPC, Global và các BU loại trừ ngoài phạm vi kinh doanh nội địa)
+        excluded_bu_codes = getattr(settings, 'EXCLUDED_BU_CODES', ['ĐTCT', 'Oversea', 'VHC_HR'])
         perfs = BUPerformance.objects.filter(
             month=month, year=year
         ).exclude(
             business_unit=None
         ).exclude(
             business_unit__code='HPC'
+        ).exclude(
+            business_unit__code__in=excluded_bu_codes
         ).select_related('business_unit').order_by('-receivable_total')
 
         bus_data = []

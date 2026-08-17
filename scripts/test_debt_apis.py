@@ -55,7 +55,7 @@ def test_apis():
     print("  ✅ [PASS TEST 1A]: Mặc định lọc bỏ hoàn toàn các BU nợ = 0 hoặc overdue_rate = 0%!")
 
     # -------------------------------------------------------------
-    # TEST 1B: API 1 — TÙY CHỌN INCLUDE_ALL=TRUE (HIỂN THỊ TẤT CẢ 22 BU)
+    # TEST 1B: API 1 — TÙY CHỌN INCLUDE_ALL=TRUE (HIỂN THỊ TẤT CẢ 19 BU KINH DOANH)
     # -------------------------------------------------------------
     url_api_1b = '/api/debt/bus/?period=2026-08&include_all=true'
     print(f"\n📡 [TEST 1B] Gọi API 1 (include_all=true): {url_api_1b}")
@@ -63,9 +63,9 @@ def test_apis():
     
     assert res1b.status_code == 200, f"Expected 200 OK, got {res1b.status_code}"
     data1b = res1b.json()
-    assert len(data1b.get('bus', [])) == 22, f"LỖI: Kỳ vọng 22 BU, thực tế có {len(data1b.get('bus', []))}"
-    print(f"  HTTP Status: {res1b.status_code} OK | Trả về đủ 22 BU: {len(data1b.get('bus', []))} BU")
-    print("  ✅ [PASS TEST 1B]: Hỗ trợ include_all=true trả về đầy đủ 22 BU!")
+    assert len(data1b.get('bus', [])) == 19, f"LỖI: Kỳ vọng 19 BU kinh doanh, thực tế có {len(data1b.get('bus', []))}"
+    print(f"  HTTP Status: {res1b.status_code} OK | Trả về đủ 19 BU: {len(data1b.get('bus', []))} BU")
+    print("  ✅ [PASS TEST 1B]: Hỗ trợ include_all=true trả về đầy đủ 19 BU kinh doanh!")
 
     # -------------------------------------------------------------
     # TEST 2: API 2 — BÁO CÁO PHÂN CẤP 3 TẦNG DRILLDOWN + 14 DẢI TUỔI NỢ
