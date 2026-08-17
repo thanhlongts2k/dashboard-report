@@ -4,6 +4,13 @@
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
 
+## [2026-08-17 16:46:00] Task: Dynamic Inventory Aggregation for Warehouse API (`/api/warehouses/`) — [DONE]
+- **Objective**: Nâng cấp `WarehouseViewSet` để bóc tách tham số thời gian (`startDate`, `endDate`, `period`, `month`, `year`), tính toán động từ bảng `InventorySummary` theo từng kho và trả về số liệu thực tế chính xác.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/views/inventory_api.py`: Nâng cấp `WarehouseViewSet` (ghi đè `list()` và `retrieve()` method) để parse query params (`startDate`, `endDate`, `period`, `month`, `year`), query `InventorySummary` aggregate `opening_value`, `in_value`, `out_value`, `closing_value`, map vào danh sách `Warehouse`.
+  2. `scripts/test_warehouse_api.py`: Viết test script gọi API `/api/warehouses/?startDate=2026-08-01&endDate=2026-08-17` và `?period=2026-07`, xác thực 100% khớp số liệu (215,097,709,657 VNĐ kỳ 08 và 217,165,903,238 VNĐ kỳ 07, 0 VNĐ chênh lệch).
+- **Current Status**: **[DONE]**
+
 ## [2026-08-17 15:37:00] Task: Deep Linking & URL State Sync for BU & Employee Drilldown — [DONE]
 - **Objective**: Đồng bộ trạng thái Deep Linking vào URL params (`period`, `bu`, `employee`), hỗ trợ F5, back/forward trình duyệt và chia sẻ liên kết trực tiếp đến đúng BU và Nhân viên.
 - **Các thay đổi đã thực hiện**:
