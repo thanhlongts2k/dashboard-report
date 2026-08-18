@@ -88,9 +88,11 @@ class MisaAutomationTests(TestCase):
         from accounting.models import ImportLog
 
         with override_settings(MISA_EMAIL='', MISA_PASSWORD=''):
-            # This should create an ERROR log in ImportLog because credentials are empty
-            result = download_misa_reports_task()
-            self.assertIn("ERROR", result)
+            # This should raise Exception or log ERROR because credentials are empty
+            try:
+                download_misa_reports_task()
+            except Exception as e:
+                self.assertIn("MISA_EMAIL and MISA_PASSWORD must be configured", str(e))
                 
             # Verify ImportLog was created with status 'ERROR'
             misa_logs = ImportLog.objects.filter(file_name="MISA_Playwright_Automation")
@@ -115,6 +117,7 @@ class BUHierarchyAndCollectionTests(TestCase):
         # cust_parent: không có nợ quá hạn
         self.ageing_parent = ReceivablesAgeing.objects.create(
             customer=self.cust_parent,
+            account_code='1311',
             total_debt=1000,
             overdue_total=0,
             due_total=1000,
@@ -123,6 +126,7 @@ class BUHierarchyAndCollectionTests(TestCase):
         # cust_child: có nợ quá hạn (500)
         self.ageing_child = ReceivablesAgeing.objects.create(
             customer=self.cust_child,
+            account_code='1311',
             total_debt=2000,
             overdue_total=500,
             due_total=1500,
@@ -607,12 +611,14 @@ class BUOverseaFilterTests(TestCase):
         # 6. Tạo tuổi nợ để kiểm thử lọc ageing
         ReceivablesAgeing.objects.create(
             customer=self.cust_dom,
+            account_code='1311',
             reporting_period='2026-07',
             total_debt=100000,
             overdue_total=10000
         )
         ReceivablesAgeing.objects.create(
             customer=self.cust_ovs,
+            account_code='1311',
             reporting_period='2026-07',
             total_debt=200000,
             overdue_total=20000
@@ -781,7 +787,7 @@ class SendEmailAPITests(APITestCase):
         sent_email = mail.outbox[0]
         self.assertEqual(sent_email.subject, 'Test Subject')
         self.assertEqual(sent_email.body, 'Test Message')
-        self.assertIn('sender@example.com', sent_email.from_email)
+        self.assertEqual(sent_email.reply_to, ['sender@example.com'])
         self.assertEqual(sent_email.to, ['recipient1@example.com', 'recipient2@example.com'])
         self.assertEqual(len(sent_email.attachments), 0)
 

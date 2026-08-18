@@ -108,7 +108,7 @@ Xem chi tiết cú pháp và tất cả tùy chọn tại **[Run_Test_Scripts.md
 
 ## 5. Doanh thu khách hàng Oversea & Doanh thu không bao gồm Oversea
 Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hàng nước ngoài (Oversea) để phục vụ báo cáo cơ cấu doanh thu:
-* **Cấu hình nhóm:** Nhóm khách hàng được định nghĩa qua biến `OVERSEA_CUSTOMER_GROUP_CODES` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (mặc định là `['Oversea']`).
+* **Cấu hình nhóm:** Nhóm khách hàng được định nghĩa qua biến `OVERSEA_CUSTOMER_GROUP_CODES` trong [settings.py](file:///d:/Sources/dashboard-report/report2026/settings.py) (mặc định là `['Oversea', 'Overseas']`).
 * **Các trường dữ liệu mới (bảng `BUPerformance`):**
   * `mtd_revenue_oversea_actual`: Doanh thu Oversea thực tế trong tháng (MTD).
   * `mtd_revenue_exclude_oversea_actual`: Doanh thu thực tế trong tháng không bao gồm Oversea (MTD).
@@ -124,10 +124,11 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   * `mtd_collection_oversea_actual` = Tổng thực thu của các khách hàng có nhóm thuộc `OVERSEA_CUSTOMER_GROUP_CODES` trong tháng.
   * `mtd_collection_exclude_oversea_actual` = Tổng thực thu tháng (`mtd_collection_actual`) - Thực thu Oversea tháng.
   * Các chỉ số lũy kế YTD tương ứng được tự động cộng dồn qua từng tháng và lan truyền đến hết tháng 12 của năm đó.
-* **Bộ lọc phân tách theo BU:**
+* **Bộ lọc phân tách theo BU & Công Nợ:**
   * **Tổng công ty (Global - `bu_id is None`)**: Tính toán bao gồm cả trong nước và Oversea (không loại trừ).
-  * **Nhánh Oversea** (BU có code `Oversea` hoặc trực thuộc `Oversea`): Tính **TẤT CẢ giao dịch của khách hàng thuộc nhóm Oversea**, bất kể giao dịch đó được ghi nhận ở BU nào trong MISA. Không filter theo `business_unit_id`. Áp dụng cho cả Doanh thu, Thực thu và Công nợ.
-  * **Các BU trong nước khác**: Loại bỏ hoàn toàn các khách hàng thuộc nhóm khách hàng Oversea khi tính toán Doanh thu, Thực thu và Công nợ/Tuổi nợ.
+  * **Nhánh Oversea** (BU có code `Oversea` hoặc trực thuộc `Oversea`): Tính **TẤT CẢ giao dịch của khách hàng thuộc nhóm Oversea**, bất kể giao dịch đó được ghi nhận ở BU nào trong MISA.
+  * **Các BU trong nước khác**: Doanh thu bóc tách riêng phần trong nước; Công nợ thương mại (TK 1311) và Hệ thống Email nhắc nợ Sales/Trưởng BU **tính đầy đủ cả khách hàng trong nước và khách hàng Oversea** thuộc BU/Sales phụ trách (chỉ loại trừ nhóm nội bộ `Internal`).
+  * **Khối ĐTCT (Đầu tư cho thuê)**: Được đưa vào danh sách BU kinh doanh cốt lõi (`CORE_COMMERCIAL_BU_CODES`) để theo dõi công nợ cho thuê thiết bị độc lập.
 * **Nhật ký đối soát thu tiền (Accounting Tracking History)**: Xem chi tiết toàn bộ lịch sử đối soát số liệu thu tiền giữa Kế toán và Database tại [Accounting_Tracking_History.md](file:///d:/Sources/dashboard-report/Accounting_Tracking_History.md).
 
 ---

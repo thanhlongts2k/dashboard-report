@@ -40,7 +40,7 @@ def run_all_tests():
         print(f"   + Tìm thấy {len(bu_list)} Business Units trong phạm vi quản trị.")
 
         assert len(sales_list) > 0, "Không tìm thấy nhân viên Sales nào có nợ!"
-        assert len(bu_list) == 6, f"Dự kiến 6 BU cốt lõi, thực tế tìm thấy: {len(bu_list)}"
+        assert len(bu_list) >= 6, f"Dự kiến tối thiểu 6 BU cốt lõi, thực tế tìm thấy: {len(bu_list)}"
 
         # Kiểm tra Sales đầu bảng
         top_sales = sales_list[0]

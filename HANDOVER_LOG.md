@@ -3,6 +3,60 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-18 10:32:00] Task: Include Oversea & DTCT in Commercial Debt Management — [DONE]
+- **Objective**: Bỏ bộ lọc loại trừ khách hàng Oversea trong tính toán công nợ và hệ thống Email nhắc nợ; đồng thời hiển thị BU ĐTCT (Đầu tư cho thuê) như một Khối BU kinh doanh trong báo cáo công nợ.
+- **Các thay đổi đã thực hiện**:
+  1. `report2026/settings.py`:
+     - Cập nhật `OVERSEA_CUSTOMER_GROUP_CODES = ['Oversea', 'Overseas']`.
+     - Bổ sung `'ĐTCT'` vào `CORE_COMMERCIAL_BU_CODES = ['BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE', 'ĐTCT']`.
+     - Cập nhật `EXCLUDED_DEBT_BU_CODES = ['VHC_HR']`.
+  2. `accounting/views/debt_api.py`:
+     - Bỏ loại trừ `oversea_groups` trong `BUReceivablesDrilldownAPIView`, chỉ loại trừ nhóm nội bộ `Internal`.
+  3. `accounting/services/debt_mailer.py`:
+     - Bỏ loại trừ `oversea_groups` trong `collect_sales_debt_data` và `collect_bu_manager_debt_data`.
+     - Khách hàng Oversea thuộc Sales phụ trách (Fuji Electric Thailand thuộc Lê Văn Tín, Hạo Phương Campuchia thuộc Ngô Đình Trung Tân) và BU ĐTCT đã được tự động tính vào danh sách nợ.
+  4. `accounting/services/kpi_calculator.py`:
+     - Sửa logic `bu_ids` khi tính toán cho BU nằm trong `EXCLUDED_BU_CODES` (để tính toán đúng số liệu cho chính `ĐTCT` khi yêu cầu).
+     - Đồng bộ `ageing_filter` để tính công nợ đầy đủ cho từng BU (chỉ BU Oversea mới lọc riêng nhóm Oversea).
+  5. `accounting/views/debt_api.py`:
+     - Nâng cấp `BUDebt3TierDrilldownAPIView` tra cứu mã BU linh hoạt (hỗ trợ cả `ĐTCT` và `BU_ĐTCT` nếu frontend gửi có prefix).
+  6. Frontend `project-dashboard`:
+     - Cập nhật `normalizeBuCode` và `BU_CODE_MAP` trong `agingMockData.js` để giữ nguyên mã `ĐTCT` và `Oversea` thay vì tự động gắn prefix `BU_`.
+  7. Đã chạy tính toán lại `BUPerformance` toàn bộ 23 BUs tháng 08/2026.
+  8. `scripts/test_debt_email_automation.py`: Cập nhật assertion kiểm thử số lượng BU tối thiểu >= 6.
+- **Kết quả kiểm thử & API**:
+  - `GET /api/debt/bus/?period=2026-08`: `ĐTCT` trả về đầy đủ Tổng nợ **`730,801,226` VNĐ**, Quá hạn **`114,050,877` VNĐ** (15.61%).
+  - `GET /api/debt/bus/ĐTCT/drilldown/?period=2026-08` & `.../BU_ĐTCT/drilldown/`: Đều trả về HTTP 200 OK với Drilldown 3 tầng chi tiết 2 Sales (Phạm Văn Mừng, Đào Tiến Dũng) và 8 khách hàng.
+  - `manage.py test accounting`: **34/34 tests OK (100% PASS)**.
+  - `scripts/test_debt_email_automation.py`: **4/4 suites PASS (100% PASS)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-18 10:09:00] Task: Investigate & Fix Total Company Oversea Revenue MTD (01/08/2026 – 18/08/2026) — [DONE]
+- **Objective**: Điều tra nguyên nhân vì sao Doanh thu Oversea MTD (Thực tế) kỳ 2026-08 (01/08/2026 – 18/08/2026) tại dashboard Tổng Toàn Công Ty đang hiển thị = 0, và đưa ra giải pháp khắc phục triệt để.
+- **Nguyên nhân cốt lõi (Root Cause)**:
+  - Khi cấu hình `EXCLUDED_BU_CODES = ['ĐTCT', 'Oversea', 'VHC_HR']` trong `settings.py` để loại trừ các BU không có công nợ thương mại khỏi danh sách BU Drilldown, mã BU `'Oversea'` bị đưa nhầm vào danh sách loại trừ tính toán hiệu suất chung.
+  - Trong `accounting/services/kpi_calculator.py`, điều kiện `elif 'Oversea' in excluded_bu_codes:` khi `is_global=True` (Tổng Toàn Công Ty) đã vô tình lọc bỏ toàn bộ giao dịch của nhóm khách hàng `Oversea` khỏi `sales_qs` và `ageing_filter`.
+  - Hậu quả: `rev_oversea_actual` bị tính thành `0 VNĐ`, và Doanh thu Tổng Toàn Công Ty bị thiếu hụt mất phần doanh thu Oversea (chỉ còn 17.69 tỷ thay vì 25.73 tỷ).
+- **Các thay đổi đã thực hiện**:
+  1. `report2026/settings.py`: Tách bạch rõ 2 cấu hình:
+     - `EXCLUDED_BU_CODES = env.list('EXCLUDED_BU_CODES', default=['ĐTCT'])`: Chỉ loại trừ đơn vị cho thuê (ĐTCT) khi tính toán hiệu suất Tổng Công Ty.
+     - `EXCLUDED_DEBT_BU_CODES = env.list('EXCLUDED_DEBT_BU_CODES', default=['ĐTCT', 'Oversea', 'VHC_HR'])`: Dành riêng cho lọc danh sách BU trong Debt Drilldown APIs.
+  2. `accounting/views/debt_api.py`: Sử dụng `EXCLUDED_DEBT_BU_CODES` để lọc 6 BU thương mại.
+  3. `accounting/services/kpi_calculator.py`: Loại bỏ logic `elif 'Oversea' in excluded_bu_codes:` trong `customer_rev_filter` và `ageing_filter`. Cấp Tổng Toàn Công Ty (`is_global=True`) giờ đây luôn bao gồm cả Khách hàng Trong nước và Khách hàng Oversea, sau đó tự động tách bạch thành `mtd_revenue_exclude_oversea_actual` và `mtd_revenue_oversea_actual`.
+  4. `accounting/tests.py`: Cập nhật fixture `account_code='1311'` cho `ReceivablesAgeing` và assertion kiểm thử `Reply-To` cho email API.
+  5. `scripts/update_company_total.py`: Chạy lại cập nhật toàn bộ 8 tháng của năm 2026.
+- **Kết quả xác minh số liệu**:
+  - **Doanh thu Tổng Toàn Công Ty Tháng 08/2026 (01/08 - 18/08)**:
+    * `mtd_revenue_actual` (Tổng DT có Oversea): **`25,730,201,043` VNĐ**
+    * `mtd_revenue_exclude_oversea_actual` (Không gồm Oversea): **`17,695,573,656` VNĐ**
+    * `mtd_revenue_oversea_actual` (Doanh thu Oversea MTD): **`8,034,627,387` VNĐ** (~8.03 Tỷ, KHỚP 100%)
+    * `mtd_collection_actual` (Tổng thực thu): **`24,366,882,385` VNĐ**
+    * `mtd_collection_oversea_actual` (Thực thu Oversea): **`5,749,663,870` VNĐ**
+  - **Kiểm thử tự động**:
+    * `manage.py test accounting`: **34/34 tests OK (100% PASS)**.
+    * `scripts/test_debt_email_automation.py`: **4/4 suites PASS (100% PASS)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-18 08:23:00] Task: Debt Reminder Email Automation (Hệ Thống Gửi Mail Nhắc Nợ Phân Cấp) — [DONE]
 - **Objective**: Phát triển hệ thống tự động hóa gửi email thông báo nhắc nợ phân cấp 2 tầng:
   1. Gửi email chi tiết từng Khách hàng nợ cho Nhân viên Kinh doanh (Sales) phụ trách.

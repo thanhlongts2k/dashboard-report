@@ -54,7 +54,8 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             is_global = False
             is_under_oversea_branch = is_under_oversea(bu)
             bu_ids = bu.get_all_descendant_ids()
-            bu_ids = [bid for bid in bu_ids if bid not in excluded_bu_ids]
+            if bu.code not in excluded_bu_codes:
+                bu_ids = [bid for bid in bu_ids if bid not in excluded_bu_ids]
 
     excluded_cust_group_codes = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', [])
     customer_rev_filter = Q(customer__has_revenue=True)
@@ -67,8 +68,6 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
             customer_rev_filter &= Q(customer__group__code__in=oversea_cust_group_codes)
         else:
             customer_rev_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
-    elif 'Oversea' in excluded_bu_codes:
-        customer_rev_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
 
     # --- 3. TÍNH DOANH THU & THỰC THU (LŨY KẾ THÁNG) ---
     base_filter = Q(posting_date__month=month, posting_date__year=year) & customer_rev_filter
@@ -179,10 +178,7 @@ def update_single_bu_performance(bu_id, month=None, year=None, target_date_str=N
     if not is_global:
         if is_under_oversea_branch:
             ageing_filter &= Q(customer__group__code__in=oversea_cust_group_codes)
-        else:
-            ageing_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
-    elif 'Oversea' in excluded_bu_codes:
-        ageing_filter &= ~Q(customer__group__code__in=oversea_cust_group_codes)
+
 
     if is_global:
         if excluded_bu_ids:

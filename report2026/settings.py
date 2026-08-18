@@ -215,38 +215,56 @@ MISA_REPORTS = {
 MISA_REPORT_PERIOD_OPTION = env('MISA_REPORT_PERIOD_OPTION', default='Tháng này')
 MISA_TUOI_NO_KH_ACCOUNTS = env.list('MISA_TUOI_NO_KH_ACCOUNTS', default=['131', '1311'])
 
-# Cấu hình loại trừ khi tính toán hiệu suất BU
-EXCLUDED_BU_CODES = env.list('EXCLUDED_BU_CODES', default=['ĐTCT', 'Oversea', 'VHC_HR'])
+# -----------------------------------------------------------------------------
+# CẤU HÌNH LOẠI TRỪ VÀ BÓC TÁCH HIỆU SUẤT DOANH THU / THU TIỀN / CÔNG NỢ
+# -----------------------------------------------------------------------------
+
+# 1. EXCLUDED_BU_CODES: Danh sách mã BU bị loại trừ khi tính hiệu suất Tổng Toàn Công Ty (TOTAL_CORP).
+# - Mặc định chỉ loại trừ 'ĐTCT' (Đầu tư cho thuê - Rental investment entity) vì đây là mảng tài sản cho thuê,
+#   không thuộc hoạt động thương mại/vận hành cốt lõi của công ty.
+# - LƯU Ý QUAN TRỌNG: TUYỆT ĐỐI KHÔNG thêm 'Oversea' vào danh sách này, vì 'Oversea' là doanh thu bán hàng 
+#   hợp lệ của công ty và cần được cộng vào Tổng Doanh Thu Tổng Công Ty, sau đó bóc tách thành Doanh Thu Oversea MTD.
+EXCLUDED_BU_CODES = env.list('EXCLUDED_BU_CODES', default=['ĐTCT'])
+
+# 2. EXCLUDED_CUSTOMER_GROUP_CODES: Danh sách mã Nhóm khách hàng bị loại trừ khỏi Doanh thu/Công nợ.
+# - 'Internal': Loại trừ giao dịch mua bán nội bộ giữa các đơn vị thành viên.
 EXCLUDED_CUSTOMER_GROUP_CODES = env.list('EXCLUDED_CUSTOMER_GROUP_CODES', default=['Internal'])
 
-# Danh sách 6 Khối BU Kinh Doanh Cốt Lõi (Core Commercial Business Units)
+# 3. OVERSEA_CUSTOMER_GROUP_CODES: Danh sách mã Nhóm khách hàng được định nghĩa là Oversea (Xuất khẩu / Khách nước ngoài).
+# - Dùng để nhận diện và bóc tách các chỉ số: Doanh thu Oversea MTD (mtd_revenue_oversea_actual),
+#   Thực thu Oversea MTD (mtd_collection_oversea_actual) và Doanh thu không gồm Oversea (mtd_revenue_exclude_oversea_actual).
+OVERSEA_CUSTOMER_GROUP_CODES = env.list('OVERSEA_CUSTOMER_GROUP_CODES', default=['Oversea', 'Overseas'])
+
+# 4. EXCLUDED_DEBT_BU_CODES: Danh sách mã BU bị loại trừ khỏi các Báo cáo / API Công Nợ Phải Thu Thương Mại (Debt Drilldown).
+# - Mặc định chỉ loại trừ 'VHC_HR' (Khối Nhân sự nội bộ).
+EXCLUDED_DEBT_BU_CODES = env.list('EXCLUDED_DEBT_BU_CODES', default=['VHC_HR'])
+
+# 5. CORE_COMMERCIAL_BU_CODES: Danh sách các Khối BU Kinh Doanh Cốt Lõi (Core Commercial Business Units).
+# - Dùng cho bộ lọc hiển thị Dashboard Công nợ và Hệ thống gửi Email nhắc nợ phân cấp tự động.
 CORE_COMMERCIAL_BU_CODES = env.list('CORE_COMMERCIAL_BU_CODES', default=[
-    'BU_ELEVATOR',
-    'BU_IBIZ PREMIUM',
-    'BU_ECO',
-    'BU_MANUFACTURING',
-    'BU_AGRITECH',
-    'BU_IBIZ VALUE'
+    'BU_ELEVATOR',       # Thang máy (Mr Tiến Dũng)
+    'BU_IBIZ PREMIUM',   # Thiết bị điện cao cấp (Mr Nhật Minh)
+    'BU_ECO',            # ECO Solar (Mr Duy Hiếu)
+    'BU_MANUFACTURING',  # Sản xuất - Nhà máy (Mr Xuân Quang)
+    'BU_AGRITECH',       # Nông nghiệp công nghệ cao (Mr Duy Hiếu)
+    'BU_IBIZ VALUE',     # Thiết bị điện phổ thông (Mr Huy Phong)
+    'ĐTCT'               # Đầu tư cho thuê (Mảng cho thuê thiết bị)
 ])
 
-# Cấu hình danh sách tài khoản mục tiêu khi tính toán công nợ phải thu thương mại khách hàng (Receivables Debt)
-# Mặc định chỉ lấy TK 1311 (Phải thu khách hàng thương mại). Thiết kế dạng List để dễ mở rộng (1312, 1313...).
+# 6. TARGET_RECEIVABLE_ACCOUNTS: Danh sách tài khoản mục tiêu khi tính toán công nợ phải thu thương mại (Receivables Debt).
+# - Mặc định chỉ lấy TK '1311' (Phải thu khách hàng thương mại). Thiết kế dạng List để dễ mở rộng (1312, 1313...).
 TARGET_RECEIVABLE_ACCOUNTS = env.list('TARGET_RECEIVABLE_ACCOUNTS', default=['1311'])
 
-# Cấu hình cờ bật/tắt tính toán các khoản điều chỉnh thủ công Off-MISA (Hisa-FJT, 5EX, ...)
+# 7. ENABLE_MANUAL_ADJUSTMENTS: Cờ bật/tắt tính toán các khoản điều chỉnh thủ công Off-MISA (Hisa-FJT, 5EX, ...).
 ENABLE_MANUAL_ADJUSTMENTS = env.bool('ENABLE_MANUAL_ADJUSTMENTS', default=False)
 
-# Cấu hình nhóm khách hàng Oversea để tính doanh thu tách biệt
-OVERSEA_CUSTOMER_GROUP_CODES = ['Oversea']
-
-# Danh sách tiền tố mã chứng từ bị loại trừ khi tính doanh thu (ví dụ: thanh lý tài sản, điều chuyển nội bộ, ký gửi)
-# Để dễ mở rộng, có thể thêm các tiền tố mới vào list này.
+# 8. EXCLUDED_DOC_ID_PREFIXES: Danh sách tiền tố mã chứng từ bị loại trừ khi tính doanh thu (ví dụ: thanh lý tài sản, điều chuyển nội bộ).
 EXCLUDED_DOC_ID_PREFIXES = ['THANHLY']
 
-# Danh sách các tài khoản xuất chi tiết từ MISA (Sổ chi tiết tài khoản TAI_KHOAN_CT)
+# 9. MISA_SO_CHI_TIET_ACCOUNTS: Danh sách các tài khoản xuất chi tiết từ MISA (Sổ chi tiết tài khoản TAI_KHOAN_CT).
 MISA_SO_CHI_TIET_ACCOUNTS = ['111', '112', '341', '641', '642']
 
-# Danh sách số tài khoản ngân hàng loại trừ khi tính Tiền cuối kỳ
+# 10. MISA_EXCLUDED_BANK_ACCOUNTS: Danh sách số tài khoản ngân hàng loại trừ khi tính Tiền cuối kỳ (ví dụ: TK ngoại bảng/đặc thù).
 MISA_EXCLUDED_BANK_ACCOUNTS = ['113611393939']
 
 # Cấu hình gửi mail (Email Settings)

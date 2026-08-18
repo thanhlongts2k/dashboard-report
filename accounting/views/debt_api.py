@@ -20,20 +20,23 @@ logger = logging.getLogger(__name__)
 
 
 def get_bu_manager_name(bu):
-    """Lấy tên Trưởng BU chuẩn hóa"""
+    """Lấy tên Trưởng BU chuẩn hóa (Ưu tiên đọc từ cột bu.manager trong database)"""
     if not bu:
         return "N/A"
-    if bu.code == 'BU_ELEVATOR':
-        return "ĐÀO TIẾN DŨNG"
-    elif bu.code == 'BU_IBIZ PREMIUM':
-        return "HỒ TÔN NHẬT MINH"
-    elif bu.code == 'BU_IBIZ VALUE':
-        return "NGUYỄN NGỌC HUY PHONG"
-    elif bu.code == 'BU_MANUFACTURING':
-        return "HỒ XUÂN QUANG"
-    elif bu.code in ['BU_AGRITECH', 'BU_ECO', 'BU_Agritech - Eco']:
-        return "TRẦN DUY HIẾU"
-    return bu.manager or "Chưa cấu hình"
+    if bu.manager:
+        return bu.manager
+
+    # Fallback mặc định cho các BU nếu chưa điền trong DB
+    manager_name_map = {
+        'BU_ELEVATOR': 'ĐÀO TIẾN DŨNG',
+        'BU_IBIZ PREMIUM': 'HỒ TÔN NHẬT MINH',
+        'BU_IBIZ VALUE': 'NGUYỄN NGỌC HUY PHONG',
+        'BU_MANUFACTURING': 'HỒ XUÂN QUANG',
+        'BU_AGRITECH': 'TRẦN DUY HIẾU',
+        'BU_ECO': 'TRẦN DUY HIẾU',
+        'BU_Agritech - Eco': 'TRẦN DUY HIẾU',
+    }
+    return manager_name_map.get(bu.code, "Chưa cấu hình")
 
 
 class AllBUsDebtSummaryAPIView(views.APIView):
@@ -67,7 +70,7 @@ class AllBUsDebtSummaryAPIView(views.APIView):
             )
 
         # 1. Query danh sách 6 BU Kinh Doanh Cốt Lõi (Loại trừ mã mẹ HPC, Global và các khối vận hành/loại trừ)
-        excluded_bu_codes = getattr(settings, 'EXCLUDED_BU_CODES', ['ĐTCT', 'Oversea', 'VHC_HR'])
+        excluded_bu_codes = getattr(settings, 'EXCLUDED_DEBT_BU_CODES', ['ĐTCT', 'Oversea', 'VHC_HR'])
         core_bu_codes = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
             'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE'
         ])
@@ -169,8 +172,15 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Tìm Business Unit theo mã code
-        bu = BusinessUnit.objects.filter(code__iexact=bu_code).first()
+        # 1. Tìm Business Unit theo mã code (Hỗ trợ linh hoạt cả mã gốc như ĐTCT, Oversea hoặc có tiền tố BU_)
+        clean_bu_code = bu_code.strip()
+        bu = BusinessUnit.objects.filter(code__iexact=clean_bu_code).first()
+        if not bu and clean_bu_code.upper().startswith('BU_'):
+            unprefixed_code = clean_bu_code[3:].strip()
+            bu = BusinessUnit.objects.filter(code__iexact=unprefixed_code).first()
+        if not bu:
+            bu = BusinessUnit.objects.filter(code__iexact=f"BU_{clean_bu_code}").first()
+
         if not bu:
             available_codes = list(BusinessUnit.objects.exclude(code='HPC').values_list('code', flat=True))
             return Response(
@@ -199,18 +209,15 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
             "overdue_rate": rate
         }
 
-        # 3. Cấp 2 & 3: Lọc chi tiết ReceivablesAgeing (Đồng bộ bộ lọc Nước ngoài & Tài khoản mục tiêu 1311)
-        oversea_groups = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+        # 3. Cấp 2 & 3: Lọc chi tiết ReceivablesAgeing (Đồng bộ bộ lọc Tài khoản mục tiêu 1311 & loại trừ nhóm Internal)
+        excluded_cust_groups = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', ['Internal'])
         target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
 
         ageing_filter = Q(reporting_period=period, customer__business_unit=bu)
         if target_rec_accounts:
             ageing_filter &= Q(account_code__in=target_rec_accounts)
-
-        if bu.code == 'Oversea':
-            ageing_filter &= Q(customer__group__code__in=oversea_groups)
-        else:
-            ageing_filter &= ~Q(customer__group__code__in=oversea_groups)
+        if excluded_cust_groups:
+            ageing_filter &= ~Q(customer__group__code__in=excluded_cust_groups)
 
         ageings = ReceivablesAgeing.objects.filter(ageing_filter).select_related(
             'customer', 'customer__assigned_employee'

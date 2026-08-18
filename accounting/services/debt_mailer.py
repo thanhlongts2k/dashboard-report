@@ -47,18 +47,20 @@ def get_bu_manager_info(bu):
     if not bu:
         return {"name": "N/A", "email": None, "employee": None}
 
-    # Bảng mapping chuẩn Trưởng BU từ hệ thống phân cấp
-    manager_name_map = {
-        'BU_ELEVATOR': 'ĐÀO TIẾN DŨNG',
-        'BU_IBIZ PREMIUM': 'HỒ TÔN NHẬT MINH',
-        'BU_IBIZ VALUE': 'NGUYỄN NGỌC HUY PHONG',
-        'BU_MANUFACTURING': 'HỒ XUÂN QUANG',
-        'BU_AGRITECH': 'TRẦN DUY HIẾU',
-        'BU_ECO': 'TRẦN DUY HIẾU',
-        'BU_Agritech - Eco': 'TRẦN DUY HIẾU',
-    }
-
-    mgr_name = manager_name_map.get(bu.code, bu.manager or "Chưa cấu hình")
+    # 1. Ưu tiên lấy từ database (bu.manager)
+    mgr_name = bu.manager
+    if not mgr_name:
+        # 2. Fallback từ bảng mapping chuẩn nếu DB chưa điền
+        manager_name_map = {
+            'BU_ELEVATOR': 'ĐÀO TIẾN DŨNG',
+            'BU_IBIZ PREMIUM': 'HỒ TÔN NHẬT MINH',
+            'BU_IBIZ VALUE': 'NGUYỄN NGỌC HUY PHONG',
+            'BU_MANUFACTURING': 'HỒ XUÂN QUANG',
+            'BU_AGRITECH': 'TRẦN DUY HIẾU',
+            'BU_ECO': 'TRẦN DUY HIẾU',
+            'BU_Agritech - Eco': 'TRẦN DUY HIẾU',
+        }
+        mgr_name = manager_name_map.get(bu.code, "Chưa cấu hình")
     
     # Tìm nhân viên tương ứng trong Employee model để lấy email
     emp = Employee.objects.filter(full_name__iexact=mgr_name).first()
@@ -68,7 +70,7 @@ def get_bu_manager_info(bu):
 
     return {
         "name": mgr_name,
-        "email": emp.email if (emp and emp.email) else None,
+        "email": getattr(bu, 'manager_email', None) or (emp.email if emp else None),
         "employee_code": emp.employee_code if emp else "",
         "employee": emp
     }
@@ -83,9 +85,9 @@ def collect_sales_debt_data(period=None, bu_code=None):
     period = get_target_period(period)
     target_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
     core_bus = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
-        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE'
+        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE', 'ĐTCT'
     ])
-    oversea_groups = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+    excluded_cust_groups = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', ['Internal'])
 
     ageing_filter = Q(
         reporting_period=period,
@@ -96,7 +98,7 @@ def collect_sales_debt_data(period=None, bu_code=None):
         ageing_filter &= Q(customer__business_unit__code__iexact=bu_code)
 
     ageings = ReceivablesAgeing.objects.filter(ageing_filter).exclude(
-        customer__group__code__in=oversea_groups
+        customer__group__code__in=excluded_cust_groups
     ).select_related('customer', 'customer__assigned_employee', 'customer__business_unit')
 
     # Gom theo Sales -> Customer
@@ -213,20 +215,16 @@ def collect_bu_manager_debt_data(period=None, bu_code=None):
     - Top khách hàng nợ quá hạn cao nhất trong BU.
     """
     period = get_target_period(period)
-    target_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
     core_bus = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
-        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE'
+        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE', 'ĐTCT'
     ])
-    oversea_groups = getattr(settings, 'OVERSEA_CUSTOMER_GROUP_CODES', ['Oversea'])
+    target_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+    excluded_cust_groups = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', ['Internal'])
 
-    if bu_code:
-        target_bu_codes = [b for b in core_bus if b.lower() == bu_code.lower()]
-    else:
-        target_bu_codes = core_bus
-
+    bu_list_to_query = [bu_code] if bu_code else core_bus
     results = []
 
-    for b_code in target_bu_codes:
+    for b_code in bu_list_to_query:
         bu = BusinessUnit.objects.filter(code=b_code).first()
         if not bu:
             continue
@@ -238,7 +236,7 @@ def collect_bu_manager_debt_data(period=None, bu_code=None):
             account_code__in=target_accounts,
             customer__business_unit=bu
         ).exclude(
-            customer__group__code__in=oversea_groups
+            customer__group__code__in=excluded_cust_groups
         ).select_related('customer', 'customer__assigned_employee')
 
         # 1. Gom theo Customer
