@@ -181,4 +181,50 @@ Thiết lập request trên Postman hoặc Client gửi HTTP của bạn như sa
     *   Để biết chính xác quá trình gửi email mất bao nhiêu thời gian (bao gồm thời gian nhận request, validate, đọc file đính kèm, và thời gian SMTP server gửi thư), hệ thống sẽ tự động ghi log vào tệp **`email_timing.log`** tại thư mục gốc của dự án.
     *   Nhật ký này giúp lập trình viên và quản trị viên dễ dàng phát hiện nút thắt cổ chai (bottleneck) nếu quá trình gửi email bị chậm.
 
+---
+
+## 7. Hướng Dẫn Tính Năng Gửi Email Nhắc Nợ Phân Cấp (Debt Reminder Email Automation)
+
+### 7.1. Tổng Quan Nghiệp Vụ
+Hệ thống tự động tổng hợp công nợ khách hàng (Tài khoản 1311) và phân loại gửi email 2 tầng:
+1. **Cấp Nhân viên Kinh doanh (Sales)**: Nhận bảng danh sách khách hàng nợ do mình phụ trách kèm chi tiết nợ trong hạn, nợ quá hạn (1-14 ngày, 15-30 ngày, >30 ngày).
+2. **Cấp Trưởng BU**: Nhận báo cáo tổng thể công nợ toàn BU, bảng phân bổ nhân sự và Top khách hàng quá hạn cao nhất.
+
+### 7.2. Hướng Dẫn Sử Dụng Script CLI Dòng Lệnh
+
+```powershell
+# Xem trợ giúp & các tùy chọn
+python scripts/send_live_debt_reminders.py --help
+
+# 1. Chạy thử nghiệm thống kê (Mặc định dry-run, an toàn tuyệt đối):
+python scripts/send_live_debt_reminders.py --period 2026-08
+
+# 2. Chạy thử nghiệm gửi 1 email mẫu về email test cá nhân để xem trước:
+python scripts/send_live_debt_reminders.py --period 2026-08 --test-email your_email@haophuong.com
+
+# 3. KÍCH HOẠT GỬI THỰC TẾ (LIVE) CHO TOÀN BỘ 23 SALES & 6 TRƯỞNG BU:
+python scripts/send_live_debt_reminders.py --period 2026-08 --live
+
+# 4. Chỉ gửi thực tế cho riêng Trưởng BU:
+python scripts/send_live_debt_reminders.py --period 2026-08 --live --recipient-type MANAGERS
+
+# 5. Chỉ gửi thực tế cho 1 BU cụ thể (Ví dụ BU Thang Máy):
+python scripts/send_live_debt_reminders.py --period 2026-08 --live --bu BU_ELEVATOR
+```
+
+### 7.3. Hướng Dẫn Sử Dụng REST API (`POST /api/debt/notifications/send-reminders/`)
+* **Endpoint**: `POST /api/debt/notifications/send-reminders/`
+* **JSON Body mẫu**:
+  ```json
+  {
+    "period": "2026-08",
+    "dry_run": false,
+    "recipient_type": "ALL",
+    "send_async": true
+  }
+  ```
+  - `"dry_run": false`: Bật gửi thực tế tới email công ty của từng nhân viên.
+  - `"send_async": true`: Chạy nền qua Celery Worker không lo timeout.
+
+
 

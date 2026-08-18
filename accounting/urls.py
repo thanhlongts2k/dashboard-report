@@ -8,7 +8,8 @@ from .views import (
 )
 from .views import (
     LoginAPI, GoogleLoginAPI, ActivateUserAPIView, BUReportAPIView, BUPerformanceDailyListView, 
-    DashboardCollectionByBUAPIView, SendEmailAPIView, AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView
+    DashboardCollectionByBUAPIView, SendEmailAPIView, AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView,
+    SendDebtRemindersAPIView
 )
 
 
@@ -47,4 +48,7 @@ urlpatterns = [
     # --- REST API BÁO CÁO CÔNG NỢ & 3-TIER DRILLDOWN (PHASE 3) ---
     path('debt/bus/', AllBUsDebtSummaryAPIView.as_view(), name='debt_bus_summary_api'),
     path('debt/bus/<str:bu_code>/drilldown/', BUDebt3TierDrilldownAPIView.as_view(), name='debt_bu_drilldown_api'),
+
+    # --- REST API TỰ ĐỘNG GỬI EMAIL NHẮC NỢ PHÂN CẤP ---
+    path('debt/notifications/send-reminders/', SendDebtRemindersAPIView.as_view(), name='send_debt_reminders_api'),
 ]

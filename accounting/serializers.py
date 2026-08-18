@@ -283,3 +283,15 @@ class AllBUsDebtResponseSerializer(serializers.Serializer):
     period = serializers.CharField()
     global_summary = GlobalDebtSummarySerializer()
     bus = BUDebtSummarySerializer(many=True)
+
+
+class DebtReminderRequestSerializer(serializers.Serializer):
+    """
+    Serializer validate request gửi email nhắc nợ phân cấp
+    """
+    period = serializers.CharField(max_length=7, required=False, allow_blank=True, allow_null=True, default=None)
+    dry_run = serializers.BooleanField(default=True)
+    test_email = serializers.EmailField(required=False, allow_null=True, allow_blank=True, default=None)
+    bu_code = serializers.CharField(required=False, allow_null=True, allow_blank=True, default=None)
+    recipient_type = serializers.ChoiceField(choices=['ALL', 'SALES', 'MANAGERS'], default='ALL')
+    send_async = serializers.BooleanField(default=False)

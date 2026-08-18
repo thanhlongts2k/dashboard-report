@@ -15,7 +15,7 @@ from .dashboard_api import (
     BUTargetPlanViewSet, ManualAdjustmentViewSet
 )
 from .debt_api import (
-    AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView
+    AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView, SendDebtRemindersAPIView
 )
 
 __all__ = [
@@ -27,5 +27,6 @@ __all__ = [
     'BUReportAPIView', 'BUPerformanceDailyListView', 'BUPerformanceUpdateAPIView',
     'DashboardCollectionByBUAPIView', 'SendEmailAPIView',
     'BUTargetPlanViewSet', 'ManualAdjustmentViewSet',
-    'AllBUsDebtSummaryAPIView', 'BUDebt3TierDrilldownAPIView'
+    'AllBUsDebtSummaryAPIView', 'BUDebt3TierDrilldownAPIView', 'SendDebtRemindersAPIView'
 ]
+

@@ -647,5 +647,60 @@ Toàn bộ chuỗi HTML gửi Mail và giao diện Web đã được tách bạc
 * **Áp dụng QuerySet (`accounting/services/kpi_calculator.py`)**:
   - `base_filter` và `daily_sales_filter` đều tự động loại trừ `~Q(customer__group__code__in=EXCLUDED_CUSTOMER_GROUP_CODES)` và `~Q(doc_id__istartswith=prefix)` cho từng tiền tố trong `EXCLUDED_DOC_ID_PREFIXES`.
 
+---
+
+## 16. Hệ Thống Tự Động Gửi Email Nhắc Nợ Phân Cấp (Debt Reminder Email Automation)
+
+### 16.1. API Kích Hoạt Gửi Email Nhắc Nợ (`/api/debt/notifications/send-reminders/`)
+* **Đường dẫn**: `POST /api/debt/notifications/send-reminders/`
+* **Xác thực**: `AllowAny` (hoặc `IsAuthenticated`)
+* **Request Body (JSON)**:
+  ```json
+  {
+    "period": "2026-08",
+    "dry_run": true,
+    "test_email": "abc@haophuong.com",
+    "bu_code": "BU_ELEVATOR",
+    "recipient_type": "ALL",
+    "send_async": false
+  }
+  ```
+* **Mô tả tham số**:
+  - `period` *(string, optional)*: Kỳ báo cáo YYYY-MM (Mặc định: kỳ mới nhất trong CSDL).
+  - `dry_run` *(boolean, default: true)*: Chế độ an toàn. Khi `true`, hệ thống chỉ thống kê hoặc gửi 1 email mẫu đại diện về `test_email` mà không gửi tràn lan. Khi `false`, hệ thống gửi thực tế tới từng Sales và Trưởng BU.
+  - `test_email` *(string, optional)*: Địa chỉ email nhận thử nghiệm khi `dry_run = true`.
+  - `bu_code` *(string, optional)*: Mã BU cụ thể nếu chỉ muốn gửi cho 1 BU (ví dụ: `BU_ELEVATOR`).
+  - `recipient_type` *(string, default: "ALL")*: Đối tượng nhận (`"ALL"`, `"SALES"`, `"MANAGERS"`).
+  - `send_async` *(boolean, default: false)*: Khi `true`, tác vụ được đẩy vào Celery background worker `send_debt_reminders_task`.
+* **Response Body (Sync - 200 OK)**:
+  ```json
+  {
+    "period": "2026-08",
+    "dry_run": true,
+    "test_email": "abc@haophuong.com",
+    "recipient_type": "ALL",
+    "sales_summary": {
+      "success": 1,
+      "failed": 0,
+      "skipped": 0,
+      "details": [...]
+    },
+    "bu_summary": {
+      "success": 1,
+      "failed": 0,
+      "skipped": 0,
+      "details": [...]
+    },
+    "logs": [...]
+  }
+  ```
+
+### 16.2. Celery Task & HTML Templates
+* **Celery Shared Task**: `accounting.tasks.send_debt_reminders_task(period, dry_run, test_email, bu_code, recipient_type)`
+* **HTML Templates**:
+  - `templates/emails/debt_reminder_sales.html`: Template chi tiết danh sách khách hàng nợ gửi từng Sales.
+  - `templates/emails/debt_summary_manager.html`: Template báo cáo tổng hợp công nợ Khối gửi Trưởng BU.
+
+
 
 

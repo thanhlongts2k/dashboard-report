@@ -11,8 +11,10 @@ from accounting.models import (
     BusinessUnit, BUPerformance, ReceivablesAgeing, Customer, Employee, EmployeeAssignment
 )
 from accounting.serializers import (
-    AllBUsDebtResponseSerializer, BUDebtSummarySerializer
+    AllBUsDebtResponseSerializer, BUDebtSummarySerializer, DebtReminderRequestSerializer
 )
+from accounting.services.debt_mailer import send_debt_reminders_process
+from accounting.tasks import send_debt_reminders_task
 
 logger = logging.getLogger(__name__)
 
@@ -378,3 +380,83 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
         }
 
         return Response(response_payload, status=status.HTTP_200_OK)
+
+
+class SendDebtRemindersAPIView(views.APIView):
+    """
+    API 3: Kích Hoạt Gửi Email Nhắc Nợ Phân Cấp (Debt Reminder Automation)
+    - Route: POST /api/debt/notifications/send-reminders/
+    - Request Body (JSON):
+        {
+            "period": "2026-08",                 // Tùy chọn (Mặc định: kỳ mới nhất)
+            "dry_run": true,                     // Mặc định: true (Chế độ an toàn)
+            "test_email": "test@haophuong.com",  // Tùy chọn (Nhận mail test khi dry_run=true)
+            "bu_code": "BU_ELEVATOR",            // Tùy chọn (Giới hạn theo BU)
+            "recipient_type": "ALL",             // 'ALL', 'SALES', 'MANAGERS'
+            "send_async": false                  // true để chạy ngầm qua Celery
+        }
+    - Response: Thống kê chi tiết số mail đã gửi, trạng thái từng người nhận và nhật ký logs.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = DebtReminderRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"error": "Dữ liệu yêu cầu không hợp lệ", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        validated_data = serializer.validated_data
+        period = validated_data.get('period')
+        dry_run = validated_data.get('dry_run', True)
+        test_email = validated_data.get('test_email')
+        bu_code = validated_data.get('bu_code')
+        recipient_type = validated_data.get('recipient_type', 'ALL')
+        send_async = validated_data.get('send_async', False)
+
+        logger.info(
+            f"📨 [API Trigger] Gửi email nhắc nợ (period={period}, dry_run={dry_run}, "
+            f"test_email={test_email}, bu_code={bu_code}, recipient_type={recipient_type}, async={send_async})"
+        )
+
+        if send_async:
+            task = send_debt_reminders_task.delay(
+                period=period,
+                dry_run=dry_run,
+                test_email=test_email,
+                bu_code=bu_code,
+                recipient_type=recipient_type
+            )
+            return Response(
+                {
+                    "message": "Đã tiếp nhận yêu cầu và đưa vào hàng đợi Celery thành công.",
+                    "task_id": task.id,
+                    "params": {
+                        "period": period,
+                        "dry_run": dry_run,
+                        "test_email": test_email,
+                        "bu_code": bu_code,
+                        "recipient_type": recipient_type
+                    }
+                },
+                status=status.HTTP_202_ACCEPTED
+            )
+
+        # Chạy đồng bộ (Sync)
+        try:
+            result = send_debt_reminders_process(
+                period=period,
+                dry_run=dry_run,
+                test_email=test_email,
+                bu_code=bu_code,
+                recipient_type=recipient_type
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"❌ Lỗi trong quá trình xử lý gửi email nhắc nợ: {e}", exc_info=True)
+            return Response(
+                {"error": f"Lỗi hệ thống khi gửi email nhắc nợ: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

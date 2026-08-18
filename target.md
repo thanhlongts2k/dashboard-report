@@ -651,5 +651,33 @@ class EmployeeReceivableSummary(models.Model):
     * [scripts/import_customer_mapping.py](file:///d:/Sources/dashboard-report/scripts/import_customer_mapping.py): Nạp mapping KH - Sales và tự động tính toán.
     * [scripts/auto_assign_managers.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_managers.py): Tự động gán cây quản lý đa cấp SCD Type 2.
 
+---
+
+## 14. Kiến Trúc Hệ Thống Gửi Email Nhắc Nợ Phân Cấp (Debt Reminder Email Automation)
+
+### 14.1. Mục Tiêu Nghiệp Vụ & Cơ Chế Phân Cấp 2 Tầng
+Hệ thống tự động hóa quá trình thông báo và đôn đốc thu hồi nợ qua email theo 2 tầng đối tượng:
+1. **Cấp Nhân viên Kinh doanh (Sales)**:
+   - Gửi danh sách chi tiết các khách hàng có `total_debt > 0` do Sales trực tiếp phụ trách (`Customer.assigned_employee`).
+   - Phân tích chi tiết: Tổng nợ, Nợ trong hạn, Nợ quá hạn, và dải quá hạn trọng điểm (1-14 ngày, 15-30 ngày, >30 ngày).
+   - Đính kèm liên kết truy cập Dashboard xem drilldown chi tiết.
+2. **Cấp Trưởng BU (BU Head)**:
+   - Gửi báo cáo tổng hợp công nợ toàn BU (`BUPerformance`).
+   - Bảng phân bổ chi tiết theo từng nhân viên dưới quyền (Sales name, Số KH, Tổng nợ, Quá hạn, Tỷ lệ %).
+   - Bảng Top khách hàng có dư nợ quá hạn lớn nhất trong BU.
+
+### 14.2. Cấu Trúc Thành Phần Kỹ Thuật
+- **Data & Email Service Layer**: `accounting/services/debt_mailer.py`
+  - `collect_sales_debt_data(period, bu_code)`: Gom nợ theo Sales.
+  - `collect_bu_manager_debt_data(period, bu_code)`: Gom nợ theo Trưởng BU.
+  - `send_debt_reminders_process()`: Điều phối gửi email hỗ trợ chế độ `dry_run` và `test_email`.
+- **HTML Templates**:
+  - `templates/emails/debt_reminder_sales.html`: Giao diện email gửi Sales.
+  - `templates/emails/debt_summary_manager.html`: Giao diện email gửi Trưởng BU.
+- **Asynchronous Task**: `accounting/tasks.py` (`send_debt_reminders_task`).
+- **REST API Endpoint**: `POST /api/debt/notifications/send-reminders/` (`accounting/views/debt_api.py`).
+- **Test Suite**: `scripts/test_debt_email_automation.py` (4/4 test suites PASS 100%).
+
+
 
 

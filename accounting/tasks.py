@@ -452,4 +452,28 @@ def sync_warehouse_inventory_data(reporting_period=None):
     """
     Hàm này quét bảng InventorySummary của kỳ báo cáo chỉ định và cập nhật số tổng vào từng Warehouse tương ứng.
     """
-    return sync_warehouse_inventory_data_logic(reporting_period=reporting_period)
+    return sync_warehouse_inventory_data_logic(reporting_period=reporting_period)
+
+
+@shared_task(bind=True)
+def send_debt_reminders_task(self, period=None, dry_run=True, test_email=None, bu_code=None, recipient_type='ALL'):
+    """
+    Celery Task tự động hóa gửi email nhắc nợ phân cấp (Sales & Trưởng BU).
+    - period: YYYY-MM (Mặc định: kỳ mới nhất)
+    - dry_run: bool (Mặc định True để an toàn)
+    - test_email: email nhận mẫu khi dry_run=True
+    - bu_code: chỉ gửi cho 1 BU chỉ định (Tùy chọn)
+    - recipient_type: 'ALL', 'SALES', 'MANAGERS'
+    """
+    from accounting.services.debt_mailer import send_debt_reminders_process
+    logger.info(f"👉 [Celery Task] Kích hoạt send_debt_reminders_task (period={period}, dry_run={dry_run}, test_email={test_email}, bu_code={bu_code}, recipient_type={recipient_type})")
+    
+    result = send_debt_reminders_process(
+        period=period,
+        dry_run=dry_run,
+        test_email=test_email,
+        bu_code=bu_code,
+        recipient_type=recipient_type
+    )
+    return result
+

@@ -27,6 +27,8 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Báo cáo Công nợ BU & Nhân viên kỳ chỉ định | `python scripts/report_bu_employee_debt.py` ([Mục 5.10](#510-báo-cáo-công-nợ-toàn-diện-theo-bu--nhân-viên-report_bu_employee_debtpy)) |
 | Báo cáo Phân cấp Công nợ 3 tầng (BU -> Sales -> KH) | `python scripts/report_3tier_bu_drilldown.py` ([Mục 5.11](#511-báo-cáo-công-nợ-phân-cấp-3-tầng-drilldown-report_3tier_bu_drilldownpy)) |
 | Test Bộ REST API Endpoints Công nợ (Phase 3) | `python scripts/test_debt_apis.py` ([Mục 5.12](#512-kiểm-thử-bộ-rest-api-endpoints-công-nợ--drilldown-test_debt_apispy)) |
+| Test Tự Động Hóa Gửi Email Nhắc Nợ | `python scripts/test_debt_email_automation.py` ([Mục 5.13](#513-kiểm-thử-tự-động-hóa-gửi-email-nhắc-nợ-phân-cấp-test_debt_email_automationpy)) |
+| Gửi Thử Nghiệm Email Nhắc Nợ Chỉ Định | `python scripts/send_test_debt_emails.py` ([Mục 5.14](#514-gửi-thử-nghiệm-email-nhắc-nợ-chỉ-định-qua-smtp-send_test_debt_emailspy)) |
 | Debug quá trình tải MISA | `python scripts/test_download_ban_hang.py` ([Mục 4.1](#41-debug-tải-báo-cáo-bán-hàng-test_download_ban_hangpy)) |
 | Nạp lại dữ liệu nhiều tháng | `python scripts/reimport_months_1_to_7.py` ([Mục 5.1](#51-nạp-lại-dữ-liệu-nhiều-tháng-reimport_months_1_to_7py)) |
 | Tạo tài khoản admin | `python manage.py createdefaultuser` ([Mục 6.1](#61-tạo-tài-khoản-admin-mặc-định)) |
@@ -497,6 +499,49 @@ python scripts/report_3tier_bu_drilldown.py --all --period 2026-08
 
 ```powershell
 python scripts/test_debt_apis.py
+```
+
+### 5.13. Kiểm Thử Tự Động Hóa Gửi Email Nhắc Nợ Phân Cấp (`test_debt_email_automation.py`)
+
+* **File nguồn**: [scripts/test_debt_email_automation.py](file:///d:/Sources/dashboard-report/scripts/test_debt_email_automation.py)
+* **Tác dụng**: Chạy tự động 4 bộ test suite toàn diện: (1) Gom dữ liệu Sales & 6 BU cốt lõi; (2) Render 2 HTML templates `debt_reminder_sales.html` và `debt_summary_manager.html`; (3) Kiểm thử điều phối tiến trình Dry-Run; (4) Kiểm thử gọi REST API `POST /api/debt/notifications/send-reminders/`.
+
+```powershell
+python scripts/test_debt_email_automation.py
+```
+
+### 5.14. Gửi Thử Nghiệm Email Nhắc Nợ Chỉ Định Qua SMTP (`send_test_debt_emails.py`)
+
+* **File nguồn**: [scripts/send_test_debt_emails.py](file:///d:/Sources/dashboard-report/scripts/send_test_debt_emails.py)
+* **Tác dụng**: Trích xuất dữ liệu thực tế của một Nhân viên Sales chỉ định và một Khối BU chỉ định để render template và gửi thực tế qua SMTP đến email nhận thử nghiệm được chỉ định.
+
+```powershell
+python scripts/send_test_debt_emails.py
+```
+
+### 5.15. Công Cụ Kích Hoạt Gửi Email Nhắc Nợ CLI / Live (`send_live_debt_reminders.py`)
+
+* **File nguồn**: [scripts/send_live_debt_reminders.py](file:///d:/Sources/dashboard-report/scripts/send_live_debt_reminders.py)
+* **Tác dụng**: Công cụ dòng lệnh (CLI Tool) đa năng để gửi email nhắc nợ phân cấp, hỗ trợ cả chế độ Dry-Run an toàn lẫn Kích hoạt gửi Thực tế (Live Production).
+
+```powershell
+# Xem hướng dẫn chi tiết
+python scripts/send_live_debt_reminders.py --help
+
+# 1. Chạy thử nghiệm thống kê (Mặc định dry-run):
+python scripts/send_live_debt_reminders.py --period 2026-08
+
+# 2. Chạy thử nghiệm gửi 1 email mẫu về email test cá nhân:
+python scripts/send_live_debt_reminders.py --period 2026-08 --test-email abc@haophuong.com
+
+# 3. KÍCH HOẠT GỬI THỰC TẾ (LIVE) CHO TOÀN BỘ SALES VÀ TRƯỞNG BU:
+python scripts/send_live_debt_reminders.py --period 2026-08 --live
+
+# 4. Chỉ gửi thực tế cho riêng Trưởng BU:
+python scripts/send_live_debt_reminders.py --period 2026-08 --live --recipient-type MANAGERS
+
+# 5. Chỉ gửi thực tế cho 1 BU cụ thể (Ví dụ BU Thang Máy):
+python scripts/send_live_debt_reminders.py --period 2026-08 --live --bu BU_ELEVATOR
 ```
 
 ---

@@ -1,0 +1,174 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh Sách Công Nợ Khách Hàng Phụ Trách</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; color: #1e293b; -webkit-font-smoothing: antialiased;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 0;">
+        <tr>
+            <td align="center">
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 800px; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);">
+                    <!-- HEADER -->
+                    <tr>
+                        <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; padding: 28px 32px; text-align: left;">
+                            <div style="font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: #60a5fa; font-weight: 800; margin: 0 0 6px 0;">
+                                HẠO PHƯƠNG REPORTING SYSTEM
+                            </div>
+                            <div style="font-size: 22px; font-weight: 800; margin: 0 0 12px 0; color: #ffffff; line-height: 1.3;">
+                                THÔNG BÁO CÔNG NỢ KHÁCH HÀNG PHỤ TRÁCH
+                            </div>
+                            <table border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="background-color: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #ffffff;">
+                                        📅 Kỳ: {{ period_display }}
+                                    </td>
+                                    {% if dry_run %}
+                                    <td style="padding-left: 8px;">
+                                        <div style="background-color: #fef08a; color: #854d0e; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+                                            🧪 DRY-RUN TEST
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- CONTENT AREA -->
+                    <tr>
+                        <td style="padding: 32px; background-color: #ffffff;">
+                            <!-- GREETING -->
+                            <div style="font-size: 15px; line-height: 1.6; margin-bottom: 24px; color: #1e293b;">
+                                Kính gửi Anh/Chị <strong style="color: #0f172a; font-size: 16px;">{{ sales.full_name }}</strong> (Mã NV: <strong style="color: #1e40af; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe;">{{ sales.employee_code }}</strong>),<br>
+                                Hệ thống Báo cáo Quản trị xin gửi thông tin chi tiết danh sách công nợ khách hàng do Anh/Chị đang trực tiếp phụ trách tính đến kỳ <strong>{{ period_display }}</strong> (Tài khoản 1311 - Phải thu thương mại):
+                            </div>
+
+                            <!-- KPI CARDS GRID -->
+                            <table width="100%" border="0" cellspacing="8" cellpadding="0" style="margin-bottom: 28px;">
+                                <tr>
+                                    <td width="25%" bgcolor="#eff6ff" style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-top: 4px solid #1e40af; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
+                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1e40af; margin-bottom: 4px;">Tổng Công Nợ</div>
+                                        <div style="font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.2;">{{ sales.total_debt|floatformat:0|intcomma }} đ</div>
+                                        <div style="font-size: 12px; font-weight: 600; color: #3b82f6; margin-top: 4px;">{{ sales.customer_count }} khách hàng</div>
+                                    </td>
+                                    <td width="25%" bgcolor="#f0fdf4" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-top: 4px solid #15803d; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
+                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #15803d; margin-bottom: 4px;">Nợ Trong Hạn</div>
+                                        <div style="font-size: 17px; font-weight: 800; color: #15803d; line-height: 1.2;">{{ sales.due_total|floatformat:0|intcomma }} đ</div>
+                                        <div style="font-size: 12px; font-weight: 600; color: #16a34a; margin-top: 4px;">Trong hạn TT</div>
+                                    </td>
+                                    <td width="25%" bgcolor="#fef2f2" style="background-color: #fef2f2; border: 1px solid #fecaca; border-top: 4px solid #b91c1c; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
+                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #b91c1c; margin-bottom: 4px;">Nợ Quá Hạn</div>
+                                        <div style="font-size: 17px; font-weight: 800; color: #b91c1c; line-height: 1.2;">{{ sales.overdue_total|floatformat:0|intcomma }} đ</div>
+                                        <div style="font-size: 12px; font-weight: 600; color: #dc2626; margin-top: 4px;">{{ sales.overdue_customer_count }} KH quá hạn</div>
+                                    </td>
+                                    <td width="25%" bgcolor="#fffbeb" style="background-color: #fffbeb; border: 1px solid #fde68a; border-top: 4px solid #b45309; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
+                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #b45309; margin-bottom: 4px;">Tỷ Lệ Quá Hạn</div>
+                                        <div style="font-size: 17px; font-weight: 800; color: {% if sales.overdue_rate > 20 %}#b91c1c{% else %}#b45309{% endif %}; line-height: 1.2;">{{ sales.overdue_rate|floatformat:1 }}%</div>
+                                        <div style="font-size: 12px; font-weight: 600; color: #d97706; margin-top: 4px;">Trên tổng dư nợ</div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- SECTION TITLE -->
+                            <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 28px 0 12px 0;">
+                                📋 Chi Tiết Danh Sách Khách Hàng ({{ sales.customer_count }} Khách Hàng)
+                            </div>
+
+                            <!-- CUSTOMER TABLE -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1; margin-bottom: 24px;">
+                                <thead>
+                                    <tr bgcolor="#1e293b" style="background-color: #1e293b; color: #ffffff;">
+                                        <th align="center" width="4%" style="padding: 10px 6px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">#</th>
+                                        <th align="left" width="14%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">Mã KH</th>
+                                        <th align="left" width="28%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">Tên Khách Hàng</th>
+                                        <th align="right" width="16%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">Tổng Nợ</th>
+                                        <th align="right" width="14%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">Trong Hạn</th>
+                                        <th align="right" width="12%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">Quá Hạn 1-30N</th>
+                                        <th align="right" width="12%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 11px; font-weight: 800; text-transform: uppercase;">Quá Hạn >30N</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for c in sales.customers %}
+                                    <tr bgcolor="{% cycle '#ffffff' '#f8fafc' %}">
+                                        <td align="center" style="border: 1px solid #e2e8f0; color: #64748b; font-weight: 600;">{{ forloop.counter }}</td>
+                                        <td align="left" style="border: 1px solid #e2e8f0; font-family: ui-monospace, Consolas, monospace; font-weight: 800; color: #1e40af;">{{ c.customer_code }}</td>
+                                        <td align="left" style="border: 1px solid #e2e8f0; font-weight: 700; color: #0f172a;">{{ c.customer_name }}</td>
+                                        <td align="right" style="border: 1px solid #e2e8f0; font-family: ui-monospace, Consolas, monospace; font-weight: 800; color: #0f172a;">{{ c.total_debt|floatformat:0|intcomma }}</td>
+                                        <td align="right" style="border: 1px solid #e2e8f0; font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: #15803d;">{{ c.due_total|floatformat:0|intcomma }}</td>
+                                        <td align="right" style="border: 1px solid #e2e8f0; font-family: ui-monospace, Consolas, monospace;">
+                                            {% if c.overdue_0_14 or c.overdue_15_30 %}
+                                                <span style="background-color: #fef3c7; color: #92400e; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid #fde68a;">
+                                                    {% widthratio c.overdue_0_14|add:c.overdue_15_30 1 1 as sub_ovd %}{{ sub_ovd|floatformat:0|intcomma }}
+                                                </span>
+                                            {% else %}
+                                                <span style="color: #94a3b8;">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td align="right" style="border: 1px solid #e2e8f0; font-family: ui-monospace, Consolas, monospace;">
+                                            {% if c.overdue_31_plus > 0 %}
+                                                <span style="background-color: #fee2e2; color: #991b1b; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #fca5a5;">
+                                                    {{ c.overdue_31_plus|floatformat:0|intcomma }}
+                                                </span>
+                                            {% else %}
+                                                <span style="color: #94a3b8;">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    <!-- TOTAL ROW -->
+                                    <tr bgcolor="#e2e8f0" style="background-color: #e2e8f0; font-weight: 800; color: #0f172a; border-top: 2px solid #0f172a;">
+                                        <td colspan="3" align="center" style="border: 1px solid #cbd5e1; font-weight: 800; font-size: 13px;">TỔNG CỘNG</td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800; font-size: 14px; color: #0f172a;">{{ sales.total_debt|floatformat:0|intcomma }}</td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800; color: #15803d;">{{ sales.due_total|floatformat:0|intcomma }}</td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800; color: #b45309;">
+                                            {% widthratio sales.overdue_0_14|add:sales.overdue_15_30 1 1 as total_mid %}{{ total_mid|floatformat:0|intcomma }}
+                                        </td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800; color: #b91c1c;">{{ sales.overdue_31_plus|floatformat:0|intcomma }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <!-- BULLETPROOF CTA BUTTON -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0 20px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <table border="0" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td align="center" bgcolor="#1e40af" style="background-color: #1e40af; border-radius: 8px; padding: 14px 28px; box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);">
+                                                    <a href="{{ dashboard_url }}" target="_blank" style="font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ffffff !important; font-weight: 800; text-decoration: none; display: inline-block;">
+                                                        🔍 Xem Chi Tiết & Drilldown Trên Dashboard →
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- NOTICE BOX -->
+                            <div style="background-color: #fef3c7; border-left: 5px solid #d97706; padding: 14px 18px; border-radius: 4px; color: #78350f; font-size: 13px; line-height: 1.5; margin-top: 24px;">
+                                <strong style="color: #92400e; font-size: 14px;">⚠️ Lưu ý thu hồi công nợ:</strong><br>
+                                Vui lòng rà soát kỹ các khách hàng có khoản <em>Quá hạn >30 ngày</em> để phối hợp cùng Bộ phận Kế toán công nợ và Ban Quản lý lên kế hoạch đôn đốc, đối soát chứng từ và thu hồi dòng tiền kịp thời theo chính sách hạn mức tín dụng của Công ty.
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- FOOTER -->
+                    <tr>
+                        <td bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-top: 2px solid #cbd5e1; padding: 22px 32px; text-align: center; font-size: 13px; color: #334155; line-height: 1.6;">
+                            <div>Thời gian kết xuất dữ liệu: <strong style="color: #0f172a;">{{ generation_time }}</strong></div>
+                            <div>Đây là email tự động gửi từ <strong style="color: #0f172a;">Hệ Thống Báo Cáo Quản Trị Hạo Phương (Report2026)</strong>.</div>
+                            <div style="margin-top: 6px; color: #0f172a; font-weight: 700;">
+                                Mọi thắc mắc về đối soát số liệu vui lòng liên hệ <span style="color: #1e40af; text-decoration: underline;">Phòng Kế Toán</span> để được giải đáp.
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

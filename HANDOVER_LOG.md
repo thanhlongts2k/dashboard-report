@@ -3,6 +3,28 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-18 08:23:00] Task: Debt Reminder Email Automation (Hệ Thống Gửi Mail Nhắc Nợ Phân Cấp) — [DONE]
+- **Objective**: Phát triển hệ thống tự động hóa gửi email thông báo nhắc nợ phân cấp 2 tầng:
+  1. Gửi email chi tiết từng Khách hàng nợ cho Nhân viên Kinh doanh (Sales) phụ trách.
+  2. Gửi email báo cáo tổng hợp toàn BU cho Trưởng BU (kèm bảng phân bổ nhân viên và Top khách hàng nợ quá hạn).
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/services/debt_mailer.py` [NEW]: Module gom dữ liệu nợ Sales & BU (`collect_sales_debt_data`, `collect_bu_manager_debt_data`), render template và gửi mail qua Django `EmailMultiAlternatives` (`send_sales_debt_email`, `send_bu_manager_debt_email`, `send_debt_reminders_process`).
+  2. `accounting/services/__init__.py`: Export các hàm từ `debt_mailer.py`.
+  3. `templates/emails/debt_reminder_sales.html` [NEW]: HTML Template responsive gửi cho Sales (4 Card KPI + Bảng danh sách khách hàng + Badge cảnh báo dải quá hạn + CTA Dashboard link).
+  4. `templates/emails/debt_summary_manager.html` [NEW]: HTML Template responsive gửi cho Trưởng BU (Card KPI BU + Bảng phân bổ nhân viên + Bảng Top khách hàng nợ quá hạn lớn nhất + CTA Dashboard link).
+  5. `accounting/tasks.py`: Thêm Celery shared task `send_debt_reminders_task(period, dry_run, test_email, bu_code, recipient_type)`.
+  6. `accounting/serializers.py`: Thêm `DebtReminderRequestSerializer`.
+  7. `accounting/views/debt_api.py`: Thêm API View `SendDebtRemindersAPIView` (`POST /api/debt/notifications/send-reminders/`).
+  8. `accounting/views/__init__.py`: Export `SendDebtRemindersAPIView`.
+  9. `accounting/urls.py`: Đăng ký route API `path('debt/notifications/send-reminders/', SendDebtRemindersAPIView.as_view(), name='send_debt_reminders_api')`.
+  10. `report2026/settings.py`: Thêm `'django.contrib.humanize'` vào `INSTALLED_APPS` để format số tiền tự nhiên.
+  11. `scripts/test_debt_email_automation.py` [NEW]: Bộ test kiểm thử tự động toàn diện (Gom data, Render 2 templates, Dry-Run email sending, REST API call).
+  13. `templates/emails/`: Tái cấu trúc toàn bộ 2 templates HTML sang chuẩn **Bulletproof Email cho Microsoft Outlook / Word Engine** (chuyển sang Table-based layout, inlined styles 100%, bổ sung solid `bgcolor` và mã màu Hex fallback loại bỏ `linear-gradient` và `rgba` gây lỗi mất màu nền/chữ trắng, thiết kế lại CTA button dạng Table bulletproof và tăng độ tương phản rõ nét).
+  14. `accounting/services/debt_mailer.py`: Sửa lỗi đường dẫn CTA Button Dashboard chuẩn hóa: loại bỏ dấu `//` thừa, định tuyến đúng `/aging`, bổ sung tham số `bu` cho cả email Sales (`/aging?period=...&bu=...&employee=...`) và email Trưởng BU (`/aging?period=...&bu=...`).
+- **Kết quả kiểm thử tự động**:
+  - `scripts/test_debt_email_automation.py`: **4/4 Test Suites PASS 100%**.
+  - `scripts/send_test_debt_emails.py`: Gửi thực tế thành công 100% qua SMTP đến `thanhlongts2k@gmail.com` và `khoai.nguyenvan@haophuong.com` cả 2 mẫu Sales và Trưởng BU với đường link Dashboard chuẩn xác.
+- **Current Status**: **[DONE]**
 
 ## [2026-08-17 16:46:00] Task: Dynamic Inventory Aggregation for Warehouse API (`/api/warehouses/`) — [DONE]
 - **Objective**: Nâng cấp `WarehouseViewSet` để bóc tách tham số thời gian (`startDate`, `endDate`, `period`, `month`, `year`), tính toán động từ bảng `InventorySummary` theo từng kho và trả về số liệu thực tế chính xác.
