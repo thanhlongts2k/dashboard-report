@@ -49,6 +49,6 @@ def update_company_totals(month=None, year=None):
     sys.stdout.buffer.write("\n".join(out).encode('utf-8'))
 
 if __name__ == '__main__':
-    m = int(sys.argv[1]) if len(sys.argv) > 1 else 7
-    y = int(sys.argv[2]) if len(sys.argv) > 2 else 2026
+    m = int(sys.argv[1]) if len(sys.argv) > 1 else datetime.now().month
+    y = int(sys.argv[2]) if len(sys.argv) > 2 else datetime.now().year
     update_company_totals(month=m, year=y)
