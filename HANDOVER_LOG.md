@@ -3,6 +3,22 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-19 14:10:00] Task: Full-Stack Terminology Audit — Standardize DTCT to "Đầu tư cho thuê" — [DONE]
+- **Objective**: Quét và chuẩn hóa tận gốc tên gọi Khối ĐTCT ("Đầu tư cho thuê" / "Đầu tư cho thuê / ĐTCT") trên cả Backend (`dashboard-report`) và Frontend (`project-dashboard`), loại bỏ triệt để cụm từ cũ "Đối tác chiến lược".
+- **Các thay đổi đã thực hiện**:
+  1. Backend `dashboard-report`:
+     - CSDL `BusinessUnit`: Xác nhận bản ghi `code = 'ĐTCT'` có `name = 'Đầu tư cho thuê'`.
+     - `accounting/services/user_provisioner.py`: Cập nhật `BU_DEFINITIONS['ĐTCT']['name'] = 'Đầu tư cho thuê'`, làm sạch keywords `['đtct', 'dtct', 'cho thuê', 'đầu tư cho thuê', 'bu_dtct', 'bu_đtct']`.
+     - Chạy `python manage.py sync_employee_users` đồng bộ 100% (173/173 tài khoản).
+     - Chạy `python manage.py test accounting`: **43/43 tests PASS 100% (9.83s)**.
+  2. Frontend `project-dashboard`:
+     - `src/utils/dashboardMapper.js`: Sửa nhãn map `BU_DTCT / ĐTCT / DTCT: "Đầu tư cho thuê / ĐTCT"` và keywords matching.
+     - `src/utils/detailMapper.js` & `src/context/AuthContext.jsx`: Chuẩn hóa keywords matching `['dtct', 'đtct', 'cho thuê', 'đầu tư']`.
+     - Chạy `npm run build`: **Built in 669ms (0 errors)**.
+  3. Quét xác nhận toàn hệ thống: 0 occurrences của cụm từ "Đối tác chiến lược" trong toàn bộ source code của cả 2 repositories.
+  4. Tài liệu hệ thống: Đồng bộ `DocumentAPI_Report2026.md`, `target.md`, `CHANGELOG.md`, `HANDOVER.md`.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-19 13:16:00] Task: Fix Key Accounts Debt Collection Zero Metrics & Add Latest Active Date Metadata — [DONE]
 - **Objective**: Khắc phục hiện tượng các chỉ số thu tiền trong ngày bằng 0 trên tab "Công nợ & Thu tiền" (`/receivables`) khi người dùng mở vào ngày chưa phát sinh hạch toán kế toán mới (`2026-08-19`). Bổ sung thông tin `latest_available_date`, lọc kỳ `reporting_period` cho `ReceivablesAgeing`, bao quát `customer__business_unit`, phân quyền RBAC và hiển thị chỉ dẫn ngày chốt gần nhất trên Frontend.
 - **Các thay đổi đã thực hiện**:
