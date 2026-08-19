@@ -18,7 +18,8 @@ from accounting.serializers import (
 )
 from accounting.services import (
     generate_activation_token, verify_activation_token,
-    send_sso_registration_admin_notification, send_user_activation_success_email
+    send_sso_registration_admin_notification, send_user_activation_success_email,
+    provision_user_for_employee, get_user_role_info, split_vietnamese_name
 )
 
 class LoginAPI(KnoxLoginView):
@@ -33,7 +34,9 @@ class LoginAPI(KnoxLoginView):
             return Response({'error': 'Sai tài khoản hoặc mật khẩu'}, status=400)
 
         login(request, user)
-        return super().post(request, format=None)
+        response = super().post(request, format=None)
+        response.data['user'] = get_user_role_info(user)
+        return response
 
 class GoogleLoginAPI(KnoxLoginView):
     permission_classes = [permissions.AllowAny]
@@ -53,48 +56,71 @@ class GoogleLoginAPI(KnoxLoginView):
                 audience=client_id if client_id else None
             )
 
-            email = id_info.get('email')
-            name = id_info.get('name', '')
-            given_name = id_info.get('given_name', '')
-            family_name = id_info.get('family_name', '')
+            email = id_info.get('email', '').strip().lower()
+            name = id_info.get('name', '').strip()
+            given_name = id_info.get('given_name', '').strip()
+            family_name = id_info.get('family_name', '').strip()
 
             if not email:
                 return Response({'error': 'Google ID token không chứa email hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            user, created = User.objects.get_or_create(
-                username=email,
-                defaults={
-                    'email': email,
-                    'first_name': given_name or name,
-                    'last_name': family_name,
-                    'is_active': False
-                }
-            )
-
-            if created:
-                # Sinh link kích hoạt nhanh cho Admin
-                act_token = generate_activation_token(user.id)
-                backend_url = getattr(settings, 'BACKEND_URL', None)
-                if backend_url:
-                    activation_url = f"{backend_url.rstrip('/')}/api/auth/activate-user/?token={act_token}"
-                else:
-                    scheme = request.scheme
-                    host = request.get_host()
-                    activation_url = f"{scheme}://{host}/api/auth/activate-user/?token={act_token}"
-                
-                # Gửi email thông báo cho Admin
-                send_sso_registration_admin_notification(user, activation_url)
-
+            # 1. KIỂM TRA TÊN MIỀN HỢP LỆ (ALLOWED SSO DOMAINS)
+            allowed_domains = getattr(settings, 'ALLOWED_SSO_DOMAINS', ['haophuong.com'])
+            domain = email.split('@')[-1] if '@' in email else ''
+            if domain not in allowed_domains:
                 return Response(
                     {
                         'error': (
-                            'Tài khoản vừa được tạo mới, cần được kích hoạt Mức 2. '
-                            'Thông báo đã được gửi tới Admin để xác nhận. '
-                            'Vui lòng kiểm tra email sau khi được kích hoạt.'
+                            f"Truy cập bị từ chối: Địa chỉ email '{email}' không thuộc danh sách tên miền "
+                            f"được phép (@{', @'.join(allowed_domains)}). Vui lòng sử dụng tài khoản Google công ty."
                         )
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_403_FORBIDDEN
                 )
+
+            # 2. TRA CỨU NHÂN VIÊN TRONG BẢNG EMPLOYEE (JUST-IN-TIME PROVISIONING)
+            employee = Employee.objects.filter(email__iexact=email, is_active=True).first()
+
+            if employee:
+                # Nhân viên nội bộ: Tự động kích hoạt/đồng bộ tài khoản và phân quyền
+                provision_res = provision_user_for_employee(employee, dry_run=False)
+                user = employee.user or User.objects.filter(username=email).first()
+            else:
+                # Trường hợp đặc biệt: Tài khoản có đuôi domain hợp lệ nhưng chưa có record Employee
+                first_n, last_n = split_vietnamese_name(name or f"{family_name} {given_name}")
+                user, created = User.objects.get_or_create(
+                    username=email,
+                    defaults={
+                        'email': email,
+                        'first_name': first_n or given_name or name,
+                        'last_name': last_n or family_name,
+                        'is_active': False
+                    }
+                )
+
+                if created:
+                    # Sinh link kích hoạt Mức 2 cho Admin
+                    act_token = generate_activation_token(user.id)
+                    backend_url = getattr(settings, 'BACKEND_URL', None)
+                    if backend_url:
+                        activation_url = f"{backend_url.rstrip('/')}/api/auth/activate-user/?token={act_token}"
+                    else:
+                        scheme = request.scheme
+                        host = request.get_host()
+                        activation_url = f"{scheme}://{host}/api/auth/activate-user/?token={act_token}"
+                    
+                    # Gửi email thông báo cho Admin
+                    send_sso_registration_admin_notification(user, activation_url)
+
+                    return Response(
+                        {
+                            'error': (
+                                'Tài khoản chưa được định danh nhân viên, cần Quản trị viên kích hoạt Mức 2. '
+                                'Thông báo đã được gửi tới Admin để xác nhận.'
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
             if not user.is_active:
                 if user.last_login is None:
@@ -119,7 +145,9 @@ class GoogleLoginAPI(KnoxLoginView):
                     )
 
             login(request, user)
-            return super().post(request, format=None)
+            response = super().post(request, format=None)
+            response.data['user'] = get_user_role_info(user)
+            return response
 
         except ValueError as e:
             return Response({'error': f'Google ID token không hợp lệ hoặc đã hết hạn: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -162,6 +190,19 @@ class ActivateUserAPIView(APIView):
             })
         except User.DoesNotExist:
             return render(request, 'auth/activation_error.html', {'error_message': 'Không tìm thấy tài khoản người dùng tương ứng.'}, status=404)
+
+
+class CurrentUserAPIView(APIView):
+    """
+    API lấy thông tin chi tiết User hiện tại kèm hồ sơ quyền hạn (RBAC) và danh sách Tab được phép.
+    - Route: GET /api/auth/me/
+    - Headers: Authorization: Token <knox_token>
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user_info = get_user_role_info(request.user)
+        return Response({"user": user_info}, status=status.HTTP_200_OK)
 
 
 class BranchViewSet(viewsets.ModelViewSet):

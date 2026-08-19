@@ -7,7 +7,7 @@ from .views import (
     BUTargetPlanViewSet, ManualAdjustmentViewSet
 )
 from .views import (
-    LoginAPI, GoogleLoginAPI, ActivateUserAPIView, BUReportAPIView, BUPerformanceDailyListView, 
+    LoginAPI, GoogleLoginAPI, ActivateUserAPIView, CurrentUserAPIView, BUReportAPIView, BUPerformanceDailyListView, 
     DashboardCollectionByBUAPIView, SendEmailAPIView, AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView,
     SendDebtRemindersAPIView
 )
@@ -38,6 +38,7 @@ urlpatterns = [
     path('login/', LoginAPI.as_view()),
     path('google-login/', GoogleLoginAPI.as_view(), name='google_login_api'),
     path('auth/activate-user/', ActivateUserAPIView.as_view(), name='activate_user_api'),
+    path('auth/me/', CurrentUserAPIView.as_view(), name='current_user_api'),
     path('auth/', include('knox.urls')),
     path('bu-performance/', BUReportAPIView.as_view(), name='bu_performance_api'),
     path('performance/daily/', BUPerformanceDailyListView.as_view(), name='performance_daily_list'),

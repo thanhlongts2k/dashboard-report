@@ -679,6 +679,34 @@ Hệ thống tự động hóa quá trình thông báo và đôn đốc thu hồ
 - **REST API Endpoint**: `POST /api/debt/notifications/send-reminders/` (`accounting/views/debt_api.py`).
 - **Test Suite**: `scripts/test_debt_email_automation.py` (4/4 test suites PASS 100%).
 
+---
+
+## 15. Kiến Trúc Phân Quyền 4 Tầng & Google SSO (4-Layer Data-Driven RBAC Engine)
+
+### 15.1. Mô Hình Phân Quyền 4 Tầng Dữ Liệu CSDL
+Hệ thống giải quyết triệt để bài toán nhân sự kiêm nhiệm đa BU và đa vai trò bằng cách quét đồng thời qua 4 tầng dữ liệu độc lập:
+1. **Tầng 1 (HR Assignment)**: Ánh xạ từ `EmployeeAssignment` qua `DEPARTMENT_BU_REGISTRY`.
+2. **Tầng 2 (BU Ownership)**: Khớp người quản lý từ bảng `BusinessUnit.manager` -> gán `BU_HEAD`.
+3. **Tầng 3 (Customer Portfolio)**: Quét khách hàng được gán (`Customer.assigned_employee`) -> gán `SALES` tại BU tương ứng.
+4. **Tầng 4 (Sales Operations)**: Quét doanh số phát sinh (`SalesTransaction.employee`) -> gán `SALES` tại BU tương ứng.
+
+### 15.2. Ma Trận Phân Quyền Chuẩn Hóa & Bộ Lọc Năng Động
+- **Ma trận quyền hạn phân hệ (Tab Permissions)**:
+  * `BOD_ADMIN`: 5 Tabs (`["dashboard", "bu_detail", "inventory", "debt_collection", "aging"]`), toàn quyền 8 BU.
+  * `BU_HEAD`: 4 Tabs (`["bu_detail", "inventory", "debt_collection", "aging"]`), ẩn Tab `Tổng quan`, quản lý các BU được phân công (`assigned_bus`).
+  * `SALES`: **Duy nhất 1 Tab** (`["aging"]`), ẩn toàn bộ các Tab khác, khóa cứng BU phụ trách và Mã nhân viên cá nhân.
+  * `VIEWER`: **Duy nhất 1 Tab** (`["aging"]`), chế độ xem cơ bản.
+- **Route Guard & Filter Guard (`project-dashboard`)**:
+  * `ProtectedRoute.jsx`: Kiểm tra `requiredTab`, tự động redirect về `firstAllowedPath` (`/aging` cho Sales/Viewer).
+  * `DebtAgingReportPage.jsx`: Dynamic Filter Guard cho phép chuyển đổi giữa các BU thuộc quyền đối với nhân sự kiêm nhiệm $\ge 2$ BU; khóa cứng Mã nhân viên cho `SALES` và `VIEWER`.
+  * `UserMenu.jsx` & `MobileNavDrawer.jsx`: Bọc Dev Role Switcher trong `import.meta.env.DEV` (triệt tiêu 100% khi build Production).
+- **Production Security Hardening**:
+  * `scripts/generate_dev_token.py` và `scripts/swap_dev_email.py` bị chặn cứng trên Production (`if not settings.DEBUG: sys.exit(1)`).
+  * Knox dev tokens được giới hạn thời gian sống tối đa 2 giờ.
+
+
+
+
 
 
 

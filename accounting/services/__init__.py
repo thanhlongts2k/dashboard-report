@@ -12,6 +12,13 @@ from .debt_mailer import (
     send_sales_debt_email, send_bu_manager_debt_email,
     send_debt_reminders_process
 )
+from .user_provisioner import (
+    ensure_auth_groups_exist,
+    split_vietnamese_name,
+    determine_employee_role,
+    provision_user_for_employee,
+    get_user_role_info
+)
 
 __all__ = [
     'detect_period_from_filename',
@@ -29,5 +36,10 @@ __all__ = [
     'send_sales_debt_email',
     'send_bu_manager_debt_email',
     'send_debt_reminders_process',
+    'ensure_auth_groups_exist',
+    'split_vietnamese_name',
+    'determine_employee_role',
+    'provision_user_for_employee',
+    'get_user_role_info',
 ]
 

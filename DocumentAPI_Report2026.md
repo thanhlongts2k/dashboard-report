@@ -701,6 +701,241 @@ Toàn bộ chuỗi HTML gửi Mail và giao diện Web đã được tách bạc
   - `templates/emails/debt_reminder_sales.html`: Template chi tiết danh sách khách hàng nợ gửi từng Sales.
   - `templates/emails/debt_summary_manager.html`: Template báo cáo tổng hợp công nợ Khối gửi Trưởng BU.
 
+---
+
+## 17. Hệ Thống Đồng Bộ Tài Khoản Nhân Viên & Google SSO (Employee User Provisioning & IAM)
+
+### 17.1. Cơ Chế Phân Quyền 4 Nhóm (Django Groups)
+Hệ thống tự động phân loại nhân viên từ quá trình công tác (`EmployeeAssignment`) và chức danh (`JobTitle`) vào 4 Django Groups:
+1. **`BOD_ADMIN`**: Ban Tổng Giám đốc, Giám đốc Vận hành, Giám đốc Tài chính, Kế toán trưởng...
+2. **`BU_HEAD`**: Trưởng Khối BU, Giám đốc Trung tâm, Trưởng bộ phận, Giám đốc KDTB, GĐ Chi nhánh, Quản lý Bán hàng...
+3. **`SALES`**: Nhân viên Kinh doanh, Chuyên viên Bán hàng, Project Partner, Phát triển thị trường...
+4. **`VIEWER`**: Nhân viên nghiệp vụ (Kỹ thuật, Kế toán, Kho, Hành chính, Nhân sự...).
+
+### 17.2. Management Command Đồng Bộ Hàng Loạt (`sync_employee_users`)
+```powershell
+# Chạy thử nghiệm kiểm tra trước (Dry Run)
+python manage.py sync_employee_users --dry-run
+
+# Chạy thực thi đồng bộ toàn bộ nhân viên vào bảng User
+python manage.py sync_employee_users
+
+# Đồng bộ riêng theo BU / Phòng ban
+python manage.py sync_employee_users --bu BU_ELEVATOR
+
+# Đồng bộ riêng cho 1 địa chỉ email
+python manage.py sync_employee_users --email long.nguyen@haophuong.com
+```
+
+### 17.3. REST API Đăng Nhập Google SSO (`POST /api/google-login/`)
+* **Đường dẫn**: `POST /api/google-login/`
+* **Xác thực**: `AllowAny`
+* **Request Body (JSON)**:
+  ```json
+  {
+    "id_token": "<GOOGLE_OAUTH2_ID_TOKEN>"
+  }
+  ```
+* **Luồng xử lý Just-In-Time (JIT) Provisioning**:
+  1. Xác thực Google ID Token và kiểm tra tên miền: Chỉ cho phép các domain trong `ALLOWED_SSO_DOMAINS` (mặc định: `['haophuong.com']`). Nếu ngoài domain -> trả về `403 Forbidden`.
+  2. Tra cứu trong bảng `Employee` theo email và kích hoạt **Động cơ phân quyền 4 tầng (4-Layer RBAC Engine)**:
+     - **Tầng 1 (HR Assignments):** Ánh xạ từ `EmployeeAssignment` qua `DEPARTMENT_BU_REGISTRY`.
+     - **Tầng 2 (BU Ownership):** Khớp người quản lý từ bảng `BusinessUnit.manager` -> gán `BU_HEAD`.
+     - **Tầng 3 (Customer Portfolio):** Quét khách hàng được gán (`Customer.assigned_employee`) -> gán `SALES` tại BU tương ứng.
+     - **Tầng 4 (Sales Operations):** Quét doanh số phát sinh (`SalesTransaction.employee`) -> gán `SALES` tại BU tương ứng.
+  3. **Nếu chưa có `Employee` trong CSDL**: Tạo `User` ở trạng thái `is_active=False` và gửi email cho Quản trị viên kích hoạt Mức 2.
+* **Response Body (200 OK)**:
+  ```json
+  {
+    "expiry": "2026-08-20T...",
+    "token": "495df02d9c122394fa...",
+    "user": {
+      "id": 39,
+      "user_id": 39,
+      "username": "tan.nguyenxuan@haophuong.com",
+      "email": "tan.nguyenxuan@haophuong.com",
+      "full_name": "NGUYỄN XUÂN TÂN",
+      "first_name": "TÂN",
+      "last_name": "NGUYỄN XUÂN",
+      "is_active": true,
+      "is_superuser": false,
+      "role": "SALES",
+      "primary_role": "SALES",
+      "groups": ["SALES"],
+      "employee_code": "2000593",
+      "bu_code": "BU_IBIZ PREMIUM",
+      "bu_name": "Thiết bị điện cao cấp",
+      "is_commercial": true,
+      "department": "BU iBiz Premium",
+      "title": "Nhân viên kinh doanh MN",
+      "allowed_tabs": ["aging"],
+      "managed_bus": [],
+      "assigned_bus": ["BU_IBIZ PREMIUM", "BU_IBIZ VALUE"],
+      "managed_bu_keys": [],
+      "assigned_bu_keys": ["ibizPremium", "ibizValue"],
+      "assignments": [
+        {
+          "bu_code": "BU_IBIZ PREMIUM",
+          "bu_name": "Thiết bị điện cao cấp",
+          "frontend_key": "ibizPremium",
+          "is_commercial": true,
+          "role": "SALES",
+          "title": "Nhân viên kinh doanh MN",
+          "department": "BU iBiz Premium",
+          "start_date": "2026-07-27",
+          "end_date": null
+        },
+        {
+          "bu_code": "BU_IBIZ VALUE",
+          "bu_name": "Thiết bị điện phổ thông",
+          "frontend_key": "ibizValue",
+          "is_commercial": true,
+          "role": "SALES",
+          "title": "Phụ trách Khách hàng (Thiết bị điện phổ thông)",
+          "department": "Thiết bị điện phổ thông",
+          "start_date": "2026-08-19",
+          "end_date": null
+        }
+      ]
+    }
+  }
+  ```
+
+### 17.4. REST API Lấy Thông Tin Người Dùng Hiện Tại (`GET /api/auth/me/`)
+* **Đường dẫn**: `GET /api/auth/me/`
+* **Xác thực**: Knox Auth Token (`Authorization: Token <token>`)
+* **Mục đích**: Được Frontend gọi tự động khi khởi tạo ứng dụng hoặc refresh trang để đồng bộ hồ sơ quyền hạn (RBAC), phạm vi dữ liệu theo BU và danh sách Tab được phép truy cập.
+* **Response Body (200 OK)**:
+  ```json
+  {
+    "user": {
+      "id": 114,
+      "user_id": 114,
+      "username": "dung.daotien@haophuong.com",
+      "email": "dung.daotien@haophuong.com",
+      "full_name": "ĐÀO TIẾN DŨNG",
+      "first_name": "DŨNG",
+      "last_name": "ĐÀO TIẾN",
+      "is_active": true,
+      "is_superuser": false,
+      "role": "BU_HEAD",
+      "primary_role": "BU_HEAD",
+      "groups": ["BU_HEAD"],
+      "employee_code": "3003",
+      "bu_code": "BU_ELEVATOR",
+      "bu_name": "Thang máy",
+      "is_commercial": true,
+      "department": "BU_Elevator",
+      "title": "Trưởng BU elevator",
+      "allowed_tabs": ["bu_detail", "inventory", "debt_collection", "aging"],
+      "managed_bus": ["BU_ELEVATOR"],
+      "assigned_bus": ["BU_ELEVATOR", "ĐTCT"],
+      "managed_bu_keys": ["elevator"],
+      "assigned_bu_keys": ["elevator", "dtct"],
+      "assignments": [
+        {
+          "bu_code": "BU_ELEVATOR",
+          "bu_name": "Thang máy",
+          "frontend_key": "elevator",
+          "is_commercial": true,
+          "role": "BU_HEAD",
+          "title": "Trưởng BU elevator",
+          "department": "BU_Elevator",
+          "start_date": "2026-07-27",
+          "end_date": null
+        },
+        {
+          "bu_code": "ĐTCT",
+          "bu_name": "Đầu tư cho thuê / ĐTCT",
+          "frontend_key": "dtct",
+          "is_commercial": true,
+          "role": "SALES",
+          "title": "Phụ trách Khách hàng (Đầu tư cho thuê / ĐTCT)",
+          "department": "Đầu tư cho thuê / ĐTCT",
+          "start_date": "2026-08-19",
+          "end_date": null
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+## 18. API Quản Lý Công Nợ, Báo Cáo Tuổi Nợ & Gửi Email Nhắc Nợ
+
+### 18.1. API Tổng Hợp Tuổi Nợ Chi Tiết Theo BU (`GET /api/debt/bus/<bu_code>/drilldown/` hoặc `GET /api/debt/aging/`)
+* **Đường dẫn**: `GET /api/debt/bus/<bu_code>/drilldown/`
+* **Xác thực**: `IsAuthenticated` (Yêu cầu Token Knox `Authorization: Token <token>`)
+* **Phân quyền & Chốt chặn Object-Level (Defense in Depth)**:
+  * `BOD_ADMIN`: Toàn quyền xem mọi BU và mọi nhân viên.
+  * `BU_HEAD`: Được phép xem các BU thuộc quyền quản lý/phân công (`assigned_bus`); từ chối `403 Forbidden` nếu truy cập BU ngoài phạm vi.
+  * `SALES` / `VIEWER`: Chỉ được phép truy cập BU trong `assigned_bus` và **bắt buộc khóa cứng chỉ xem dữ liệu khách hàng do chính mình phụ trách**; nếu gửi `employee_code` khác -> từ chối `403 Forbidden`.
+* **Query Parameters**:
+  * `period` *(string, tùy chọn)*: Định dạng `YYYY-MM` (ví dụ `2026-08`, mặc định kỳ mới nhất).
+  * `employee_code` *(string, tùy chọn)*: Mã nhân viên Sales để lọc riêng khách hàng của cá nhân đó.
+* **Response Body (200 OK)**:
+  * Trả về cấu trúc 3 tầng hoàn chỉnh:
+    * `tier_1_bu`: Thông tin BU, tổng nợ, nợ đến hạn, nợ quá hạn và tỷ lệ nợ xấu.
+    * `tier_2_and_3`: Danh sách nhóm phụ trách kinh doanh (`bu_teams`) và các khách hàng trọng điểm (`key_accounts_summary`) kèm chi tiết 11 nấc hạn nợ.
+
+### 18.2. API Kích Hoạt Gửi Email Nhắc Nợ Tự Động (`POST /api/debt/notifications/send-reminders/`)
+* **Đường dẫn**: `POST /api/debt/notifications/send-reminders/`
+* **Xác thực**: `IsAuthenticated` (Yêu cầu Token Knox `Authorization: Token <token>`)
+* **Phân quyền thực thi**:
+  * **Chỉ cho phép `BOD_ADMIN` và `BU_HEAD`**.
+  * Từ chối `403 Forbidden` đối với người dùng thuộc nhóm `SALES` và `VIEWER`.
+  * `BU_HEAD` chỉ được phép gửi email cho các BU thuộc quyền quản lý (`managed_bus`); từ chối `403 Forbidden` nếu gửi cho BU khác.
+* **Request Body (JSON)**:
+  ```json
+  {
+    "period": "2026-08",
+    "dry_run": true,
+    "test_email": "admin@haophuong.com",
+    "bu_code": "BU_ELEVATOR",
+    "recipient_type": "ALL",
+    "send_async": false
+  }
+  ```
+* **Mô tả tham số**:
+  * `period` *(string)*: Kỳ công nợ (`YYYY-MM`).
+  * `dry_run` *(boolean)*: `true` để gửi thử nghiệm đến `test_email`, `false` để gửi thật cho toàn bộ Sales & Trưởng BU.
+  * `recipient_type` *(string)*: `'ALL'`, `'SALES'`, hoặc `'MANAGERS'`.
+  * `send_async` *(boolean)*: `true` để đưa vào Celery task chạy nền không chặn request, `false` để chờ kết quả đồng bộ.
+* **Response Body (200 OK / 202 Accepted)**:
+  ```json
+  {
+    "status": "SUCCESS",
+    "period": "2026-08",
+    "dry_run": true,
+    "total_recipients": 12,
+    "emails_sent": 12,
+    "emails_failed": 0,
+    "details": [ ... ]
+  }
+  ```
+
+---
+
+## 19. Tiêu Chuẩn Bảo Mật Môi Trường Sản Xuất (Security Hardening & Defense in Depth)
+
+1. **Bảo Mật Xác Thực Toàn Bộ API Nhạy Cảm (Authentication & Authorization):**
+   - 100% các API số liệu tài chính (`/api/debt/bus/`, `/api/debt/bus/<bu_code>/drilldown/`, `/api/bu-performance/`) và API kích hoạt tác vụ (`/api/debt/notifications/send-reminders/`) đều bắt buộc `permission_classes = [IsAuthenticated]`.
+   - API kích hoạt gửi email nhắc nợ từ chối `403 Forbidden` với `SALES` và `VIEWER`.
+2. **Chốt Chặn Dữ Liệu Tầng Backend (Object-Level Filter Guard):**
+   - Backend không phụ thuộc vào giao diện Frontend. Khi nhận request kèm `bu_code` hoặc `employee_code`, API tự động kiểm tra đối soát với quyền hạn trong CSDL của `request.user`. Cố tình truy vấn trái phép sẽ bị chặn đứng bằng mã `403 Forbidden`.
+3. **Chặn Cứng Script Phát Triển & Giới Hạn Token Lifespan:**
+   - Các script `scripts/generate_dev_token.py` và `scripts/swap_dev_email.py` bị chặn đứng trên Production (`if not getattr(settings, 'DEBUG', False): sys.exit(1)`).
+   - Knox Token phục vụ dev test được giới hạn thời gian sống tối đa **2 giờ**.
+4. **Bảo Vệ Biến Môi Trường & Mã Nguồn Git:**
+   - File `.env`, `.env.*`, thư mục `scratch/`, script test nhạy cảm (`scripts/generate_dev_token.py`, `scripts/swap_dev_email.py`, `scripts/audit_all_user_rbac.py`) và toàn bộ file logs đều nằm trong `.gitignore`.
+5. **Cô Lập Công Cụ Kiểm Thử Trên Frontend:**
+   - Khối Dev Role Switcher trong `UserMenu.jsx` và `MobileNavDrawer.jsx` được bọc trong `{import.meta.env.DEV && ( ... )}` và tự động bị loại bỏ hoàn toàn (Tree-shaked 100%) trên bản build Production (`npm run build`).
+
+
+
+
+
 
 
 

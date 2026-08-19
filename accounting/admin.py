@@ -145,10 +145,25 @@ class EmployeeAssignmentInline(admin.TabularInline):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('employee_code', 'full_name', 'gender', 'date_of_birth', 'identity_number', 'phone_number', 'email', 'is_active')
-    search_fields = ('employee_code', 'full_name', 'identity_number', 'email', 'phone_number')
-    list_filter = ('gender', 'is_active')
+    list_display = ('employee_code', 'full_name', 'email', 'user_account', 'user_role', 'phone_number', 'is_active')
+    search_fields = ('employee_code', 'full_name', 'identity_number', 'email', 'phone_number', 'user__username')
+    list_filter = ('is_active', 'gender', 'user__groups')
+    raw_id_fields = ('user',)
     inlines = [EmployeeAssignmentInline]
+
+    @admin.display(description="Tài khoản User")
+    def user_account(self, obj):
+        if obj.user:
+            status_icon = "🟢" if obj.user.is_active else "🔴"
+            return f"{status_icon} {obj.user.username}"
+        return "—"
+
+    @admin.display(description="Nhóm quyền (Role)")
+    def user_role(self, obj):
+        if obj.user:
+            groups = list(obj.user.groups.values_list('name', flat=True))
+            return ", ".join(groups) if groups else "—"
+        return "—"
 
 
 @admin.register(EmployeeAssignment)

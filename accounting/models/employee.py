@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Department(models.Model):
@@ -95,6 +96,14 @@ class Employee(models.Model):
         null=True, 
         blank=True, 
         verbose_name="Email"
+    )
+    user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employee_profile',
+        verbose_name="Tài khoản đăng nhập"
     )
     is_active = models.BooleanField(
         default=True, 

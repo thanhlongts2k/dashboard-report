@@ -3,6 +3,273 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-19 13:16:00] Task: Fix Key Accounts Debt Collection Zero Metrics & Add Latest Active Date Metadata — [DONE]
+- **Objective**: Khắc phục hiện tượng các chỉ số thu tiền trong ngày bằng 0 trên tab "Công nợ & Thu tiền" (`/receivables`) khi người dùng mở vào ngày chưa phát sinh hạch toán kế toán mới (`2026-08-19`). Bổ sung thông tin `latest_available_date`, lọc kỳ `reporting_period` cho `ReceivablesAgeing`, bao quát `customer__business_unit`, phân quyền RBAC và hiển thị chỉ dẫn ngày chốt gần nhất trên Frontend.
+- **Các thay đổi đã thực hiện**:
+  1. Backend `accounting/views/dashboard_api.py` (`DashboardCollectionByBUAPIView`):
+     - Thêm `permission_classes = [permissions.IsAuthenticated]` và lọc BU theo RBAC (`assigned_bus` / `managed_bus`).
+     - Tự động xác định `latest_available_date` từ `AccountDetail` (ngày phát sinh thu tiền gần nhất: `2026-08-18`). Nếu không truyền `date` thì mặc định lấy `latest_available_date`.
+     - Lọc `ReceivablesAgeing` theo đúng kỳ `reporting_period` (tháng 8/2026) thay vì gom toàn bộ kỳ cũ.
+     - Lọc `AccountDetail` thu tiền mở rộng `Q(business_unit_id__in=bu_ids) | Q(customer__business_unit_id__in=bu_ids)` đảm bảo không sót chứng từ.
+     - Bổ sung `latest_available_date`, `has_data`, `reporting_period` vào payload trả về.
+  2. Frontend `project-dashboard`:
+     - `src/utils/receivableMapper.js`: Nhận diện `latestAvailableDate` và `hasData` trong payload response.
+     - `src/pages/ReceivableReportPage.jsx`: Thêm smart notification banner khi ngày chọn chưa có dữ liệu thu tiền mới, cho phép 1-click chuyển nhanh về ngày chốt gần nhất (`18/08/2026`).
+  3. Kiểm thử & Bàn giao:
+     - `python manage.py test accounting`: **43/43 tests PASS 100% (10.23s)**.
+     - `npm run build`: **Built in 659ms (0 errors)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:56:00] Task: Fix Initial State Conflict & Add Smart Fallback for Sales in Aging Report — [DONE]
+- **Objective**: Khắc phục lỗi xung đột khởi tạo khi Sales truy cập Báo cáo Tuổi nợ (Frontend khởi tạo `selectedBu = 'HPC'` dẫn đến gọi API `/api/debt/bus/HPC/drilldown/` bị chặn 403).
+- **Các thay đổi đã thực hiện**:
+  1. Backend `accounting/services/user_provisioner.py`:
+     - Nâng cấp `resolve_user_rbac(employee)`: Khi chọn `primary_assignment`, ưu tiên vai trò cao nhất và BU thương mại (`is_commercial = True`) thay vì lấy mặc định dòng đầu tiên (`HPC`). Giúp nhân sự Sales như `2000812` nhận diện đúng `primary_bu_code = 'BU_ELEVATOR'`.
+     - Chạy `manage.py sync_employee_users` đồng bộ lại 173/173 tài khoản.
+  2. Backend `accounting/views/debt_api.py`:
+     - Tích hợp Smart Fallback trong `AgingMatrixAPIView`: Khi non-BOD user (Sales / Viewer) truyền `bu_code = 'HPC'` hoặc `'ALL'`, Backend tự động fallback về BU thương mại đầu tiên trong `assigned_bus` (e.g. `BU_ELEVATOR`) thay vì trả về lỗi 403.
+  3. Frontend `project-dashboard`:
+     - `src/pages/DebtAgingReportPage.jsx`:
+       * `userFixedBu`: Lọc tìm BU thương mại đầu tiên trong `allowedBUs` (loại trừ `HPC` / `ALL`).
+       * `selectedBu`: Mặc định chọn BU thương mại được cấp quyền thay vì `HPC`.
+       * `buSelectOptions`: Loại bỏ hoàn toàn `HPC` và `ALL` đối với tài khoản Sales / Viewer.
+     - `npm run build`: Build production bundle thành công trong 587ms (0 errors).
+  4. Công cụ Dev `scripts/generate_dev_token.py`:
+     - Chuẩn hóa độ rộng border 70 ký tự ASCII an toàn, loại bỏ triệt để hiện tượng vỡ dòng/chèn chữ trên Windows cmd/PowerShell.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:49:00] Task: Defense-in-Depth Backend API Security & Object-Level RBAC Enforcement — [DONE]
+- **Objective**: Bịt kín toàn bộ lỗ hổng xác thực & phân quyền tầng Backend API. Đổi `permission_classes` từ `AllowAny` sang `IsAuthenticated`, phân quyền cứng cho API gửi mail nhắc nợ (`BOD_ADMIN`/`BU_HEAD` only, từ chối `403` với `SALES`/`VIEWER`), triển khai chốt chặn Object-Level Filter Guard trên `AgingMatrixAPIView` và các API tài chính, cập nhật `.gitignore` và bổ sung unit test kiểm thử bảo mật.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/views/debt_api.py`:
+     - Thiết lập `permission_classes = [permissions.IsAuthenticated]` cho toàn bộ các view: `AllBUsDebtSummaryAPIView`, `AgingMatrixAPIView`, `SendDebtRemindersAPIView`.
+     - `SendDebtRemindersAPIView`: Phân quyền thực thi chỉ cho phép `BOD_ADMIN` và `BU_HEAD`, từ chối `403 Forbidden` đối với `SALES`/`VIEWER`. Kiểm tra `managed_bus` cho `BU_HEAD`.
+     - `AgingMatrixAPIView`: Tích hợp Object-Level Filter Guard kiểm tra `assigned_bus` và khóa cứng truy vấn theo mã nhân viên cá nhân cho `SALES`/`VIEWER`, từ chối `403 Forbidden` khi cố tình query BU hoặc Sales khác.
+     - Giữ alias `BUDebt3TierDrilldownAPIView = AgingMatrixAPIView` tương thích ngược 100%.
+  2. `.gitignore`: Bổ sung các script dev nhạy cảm (`scripts/generate_dev_token.py`, `scripts/swap_dev_email.py`, `scripts/audit_all_user_rbac.py`, `*.log`).
+  3. Token Cleanup: Thu hồi toàn bộ 82 token cũ trong bảng `knox_authtoken`.
+  4. Unit Tests & Verification:
+     - `accounting/tests.py`: Bổ sung 2 test suites chuyên sâu `test_send_reminders_permission_defense_in_depth` và `test_aging_matrix_object_level_filter_guard` kiểm tra đầy đủ các tình huống 401, 403 và 200 cho từng vai trò.
+     - Chạy `manage.py test accounting`: **43/43 unit tests PASS 100% (9.92s)**.
+     - Chạy `npm run build`: **Vite bundle thành công trong 614ms (0 errors)**.
+  5. Đồng bộ tài liệu: Cập nhật `DocumentAPI_Report2026.md` Mục 18 & 19.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:47:00] Task: Full-Stack Audit, Production Security Hardening & 100% Documentation Sync — [DONE]
+- **Objective**: Tổng rà soát hệ thống Full-Stack, gia cố bảo mật môi trường sản xuất (chặn script dev, giới hạn token lifespan 2h, bảo vệ .gitignore), đồng bộ 100% tài liệu kỹ thuật (`DocumentAPI_Report2026.md`, `target.md`, `project-dashboard/HANDOVER.md`, `CHANGELOG.md`), xác thực 100% test suite và production bundle.
+- **Các thay đổi đã thực hiện**:
+  1. Bảo mật & Gia cố Backend (`dashboard-report`):
+     - `scripts/generate_dev_token.py`: Bổ sung điều kiện chặn cứng `if not settings.DEBUG: sys.exit(1)`, giới hạn thời gian sống của token tối đa 2 giờ (`expiry = timedelta(hours=2)`).
+     - `scripts/swap_dev_email.py`: Bổ sung điều kiện chặn cứng `if not settings.DEBUG: sys.exit(1)`.
+     - `.gitignore`: Xác nhận các file nhạy cảm (`.env`, `scratch/`, logs) được bảo vệ tuyệt đối.
+  2. Bảo mật & Cô lập Frontend (`project-dashboard`):
+     - Dev Role Switcher được bọc trong `{import.meta.env.DEV && ( ... )}` và tự động bị loại bỏ hoàn toàn trên bản build Production (`npm run build`).
+  3. Đồng bộ Tài liệu Kỹ thuật:
+     - `DocumentAPI_Report2026.md`: Cập nhật chi tiết luồng JIT Provisioning, Động cơ phân quyền 4 tầng, cấu trúc payload mới của `/api/google-login/` & `/api/auth/me/`, tài liệu API `/api/debt/aging/`, `/api/debt/notifications/send-reminders/` và tiêu chuẩn bảo mật sản xuất (Mục 17, 18, 19).
+     - `target.md`: Cập nhật Mục 15 với đầy đủ kiến trúc 4-Layer RBAC Engine, ma trận phân quyền mới và quy chuẩn bảo mật.
+     - `project-dashboard/HANDOVER.md` & `CHANGELOG.md`: Nâng cấp phiên bản lên `v1.0.12`.
+  4. Kiểm thử & Đóng gói:
+     - `manage.py test accounting`: **41/41 tests PASS 100% (9.31s)**.
+     - `scripts/audit_all_user_rbac.py`: **100% PASS (0 lỗi toàn vẹn trên 173 nhân sự)**.
+     - `npm run build`: **Thành công 100% (0 errors, 556ms)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:35:00] Task: Revoke debt_collection Tab Permission from SALES Role (Aging Tab Only) — [DONE]
+- **Objective**: Cập nhật ma trận phân quyền: Thu hồi quyền xem Tab "Thu hồi nợ" (`debt_collection`) của nhóm SALES, chỉ cho phép truy cập duy nhất 1 Tab là "Tuổi nợ" (`aging`).
+- **Các thay đổi đã thực hiện**:
+  1. Backend `accounting/services/user_provisioner.py`:
+     - Cập nhật `DEFAULT_ROLE_TABS['SALES'] = ['aging']`.
+  2. Frontend `project-dashboard`:
+     - `src/context/AuthContext.jsx`: Cập nhật `DEFAULT_ROLE_TABS.SALES = ['aging']`.
+     - `src/routes/ProtectedRoute.jsx` & `src/routes/AppRoutes.jsx`: Tự động redirect về `/aging` khi người dùng thuộc nhóm SALES truy cập `/debt-collection`, `/dashboard`, `/bu/*`, `/inventory`.
+     - `src/layouts/DashboardLayout.jsx` & `src/components/navigation/MobileNavDrawer.jsx`: Thanh Navbar & Menu điều hướng chỉ render duy nhất tab "Tuổi nợ" (`aging`).
+     - Build Production `npm run build`: Thành công trong 744ms (0 lỗi).
+  3. Cập nhật Unit Tests & Database Sync:
+     - `accounting/tests.py`: Cập nhật test case `test_google_login_jit_provisioning` kiểm tra `SALES` không có quyền `debt_collection`.
+     - `manage.py sync_employee_users`: Đồng bộ thành công 173/173 tài khoản với quyền mới.
+     - `manage.py test accounting`: **41/41 unit tests PASS 100% (11.16s)**.
+     - `scripts/audit_all_user_rbac.py`: **100% PASS (0 lỗi toàn vẹn trên 173 nhân sự)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:22:00] Task: Implement 4-Layer Data-Driven RBAC Engine & Multi-Dimensional Touchpoint Resolution — [DONE]
+- **Objective**: Triển khai kiến trúc phân quyền 4 tầng dữ liệu CSDL (HR Assignment + BU Manager + Customer Portfolio + Sales Transactions). Chuẩn hóa bản ghi `ĐTCT` (`is_main = True`, `parent = HPC`), nâng cấp `resolve_user_rbac()`, sửa lỗi console buffer wrapping trong `generate_dev_token.py`, đồng bộ `DashboardContext.jsx` và audit 100% 173 nhân sự.
+- **Các thay đổi đã thực hiện**:
+  1. Cập nhật CSDL `BusinessUnit`:
+     - Cập nhật bản ghi `ĐTCT` (ID 72): `is_main = True`, `parent = HPC` để đồng bộ 100% với 7 BU thương mại còn lại.
+  2. `accounting/services/user_provisioner.py`:
+     - Tích hợp trọn vẹn 4 tầng dữ liệu CSDL vào `resolve_user_rbac()`:
+       * Tầng 1: `EmployeeAssignment` $\rightarrow$ `DEPARTMENT_BU_REGISTRY`.
+       * Tầng 2: `BusinessUnit.manager` $\rightarrow$ `BU_HEAD`.
+       * Tầng 3: `Customer.assigned_employee` $\rightarrow$ `SALES` (Phụ trách khách hàng trong BU).
+       * Tầng 4: `SalesTransaction.employee` $\rightarrow$ `SALES` (Phát sinh doanh số trong BU).
+     - Phân cấp `primary_role` ưu tiên: `BOD_ADMIN` > `BU_HEAD` > `SALES` > `VIEWER`.
+  3. `scripts/generate_dev_token.py`:
+     - Format lại output code JavaScript đa dòng thụt lề an toàn (`devAuth`), sử dụng đường kẻ ASCII chuẩn, giải quyết dứt điểm lỗi tràn bộ đệm đè chữ trên Windows PowerShell/Command Prompt.
+  4. `scripts/audit_all_user_rbac.py`:
+     - Tích hợp bộ kiểm tra toàn vẹn 4 tầng: Quét 100% 173 nhân sự, xác minh không có bất kỳ nhân sự nào bị sót BU phụ trách khách hàng hoặc BU doanh số. Kết quả: **100% PASS (0 Lỗi toàn vẹn)**.
+  5. Frontend `project-dashboard`:
+     - `DashboardContext.jsx`: Bổ sung `BU_DTCT`, `ĐTCT`, `DTCT`, `OVERSEA` vào `labelMap` và `toneMap`.
+     - Build Production `npm run build`: Thành công trong 658ms, 0 lỗi.
+  6. Đồng bộ & Unit Tests:
+     - `manage.py sync_employee_users`: Đồng bộ thành công 173/173 tài khoản.
+     - `manage.py test accounting`: **41/41 unit tests PASS 100% (9.31s)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:06:00] Task: Implement Data-Driven RBAC Engine & Audit 100% Employees — [DONE]
+- **Objective**: Chuyển đổi toàn diện cơ chế phân quyền từ Keyword String Matching thủ công sang Data-Driven RBAC Engine. Xây dựng bảng quy hoạch `DEPARTMENT_BU_REGISTRY`, hàm phân giải tổng quát `resolve_user_rbac(employee)`, script audit tự động 100% nhân sự `scripts/audit_all_user_rbac.py`, sửa lỗi format terminal output trong `scripts/generate_dev_token.py`, đồng bộ `AuthContext.jsx` & `DebtAgingReportPage.jsx` trên Frontend.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/services/user_provisioner.py`:
+     - Xây dựng `BU_DEFINITIONS` (8 Commercial BUs) và `DEPARTMENT_BU_REGISTRY` mapping chuẩn xác từ `department_code` sang mã `BusinessUnit` trong CSDL.
+     - Triển khai hàm phân giải tổng quát `resolve_user_rbac(employee)`: Quét active assignments $\rightarrow$ map qua `DEPARTMENT_BU_REGISTRY` $\rightarrow$ tra cứu `BusinessUnit.manager` $\rightarrow$ phân loại role theo cấp bậc ưu tiên.
+     - Cập nhật các wrapper `get_employee_assignments_info()`, `determine_employee_role()`, `get_user_role_info()`.
+  2. `scripts/audit_all_user_rbac.py`:
+     - Tạo script audit quét toàn diện 100% nhân sự (173 nhân viên active).
+     - Phân loại rõ ràng: 5 BOD_ADMIN, 25 BU_HEAD, 32 SALES, 126 VIEWER; 22 Multi-BU, 80 Single-BU, 81 Support/No-BU.
+     - Đối soát hoàn hảo các case trọng điểm: `3003` (Elevator), `9004` (Agritech, Eco, ĐTCT), `7583` (Manufacturing, Agritech, Eco), `2001` (BOD_ADMIN toàn quyền 8 BU).
+  3. `scripts/generate_dev_token.py`:
+     - Format lại đoạn mã `js_snippet` ngắt dòng tường minh, loại bỏ triệt để lỗi wrapping buffer đè dòng trên Windows PowerShell/cmd.
+  4. Frontend `project-dashboard`:
+     - `AuthContext.jsx`, `DebtAgingReportPage.jsx`, `detailMapper.js`, `dashboardMapper.js`: Đồng bộ đầy đủ 8 BU keys (`elevator`, `ibizPremium`, `ibizValue`, `agritech`, `eco`, `manufacturing`, `dtct`, `oversea`).
+     - Build Production `npm run build` thành công trong 689ms, 0 lỗi.
+  5. Đồng bộ & Unit Tests:
+     - `manage.py sync_employee_users`: Cập nhật đồng loạt 173 tài khoản thành công 100%.
+     - `manage.py test accounting`: **41/41 unit tests PASS 100% (9.89s)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 11:00:00] Task: Fix DTCT Recognition & Multi-BU Expansion for Employee 9004 (Phạm Văn Mừng) — [DONE]
+- **Objective**: Sửa lỗi nhận diện thiếu khối ĐTCT (Đầu tư cho thuê / Đầu tư cho thuê) và mở rộng phân công công tác cho nhân sự `9004` (Phạm Văn Mừng) gồm đầy đủ 3 BU: `BU_AGRITECH`, `BU_ECO`, `ĐTCT`.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/services/user_provisioner.py`:
+     - Bổ sung `COMMERCIAL_BU_KEYWORDS` với `BU_AGRITECH`, `BU_ECO`, và `ĐTCT` (`frontend_key: 'dtct'`, `bu_name: 'Đầu tư cho thuê / ĐTCT'`).
+     - Thêm `resolve_assignment_bu_list()` tự động tách phòng ban `BU_Agritech-Eco` thành 2 BU thương mại: `BU_AGRITECH` và `BU_ECO`.
+     - Quét thêm từ `BusinessUnit` model nơi nhân sự được chỉ định làm `manager` (`PHẠM VĂN MỪNG` quản lý `ĐTCT`), tự động nâng cấp vai trò `BU_HEAD` và đưa vào `managed_bus`, `assigned_bus`, `assignments`.
+  2. Frontend `project-dashboard`:
+     - `src/context/AuthContext.jsx`: Thêm `'dtct'` vào `ALL_BU_KEYS`, chuẩn hóa `mapBuCodeToFrontendKey()` nhận diện `dtct` / `đtct` / `đối tác` / `cho thuê`.
+     - `src/utils/detailMapper.js` & `src/utils/dashboardMapper.js`: Thêm `BU_DTCT`, `ĐTCT`, `DTCT` $\rightarrow$ `dtct`, hiển thị tên "Đầu tư cho thuê / ĐTCT".
+  3. `accounting/tests.py`:
+     - Bổ sung test case kiểm tra tra cứu `BusinessUnit` manager và phân giải đa BU $\rightarrow$ `manage.py test accounting` pass **41/41 tests 100%**.
+  4. Đồng bộ DB:
+     - Chạy `manage.py sync_employee_users` đồng bộ 173 tài khoản thành công 100%.
+     - Kiểm thử `scripts/generate_dev_token.py --code 9004`: Nhận diện chuẩn xác cả 3 BU (`BU_AGRITECH`, `BU_ECO`, `ĐTCT`).
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 10:48:00] Task: Multi-BU & Multi-Assignment RBAC Upgrade (Backend & Frontend) — [DONE]
+- **Objective**: Triển khai cơ chế phân quyền đa đơn vị kinh doanh (Multi-BU) và đa vai trò kiêm nhiệm (Multi-Assignment) giữa Backend (`dashboard-report`) và Frontend (`project-dashboard`). Cho phép nhân sự thuộc nhiều BU chuyển đổi linh hoạt các BU được phân công, và tự động áp dụng Dynamic Filter Guard (toàn quyền chọn nhân viên tại BU mình làm Trưởng BU, khóa cứng mã cá nhân tại BU mình làm Sales).
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/services/user_provisioner.py`:
+     - Thêm `ROLE_PRIORITY` (`BOD_ADMIN` > `BU_HEAD` > `SALES` > `VIEWER`).
+     - Thêm `determine_assignment_role()` và `get_employee_assignments_info()` quét toàn bộ `EmployeeAssignment` active của nhân sự.
+     - Nâng cấp `get_user_role_info()` trả về: `primary_role`, `managed_bus`, `assigned_bus`, `managed_bu_keys`, `assigned_bu_keys`, và mảng chi tiết `assignments`.
+  2. `scripts/generate_dev_token.py`:
+     - Hiển thị danh sách BU Quản lý, BU Kiêm nhiệm và bảng chi tiết các phân công công tác.
+     - Tối ưu định dạng terminal output sạch đẹp, chống lỗi ngắt dòng Windows console.
+  3. `accounting/tests.py`:
+     - Thêm test case `test_multi_assignment_user_resolution` (kiểm tra phân giải 2 assignment đồng thời của nhân sự Huỳnh Trọng Huy).
+  4. Frontend `src/context/AuthContext.jsx`:
+     - Lưu trữ `managed_bus`, `assigned_bus`, `assignments`.
+     - Bổ sung helper `getRoleInCurrentBu(buCodeOrKey)`, `isBuHeadInBu(bu)`, `isSalesInBu(bu)`, tính toán `allowedBUs` từ toàn bộ `assigned_bus`.
+  5. Frontend `src/pages/DebtAgingReportPage.jsx`:
+     - **Dropdown BU**: Cho phép chuyển đổi giữa các BU thuộc `assigned_bus` (nếu có từ 2 BU trở lên), khóa nếu chỉ có 1 BU.
+     - **Dropdown Nhân viên**: Mở toàn quyền chọn nhân sự nếu là `BU_HEAD` trong BU đang chọn; tự động chọn và khóa cứng theo `employee_code` nếu là `SALES` trong BU đó.
+  6. Frontend `CHANGELOG.md` & `HANDOVER.md`:
+     - Ghi nhận phiên bản release `v1.0.11`.
+- **Kết quả kiểm thử**:
+  - `manage.py test accounting` → **41/41 tests PASS 100% (10.5s)**.
+  - `npm run build` → **0 Errors, 0 Warnings (621ms)**.
+  - Kiểm thử thực tế nhân sự Huỳnh Trọng Huy (`7583`): Đầy đủ 2 BU (`BU_MANUFACTURING` vai trò BU_HEAD, `BU_Agritech - Eco` vai trò VIEWER).
+- **Current Status**: **[DONE]**
+
+## [2026-08-19 10:32:00] Task: Fix Commercial BU Mapping & Fallback Resilience (Backend & Frontend) — [DONE]
+- **Objective**: Sửa triệt để lỗi phân loại vai trò `BU_HEAD` cho nhân sự thuộc khối hỗ trợ (SSC/Shared Services) trong backend, ưu tiên Trưởng BU thương mại (`BU_ELEVATOR`, `BU_ECO`, `BU_PREMIUM`...) khi chạy dev token script, và bổ sung cơ chế fallback an toàn chống crash/toast error trong frontend `DashboardContext.jsx` & `AuthContext.jsx`.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/services/user_provisioner.py`:
+     - Thêm `COMMERCIAL_BU_KEYWORDS` và hàm `is_commercial_department()`.
+     - `determine_employee_role()`: Chỉ cấp quyền `BU_HEAD` cho nhân sự quản lý 6 BU kinh doanh thương mại (`BU_ELEVATOR`, `BU_IBIZ PREMIUM`, `BU_IBIZ VALUE`, `BU_Agritech - Eco`, `BU_MANUFACTURING`, `ĐTCT`, `Oversea`). Quản lý khối hỗ trợ (SSC, SCM, HCNS, Kế toán...) được phân vào `VIEWER` để không kích hoạt dữ liệu chi tiết BU kinh doanh.
+     - `resolve_bu_info_from_department()` và `get_user_role_info()`: Bổ sung cờ `is_commercial`, nếu non-commercial thì gán `allowed_tabs = ['aging']`.
+  2. `scripts/generate_dev_token.py`:
+     - Lựa chọn ưu tiên Trưởng BU kinh doanh cốt lõi (`dung.daotien@haophuong.com` - `BU_ELEVATOR`, `phong.nguyenngochuy@haophuong.com` - `BU_Value`, `minh.ho@haophuong.com` - `BU_Premium`).
+     - Sửa lỗi in JavaScript snippet trên 1 dòng sạch sẽ, không bị wrap/xuống dòng sai định dạng trên Windows terminal.
+  3. Frontend `src/utils/detailMapper.js` & `src/utils/dashboardMapper.js`:
+     - `buIdFromCode()` nhận diện mạnh mẽ và chuẩn hóa tất cả định dạng mã BU (space, underscore, lower/uppercase).
+  4. Frontend `src/context/DashboardContext.jsx`:
+     - `loadDetailData()`: Thêm cơ chế Fallback an toàn tự động chuyển về BU thương mại đầu tiên nếu `buId` không tồn tại, loại bỏ throw exception / toast lỗi đỏ gây crash.
+  5. Frontend `src/context/AuthContext.jsx`:
+     - Bổ sung `mapBuCodeToFrontendKey()` đồng bộ mã BU backend sang frontend `buKey`.
+  6. Frontend `src/routes/AppRoutes.jsx`:
+     - `DashboardBuDetailPageWrapper` tự động chuẩn hóa `currentBuKey` qua `buIdFromCode()`.
+- **Kết quả kiểm thử**:
+  - `sync_employee_users`: 21 BU_HEAD (chuẩn 6 BU thương mại), 115 VIEWER.
+  - `generate_dev_token.py --role BU_HEAD`: In đúng Mr. Đào Tiến Dũng (`BU_Elevator`, `is_commercial: true`).
+  - Frontend Production Build: `npm run build` → **✅ 0 Errors (630ms)**.
+  - Backend Unit Tests: `manage.py test accounting` → **40/40 tests PASS 100% (9.4s)**.
+- **Current Status**: **[DONE]**
+
+
+## [2026-08-19 10:20:00] Task: Full-Stack RBAC & Permission Normalization (Backend & Frontend) — [DONE]
+- **Objective**: Chuẩn hóa toàn diện cơ chế Phân quyền người dùng (RBAC) giữa Backend và Frontend, cung cấp endpoint `/api/auth/me/`, phân quyền hiển thị Navbar Tabs theo `allowed_tabs`, Route Guard tự động redirect trang không được phép, Filter Guard khóa cứng BU/Nhân viên cho BU_HEAD/SALES, và cô lập công cụ Dev Role Switcher trong `import.meta.env.DEV`.
+- **Các thay đổi đã thực hiện**:
+  1. `accounting/services/user_provisioner.py`:
+     - Thêm `resolve_bu_info_from_department()` và `TAB_PERMISSIONS`.
+     - Nâng cấp `get_user_role_info()` trả về `id`, `user_id`, `role`, `primary_role`, `employee_code`, `bu_code`, `bu_name`, `department`, `title`, `allowed_tabs`.
+  2. `accounting/views/misa_api.py` & `accounting/views/__init__.py` & `accounting/views.py`:
+     - Xây dựng `CurrentUserAPIView` (`GET /api/auth/me/`) yêu cầu xác thực Knox token.
+     - Đồng bộ response của `GoogleLoginAPI` & `LoginAPI` chứa payload `user` đầy đủ.
+  3. `accounting/urls.py`: Đăng ký route `path('auth/me/', CurrentUserAPIView.as_view(), name='current_user_api')`.
+  4. `accounting/tests.py`: Bổ sung 2 test case (`test_current_user_api_endpoint`, `test_google_login_jit_provisioning` với payload RBAC).
+  5. `scripts/generate_dev_token.py`: Nâng cấp JS snippet dán console lưu cả `auth_user` JSON string vào `localStorage`.
+  6. Frontend `src/context/AuthContext.jsx`:
+     - Đồng bộ quyền hạn từ `GET /api/auth/me/`.
+     - Cung cấp `allowedTabs`, `canAccessTab`, `firstAllowedPath`, `isBOD`, `isBuHead`, `isSales`, `isViewer`.
+  7. Frontend `src/layouts/DashboardLayout.jsx` & `src/components/navigation/MobileNavDrawer.jsx`:
+     - Ẩn/hiện Navbar Tabs theo `canAccessTab` (`BOD_ADMIN`: 5 tabs, `BU_HEAD`: 4 tabs, `SALES`: 2 tabs, `VIEWER`: 1 tab).
+     - Bấm Logo Header chuyển về `firstAllowedPath`.
+  8. Frontend `src/components/UserMenu.jsx` & `MobileNavDrawer.jsx`:
+     - Hiển thị Mã NV, Đơn vị BU, Role badge thực tế.
+     - Bọc khối "Chuyển vai trò (Dev only)" bằng `{import.meta.env.DEV && ( ... )}` (tự động loại bỏ khi build Production).
+  9. Frontend `src/components/auth/ProtectedRoute.jsx` & `src/routes/AppRoutes.jsx`:
+     - Route Guard kiểm tra `requiredTab`; nếu user không đủ quyền truy cập URL trực tiếp sẽ tự động chuyển hướng về `firstAllowedPath`.
+  10. Frontend `src/pages/DebtAgingReportPage.jsx`:
+      - Filter Guard: Khóa cứng Dropdown BU cho `BU_HEAD` và khóa cả Dropdown BU + Nhân viên cho `SALES`.
+  11. Frontend `CHANGELOG.md` & `HANDOVER.md`: Ghi nhận phiên bản `[1.0.10]`.
+  12. `DocumentAPI_Report2026.md` (Mục 17.4) & `target.md` (Mục 15.3): Cập nhật tài liệu API và kiến trúc phân quyền.
+- **Kết quả kiểm thử**:
+  - Backend Unit Tests: **40/40 tests PASS 100%** (`Ran 40 tests in 9.385s - OK`).
+  - Frontend Production Build: `npm run build` → **✅ Built in 4.09s, 0 Errors**.
+- **Current Status**: **[DONE]**
+
+
+## [2026-08-19 09:50:00] Task: Employee User Provisioning & Google SSO JIT Sync — [DONE]
+- **Objective**: Đồng bộ danh sách nhân viên (`Employee`) vào tài khoản người dùng đăng nhập (`User`) của hệ thống, hỗ trợ đăng nhập Google SSO tức thì (Just-In-Time) không cần chờ kích hoạt thủ công, phân quyền tự động theo 4 nhóm (`BOD_ADMIN`, `BU_HEAD`, `SALES`, `VIEWER`), và chặn các domain ngoài `@haophuong.com`.
+- **Các thay đổi đã thực hiện**:
+  1. `report2026/settings.py`: Cấu hình `ALLOWED_SSO_DOMAINS = env.list('ALLOWED_SSO_DOMAINS', default=['haophuong.com'])`.
+  2. `accounting/models/employee.py`: Thêm quan hệ OneToOne `user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='employee_profile', verbose_name="Tài khoản đăng nhập")`.
+  3. `accounting/migrations/0047_employee_user.py` [NEW]: Tạo và thực thi migration liên kết User-Employee trong CSDL.
+  4. `accounting/services/user_provisioner.py` [NEW]: Dịch vụ quản lý IAM & Provisioning:
+     - Tạo và bảo đảm 4 Django Groups: `BOD_ADMIN`, `BU_HEAD`, `SALES`, `VIEWER`.
+     - Tách Họ & Tên chuẩn tiếng Việt: `first_name` (Tên - từ cuối cùng), `last_name` (Họ & Tên đệm - phần còn lại).
+     - Phân quyền tự động từ `JobTitle` & `Department` của `EmployeeAssignment`.
+     - `provision_user_for_employee()`: Tạo/cập nhật `User`, `is_active=True`, `set_unusable_password()`, gán Group và link `employee.user`.
+     - `get_user_role_info()`: Trả về thông tin quyền hạn mở rộng (role, groups, full_name, employee_code, department, title).
+  5. `accounting/services/__init__.py`: Export các hàm từ `user_provisioner.py`.
+  6. `accounting/management/commands/sync_employee_users.py` [NEW]: Command đồng bộ hàng loạt `python manage.py sync_employee_users` (hỗ trợ `--dry-run`, `--bu`, `--email`).
+  7. `accounting/views/misa_api.py`: Nâng cấp `GoogleLoginAPI` và `LoginAPI`:
+     - Chặn domain ngoài `@haophuong.com` (trả về `403 Forbidden`).
+     - Tự động Just-In-Time (JIT) provisioning & kích hoạt `is_active=True` ngay khi nhân viên nội bộ đăng nhập Google lần đầu.
+     - Trả về token kèm toàn bộ thông tin role/profile trong response body.
+  8. `accounting/admin.py`: Cập nhật `EmployeeAdmin` hiển thị trạng thái tài khoản User (`user_account`) và nhóm quyền (`user_role`).
+  9. `accounting/tests.py`: Bổ sung bộ test `EmployeeUserProvisioningTests` (test tách tên, test role mapping, test command, test domain restriction 403, test JIT provisioning).
+  10. `DocumentAPI_Report2026.md` & `target.md`: Cập nhật tài liệu kiến trúc IAM và hướng dẫn sử dụng API/command.
+- **Kết quả thực thi & Kiểm thử**:
+  - **Đồng bộ thực tế CSDL (`python manage.py sync_employee_users`)**:
+    * Tổng số nhân viên quét: **173** nhân viên đang hoạt động có email hợp lệ.
+    * Tạo mới tài khoản: **172** User.
+    * Cập nhật tài khoản cũ: **1** User.
+    * Phân bổ 4 Groups: `BOD_ADMIN`: 4 tài khoản (2.3%), `BU_HEAD`: 30 tài khoản (17.3%), `SALES`: 33 tài khoản (19.1%), `VIEWER`: 106 tài khoản (61.3%).
+  - **Kiểm thử tự động**:
+    * `manage.py test accounting`: **39/39 tests OK (100% PASS)**.
+    * `scripts/test_debt_email_automation.py`: **4/4 suites PASS (100% PASS)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-18 10:32:00] Task: Include Oversea & DTCT in Commercial Debt Management — [DONE]
 - **Objective**: Bỏ bộ lọc loại trừ khách hàng Oversea trong tính toán công nợ và hệ thống Email nhắc nợ; đồng thời hiển thị BU ĐTCT (Đầu tư cho thuê) như một Khối BU kinh doanh trong báo cáo công nợ.
 - **Các thay đổi đã thực hiện**:

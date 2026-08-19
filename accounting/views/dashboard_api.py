@@ -96,24 +96,47 @@ class BUPerformanceUpdateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+from django.db.models import Q, Sum, Max
+from django.utils import timezone
+from accounting.services.user_provisioner import get_user_role_info
+
+
 class DashboardCollectionByBUAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
-        date_str = request.query_params.get('date')
-        if not date_str:
-            return Response(
-                {"error": "Tham số 'date' là bắt buộc (định dạng YYYY-MM-DD)."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response(
-                {"error": "Định dạng date không hợp lệ. Dùng YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        role_info = get_user_role_info(request.user) if request.user.is_authenticated else {}
+        user_role = role_info.get('primary_role', 'VIEWER')
+        assigned_bus = role_info.get('assigned_bus', [])
+        managed_bus = role_info.get('managed_bus', [])
 
         cash_cond = Q(account_number__startswith='111') | Q(account_number__startswith='112')
         offset_cond = Q(offset_account__startswith='1311') | Q(offset_account__startswith='1312')
+
+        # 1. Xác định ngày phát sinh thu tiền gần nhất trong CSDL
+        latest_ad_date = AccountDetail.objects.filter(cash_cond & offset_cond).aggregate(
+            max_date=Max('posting_date')
+        )['max_date']
+
+        date_str = request.query_params.get('date')
+        if not date_str:
+            date = latest_ad_date or timezone.now().date()
+            date_str = date.strftime('%Y-%m-%d')
+        else:
+            try:
+                date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {"error": "Định dạng date không hợp lệ. Dùng YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # 2. Xác định kỳ báo cáo phù hợp cho ReceivablesAgeing
+        req_period = date.strftime('%Y-%m')
+        if not ReceivablesAgeing.objects.filter(reporting_period=req_period).exists():
+            latest_rec_period = ReceivablesAgeing.objects.order_by('-reporting_period').values_list('reporting_period', flat=True).first()
+            if latest_rec_period:
+                req_period = latest_rec_period
 
         rows = []
         sum_recv = sum_commit = sum_due = sum_term = sum_total = 0
@@ -126,10 +149,21 @@ class DashboardCollectionByBUAPIView(APIView):
             else:
                 bu_qs = BusinessUnit.objects.filter(parent__isnull=False)
 
+        # 3. RBAC: Lọc danh sách BU theo quyền hạn của tài khoản
+        if user_role not in ['BOD_ADMIN', 'BOD']:
+            allowed_codes = set(assigned_bus + managed_bus)
+            if allowed_codes:
+                bu_qs = bu_qs.filter(
+                    Q(code__in=allowed_codes) |
+                    Q(code__in=[f"BU_{c}" for c in allowed_codes]) |
+                    Q(code__in=[c.replace('BU_', '') for c in allowed_codes])
+                )
+
         for bu in bu_qs.order_by('code'):
             bu_ids = bu.get_all_descendant_ids()
 
             rec = ReceivablesAgeing.objects.filter(
+                reporting_period=req_period,
                 customer__business_unit_id__in=bu_ids
             ).aggregate(
                 total=Sum('total_debt'),
@@ -137,8 +171,9 @@ class DashboardCollectionByBUAPIView(APIView):
             )
             receivable_total = rec['total'] or 0
             commitment_overdue = rec['overdue'] or 0
-            
+
             overdue_customers = ReceivablesAgeing.objects.filter(
+                reporting_period=req_period,
                 customer__business_unit_id__in=bu_ids,
                 overdue_total__gt=0
             ).values_list('customer_id', flat=True)
@@ -150,14 +185,16 @@ class DashboardCollectionByBUAPIView(APIView):
             sums_due = collected_due_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
             collected_due = (sums_due['d'] or 0) - (sums_due['c'] or 0)
 
+            # Lọc mở rộng cả business_unit_id và customer__business_unit_id để không sót chứng từ
             collection_qs = AccountDetail.objects.filter(
                 posting_date=date,
-                business_unit_id__in=bu_ids,
+            ).filter(
+                Q(business_unit_id__in=bu_ids) | Q(customer__business_unit_id__in=bu_ids)
             ).filter(cash_cond & offset_cond)
             total_sums = collection_qs.aggregate(d=Sum('debit_amount'), c=Sum('credit_amount'))
             total_collected = (total_sums['d'] or 0) - (total_sums['c'] or 0)
 
-            collected_in_term_cod = total_collected - collected_due
+            collected_in_term_cod = max(0, total_collected - collected_due)
 
             rows.append({
                 "bu_id": bu.id,
@@ -178,6 +215,9 @@ class DashboardCollectionByBUAPIView(APIView):
 
         return Response({
             "date": date_str,
+            "latest_available_date": latest_ad_date.strftime('%Y-%m-%d') if latest_ad_date else date_str,
+            "has_data": sum_total > 0,
+            "reporting_period": req_period,
             "rows": rows,
             "totals": {
                 "receivable_total": sum_recv,

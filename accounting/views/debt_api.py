@@ -14,6 +14,7 @@ from accounting.serializers import (
     AllBUsDebtResponseSerializer, BUDebtSummarySerializer, DebtReminderRequestSerializer
 )
 from accounting.services.debt_mailer import send_debt_reminders_process
+from accounting.services.user_provisioner import get_user_role_info
 from accounting.tasks import send_debt_reminders_task
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class AllBUsDebtSummaryAPIView(views.APIView):
         + include_all: true/false hoặc all=true (Mặc định: false - Chỉ hiện các BU có nợ quá hạn > 0)
     - Output: Danh sách BU (mặc định lọc các BU có nợ quá hạn) và Tổng Toàn Công Ty (Global).
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         period = request.query_params.get('period')
@@ -143,23 +144,30 @@ class AllBUsDebtSummaryAPIView(views.APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class BUDebt3TierDrilldownAPIView(views.APIView):
+class AgingMatrixAPIView(views.APIView):
     """
-    API 2: Báo cáo Phân Cấp 3 Tầng Drilldown từng BU (BU 3-Tier Drilldown)
+    API 2: Chi tiết Tuổi nợ 3 Cấp Độ (BU -> Key Accounts / Sales / Quản lý -> Khách hàng)
     - Route: GET /api/v1/accounting/debt/bus/<bu_code>/drilldown/
     - Query Params: period (YYYY-MM, mặc định: 2026-08)
     - Output: Cấp 1 (BU) -> Cấp 2 (Key Accounts / Sales / Quản lý) -> Cấp 3 (Khách hàng)
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, bu_code, *args, **kwargs):
+        user_info = get_user_role_info(request.user)
+        user_role = user_info.get('primary_role', 'VIEWER')
+        assigned_bus = user_info.get('assigned_bus', [])
+        managed_bus = user_info.get('managed_bus', [])
+        user_emp_code = user_info.get('employee_code')
+
         period = request.query_params.get('period')
-        employee_code = (
+        req_emp_code = (
             request.query_params.get('employee_code') or
             request.query_params.get('employee') or
             request.query_params.get('sales_code') or
             ''
         ).strip()
+
         if not period:
             latest_ageing = ReceivablesAgeing.objects.order_by('-reporting_period').first()
             period = latest_ageing.reporting_period if latest_ageing else timezone.now().strftime('%Y-%m')
@@ -174,6 +182,16 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
 
         # 1. Tìm Business Unit theo mã code (Hỗ trợ linh hoạt cả mã gốc như ĐTCT, Oversea hoặc có tiền tố BU_)
         clean_bu_code = bu_code.strip()
+
+        # SMART FALLBACK: Nếu người dùng không phải BOD_ADMIN mà yêu cầu xem 'HPC' / 'ALL' / 'GLOBAL', tự động chuyển hướng về BU đầu tiên được phân công
+        if clean_bu_code.upper() in ['HPC', 'ALL', 'GLOBAL', ''] and user_role != 'BOD_ADMIN':
+            if assigned_bus:
+                clean_bu_code = assigned_bus[0]
+            elif managed_bus:
+                clean_bu_code = managed_bus[0]
+            elif user_info.get('bu_code') and user_info.get('bu_code') != 'HPC':
+                clean_bu_code = user_info.get('bu_code')
+
         bu = BusinessUnit.objects.filter(code__iexact=clean_bu_code).first()
         if not bu and clean_bu_code.upper().startswith('BU_'):
             unprefixed_code = clean_bu_code[3:].strip()
@@ -190,6 +208,38 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        # DEFENSE IN DEPTH: Kiểm tra quyền truy cập BU tầng Backend
+        if user_role != 'BOD_ADMIN':
+            is_bu_allowed = any(
+                b.upper() == bu.code.upper() or
+                b.upper() == clean_bu_code.upper() or
+                f"BU_{b.upper()}" == bu.code.upper()
+                for b in assigned_bus
+            )
+            if not is_bu_allowed:
+                return Response(
+                    {"error": f"Quyền truy cập bị từ chối. Bạn không có quyền xem dữ liệu của Business Unit '{bu.name}' ({bu.code})."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # DEFENSE IN DEPTH: Kiểm tra quyền truy cập phạm vi nhân viên
+        is_head_in_bu = (
+            user_role == 'BOD_ADMIN' or
+            any(b.upper() == bu.code.upper() or b.upper() == clean_bu_code.upper() for b in managed_bus) or
+            (bu.manager and user_info.get('full_name') and bu.manager.lower() in user_info['full_name'].lower())
+        )
+
+        employee_code = req_emp_code
+        if not is_head_in_bu:
+            # Sales / Viewer chỉ được phép truy vấn dữ liệu của chính mình
+            if user_emp_code:
+                if req_emp_code and req_emp_code.lower() != user_emp_code.lower():
+                    return Response(
+                        {"error": "Quyền truy cập bị từ chối. Bạn chỉ có quyền xem dữ liệu khách hàng do chính mình phụ trách."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                employee_code = user_emp_code
 
         # 2. Cấp 1: Thông tin BU & Tổng Nợ BU từ BUPerformance
         bu_perf = BUPerformance.objects.filter(business_unit=bu, month=month, year=year).first()
@@ -218,6 +268,10 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
             ageing_filter &= Q(account_code__in=target_rec_accounts)
         if excluded_cust_groups:
             ageing_filter &= ~Q(customer__group__code__in=excluded_cust_groups)
+        
+        # Lọc theo nhân viên nếu không phải head
+        if not is_head_in_bu and employee_code:
+            ageing_filter &= Q(customer__assigned_employee__employee_code__iexact=employee_code)
 
         ageings = ReceivablesAgeing.objects.filter(ageing_filter).select_related(
             'customer', 'customer__assigned_employee'
@@ -339,7 +393,7 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
 
         # Separate Key Accounts vs BU Teams
         key_accounts_summary = None
-        if '2001' in sales_map:
+        if '2001' in sales_map and is_head_in_bu:
             cco_data = sales_map['2001']
             cco_data["role"] = "CCO"
             cco_data["title"] = "Giám đốc kinh doanh (CCO)"
@@ -353,7 +407,10 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
 
         bu_teams = []
         for s_code, s_info in sales_map.items():
-            if s_code == '2001':
+            if s_code == '2001' and is_head_in_bu:
+                continue
+            # Nếu người dùng không phải Trưởng BU này, chỉ giữ lại bản ghi của chính họ
+            if not is_head_in_bu and user_emp_code and s_code.lower() != user_emp_code.lower():
                 continue
             s_info["customer_count"] = len(s_info["customers"])
             s_info["customers"].sort(key=lambda x: x["total_debt"], reverse=True)
@@ -389,6 +446,10 @@ class BUDebt3TierDrilldownAPIView(views.APIView):
         return Response(response_payload, status=status.HTTP_200_OK)
 
 
+# Alias tương thích ngược 100%
+BUDebt3TierDrilldownAPIView = AgingMatrixAPIView
+
+
 class SendDebtRemindersAPIView(views.APIView):
     """
     API 3: Kích Hoạt Gửi Email Nhắc Nợ Phân Cấp (Debt Reminder Automation)
@@ -404,9 +465,18 @@ class SendDebtRemindersAPIView(views.APIView):
         }
     - Response: Thống kê chi tiết số mail đã gửi, trạng thái từng người nhận và nhật ký logs.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
+        user_info = get_user_role_info(request.user)
+        primary_role = user_info.get('primary_role', 'VIEWER')
+
+        if primary_role not in ['BOD_ADMIN', 'BU_HEAD']:
+            return Response(
+                {"error": "Quyền truy cập bị từ chối. Chỉ có BOD_ADMIN hoặc BU_HEAD mới được phép kích hoạt gửi email nhắc nợ."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = DebtReminderRequestSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -421,6 +491,24 @@ class SendDebtRemindersAPIView(views.APIView):
         bu_code = validated_data.get('bu_code')
         recipient_type = validated_data.get('recipient_type', 'ALL')
         send_async = validated_data.get('send_async', False)
+
+        if primary_role == 'BU_HEAD':
+            managed_bus = [b.upper() for b in user_info.get('managed_bus', [])]
+            if bu_code:
+                clean_bu = bu_code.strip().upper()
+                if clean_bu not in managed_bus and f"BU_{clean_bu}" not in managed_bus:
+                    return Response(
+                        {"error": f"Quyền truy cập bị từ chối. Trưởng BU chỉ được phép gửi email nhắc nợ cho các BU thuộc quyền quản lý ({', '.join(user_info.get('managed_bus', []))})."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            else:
+                if len(managed_bus) == 1:
+                    bu_code = user_info['managed_bus'][0]
+                elif len(managed_bus) > 1:
+                    return Response(
+                        {"error": f"Vui lòng chỉ định tham số 'bu_code' trong danh sách BU bạn quản lý ({', '.join(user_info.get('managed_bus', []))})."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
         logger.info(
             f"📨 [API Trigger] Gửi email nhắc nợ (period={period}, dry_run={dry_run}, "

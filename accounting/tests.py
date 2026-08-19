@@ -854,6 +854,363 @@ class SendEmailAPITests(APITestCase):
         self.assertEqual(response.data['file'][0], "Kích thước file đính kèm không được vượt quá 20MB.")
 
 
+class EmployeeUserProvisioningTests(TestCase):
+    def setUp(self):
+        from accounting.models import Department, JobTitle, Employee, EmployeeAssignment
+        from django.contrib.auth.models import User, Group
+        from django.core.management import call_command
+
+        self.dept_bod = Department.objects.create(department_code="BOD", department_name="Ban Giám Đốc")
+        self.dept_bu = Department.objects.create(department_code="BU_ELEVATOR", department_name="Khối Thang Máy")
+        self.dept_tech = Department.objects.create(department_code="TECH", department_name="Phòng Kỹ Thuật")
+
+        self.title_director = JobTitle.objects.create(title_name="Giám đốc Vận hành")
+        self.title_bu_head = JobTitle.objects.create(title_name="Trưởng BU elevator")
+        self.title_sales = JobTitle.objects.create(title_name="Nhân viên kinh doanh")
+        self.title_engineer = JobTitle.objects.create(title_name="Kỹ sư thiết kế")
+
+        # 1. Employee BOD
+        self.emp_bod = Employee.objects.create(
+            employee_code="NV_BOD_01",
+            full_name="Nguyễn Văn Thắng",
+            email="thang.nguyen@haophuong.com"
+        )
+        EmployeeAssignment.objects.create(
+            employee=self.emp_bod,
+            department=self.dept_bod,
+            title=self.title_director,
+            start_date="2026-01-01"
+        )
+
+        # 2. Employee BU Head
+        self.emp_head = Employee.objects.create(
+            employee_code="NV_HEAD_01",
+            full_name="Đào Tiến Dũng",
+            email="dung.dao@haophuong.com"
+        )
+        EmployeeAssignment.objects.create(
+            employee=self.emp_head,
+            department=self.dept_bu,
+            title=self.title_bu_head,
+            start_date="2026-01-01"
+        )
+
+        # 3. Employee Sales
+        self.emp_sales = Employee.objects.create(
+            employee_code="NV_SALE_01",
+            full_name="Lê Văn Tín",
+            email="tin.le@haophuong.com"
+        )
+        EmployeeAssignment.objects.create(
+            employee=self.emp_sales,
+            department=self.dept_bu,
+            title=self.title_sales,
+            start_date="2026-01-01"
+        )
+
+        # 4. Employee Viewer
+        self.emp_viewer = Employee.objects.create(
+            employee_code="NV_ENG_01",
+            full_name="Trương Tùng Hưng",
+            email="hung.truong@haophuong.com"
+        )
+        EmployeeAssignment.objects.create(
+            employee=self.emp_viewer,
+            department=self.dept_tech,
+            title=self.title_engineer,
+            start_date="2026-01-01"
+        )
+
+    def test_split_vietnamese_name(self):
+        from accounting.services import split_vietnamese_name
+        first, last = split_vietnamese_name("Nguyễn Thanh Long")
+        self.assertEqual(first, "Long")
+        self.assertEqual(last, "Nguyễn Thanh")
+
+        first, last = split_vietnamese_name("Long")
+        self.assertEqual(first, "Long")
+        self.assertEqual(last, "")
+
+        first, last = split_vietnamese_name("")
+        self.assertEqual(first, "")
+        self.assertEqual(last, "")
+
+    def test_provision_user_for_employee_and_role_mapping(self):
+        from accounting.services import provision_user_for_employee, get_user_role_info
+        from django.contrib.auth.models import User
+
+        # Provision BOD
+        res_bod = provision_user_for_employee(self.emp_bod)
+        self.assertTrue(res_bod['success'])
+        self.assertEqual(res_bod['role_group'], 'BOD_ADMIN')
+        self.assertEqual(res_bod['first_name'], 'Thắng')
+        self.assertEqual(res_bod['last_name'], 'Nguyễn Văn')
+
+        user_bod = User.objects.get(username="thang.nguyen@haophuong.com")
+        self.assertTrue(user_bod.is_active)
+        self.assertTrue(user_bod.groups.filter(name='BOD_ADMIN').exists())
+        self.assertEqual(self.emp_bod.user, user_bod)
+
+        info_bod = get_user_role_info(user_bod)
+        self.assertEqual(info_bod['primary_role'], 'BOD_ADMIN')
+        self.assertEqual(info_bod['employee_code'], 'NV_BOD_01')
+
+        # Provision BU Head
+        res_head = provision_user_for_employee(self.emp_head)
+        self.assertEqual(res_head['role_group'], 'BU_HEAD')
+        user_head = User.objects.get(username="dung.dao@haophuong.com")
+        self.assertTrue(user_head.groups.filter(name='BU_HEAD').exists())
+
+        # Provision Sales
+        res_sales = provision_user_for_employee(self.emp_sales)
+        self.assertEqual(res_sales['role_group'], 'SALES')
+        user_sales = User.objects.get(username="tin.le@haophuong.com")
+        self.assertTrue(user_sales.groups.filter(name='SALES').exists())
+
+        # Provision Viewer
+        res_viewer = provision_user_for_employee(self.emp_viewer)
+        self.assertEqual(res_viewer['role_group'], 'VIEWER')
+        user_viewer = User.objects.get(username="hung.truong@haophuong.com")
+        self.assertTrue(user_viewer.groups.filter(name='VIEWER').exists())
+
+    def test_sync_employee_users_command(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from django.contrib.auth.models import User
+
+        out = StringIO()
+        call_command('sync_employee_users', stdout=out)
+        output = out.getvalue()
+        
+        self.assertIn("BẢNG TỔNG KẾT KẾT QUẢ ĐỒNG BỘ", output)
+        self.assertTrue(User.objects.filter(username="tin.le@haophuong.com").exists())
+        self.assertTrue(User.objects.filter(username="dung.dao@haophuong.com").exists())
+
+    def test_google_login_domain_restriction(self):
+        from unittest.mock import patch
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        with patch('google.oauth2.id_token.verify_oauth2_token') as mock_verify:
+            # Test external unauthorized domain -> 403 Forbidden
+            mock_verify.return_value = {
+                'email': 'hacker@unauthorized-external-domain.xyz',
+                'name': 'Hacker Out',
+                'given_name': 'Out',
+                'family_name': 'Hacker'
+            }
+            res = client.post('/api/google-login/', {'id_token': 'fake_token'}, format='json')
+            self.assertEqual(res.status_code, 403)
+            self.assertIn('Truy cập bị từ chối', res.data['error'])
+
+    def test_google_login_jit_provisioning(self):
+        from unittest.mock import patch
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        with patch('google.oauth2.id_token.verify_oauth2_token') as mock_verify:
+            mock_verify.return_value = {
+                'email': 'tin.le@haophuong.com',
+                'name': 'Lê Văn Tín',
+                'given_name': 'Tín',
+                'family_name': 'Lê Văn'
+            }
+            res = client.post('/api/google-login/', {'id_token': 'fake_token'}, format='json')
+            self.assertEqual(res.status_code, 200)
+            self.assertIn('token', res.data)
+            self.assertIn('user', res.data)
+            self.assertEqual(res.data['user']['primary_role'], 'SALES')
+            self.assertEqual(res.data['user']['employee_code'], 'NV_SALE_01')
+            self.assertIn('aging', res.data['user']['allowed_tabs'])
+            self.assertNotIn('debt_collection', res.data['user']['allowed_tabs'])
+            self.assertNotIn('dashboard', res.data['user']['allowed_tabs'])
+
+    def test_current_user_api_endpoint(self):
+        from rest_framework.test import APIClient
+        from knox.models import AuthToken
+        from accounting.services import provision_user_for_employee
+
+        provision_user_for_employee(self.emp_head)
+        user_head = self.emp_head.user
+        _, token = AuthToken.objects.create(user=user_head)
+
+        client = APIClient()
+        # 1. Unauthenticated -> 401 Unauthorized
+        res_unauth = client.get('/api/auth/me/')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # 2. Authenticated -> 200 OK with full user profile
+        client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        res_auth = client.get('/api/auth/me/')
+        self.assertEqual(res_auth.status_code, 200)
+        self.assertIn('user', res_auth.data)
+        user_data = res_auth.data['user']
+        self.assertEqual(user_data['role'], 'BU_HEAD')
+        self.assertEqual(user_data['bu_code'], 'BU_ELEVATOR')
+        self.assertEqual(user_data['bu_name'], 'Thang máy')
+        self.assertEqual(user_data['employee_code'], 'NV_HEAD_01')
+        self.assertIn('bu_detail', user_data['allowed_tabs'])
+        self.assertNotIn('dashboard', user_data['allowed_tabs'])
+
+    def test_multi_assignment_user_resolution(self):
+        from accounting.models import Department, JobTitle, Employee, EmployeeAssignment
+        from accounting.services import provision_user_for_employee, get_user_role_info
+
+        dept_mfg = Department.objects.create(department_code="BU_Manufacturing", department_name="BU Manufacturing (SX)")
+        dept_eco = Department.objects.create(department_code="BU_Agritech-Eco", department_name="BU Agritech-Eco")
+        
+        title_supervisor = JobTitle.objects.create(title_name="Giám sát dự án")
+        title_staff = JobTitle.objects.create(title_name="Nhân viên nuôi thủy sản")
+
+        emp_multi = Employee.objects.create(
+            employee_code="7583",
+            full_name="Huỳnh Trọng Huy",
+            email="huy.huynh@haophuong.com"
+        )
+        # Assignment 1: VIEWER tại Eco
+        EmployeeAssignment.objects.create(
+            employee=emp_multi,
+            department=dept_eco,
+            title=title_staff,
+            start_date="2026-08-17"
+        )
+        # Assignment 2: BU_HEAD tại Manufacturing
+        EmployeeAssignment.objects.create(
+            employee=emp_multi,
+            department=dept_mfg,
+            title=title_supervisor,
+            start_date="2026-07-27"
+        )
+
+        res = provision_user_for_employee(emp_multi)
+        self.assertTrue(res['success'])
+        self.assertEqual(res['role_group'], 'BU_HEAD')
+
+        info = get_user_role_info(emp_multi.user)
+        self.assertEqual(info['primary_role'], 'BU_HEAD')
+        self.assertIn('BU_MANUFACTURING', info['managed_bus'])
+        self.assertIn('BU_MANUFACTURING', info['assigned_bus'])
+        self.assertTrue('BU_ECO' in info['assigned_bus'] or 'BU_Agritech - Eco' in info['assigned_bus'])
+        self.assertIn('manufacturing', info['managed_bu_keys'])
+        self.assertTrue('eco' in info['assigned_bu_keys'])
+
+        # Test case: Nhân sự quản lý BusinessUnit (Ví dụ: ĐTCT)
+        from accounting.models import BusinessUnit
+        bu_dtct = BusinessUnit.objects.create(
+            code="ĐTCT",
+            name="Đầu tư cho thuê",
+            manager="Huỳnh Trọng Huy",
+            is_main=False
+        )
+        info_with_bu = get_user_role_info(emp_multi.user)
+        self.assertIn('ĐTCT', info_with_bu['managed_bus'])
+        self.assertIn('dtct', info_with_bu['managed_bu_keys'])
+
+    def test_send_reminders_permission_defense_in_depth(self):
+        from rest_framework.test import APIClient
+        from knox.models import AuthToken
+        from accounting.services import provision_user_for_employee
+        from accounting.models import BusinessUnit
+        from unittest.mock import patch
+
+        client = APIClient()
+        bu_elevator = BusinessUnit.objects.create(code="BU_ELEVATOR", name="Thang máy", is_main=True)
+        bu_ibiz = BusinessUnit.objects.create(code="BU_IBIZ PREMIUM", name="Thiết bị điện cao cấp", is_main=True)
+
+        # 1. Unauthenticated -> 401
+        res_unauth = client.post('/api/debt/notifications/send-reminders/', {'period': '2026-08', 'dry_run': True}, format='json')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # 2. SALES User -> 403 Forbidden
+        provision_user_for_employee(self.emp_sales)
+        _, sale_token = AuthToken.objects.create(user=self.emp_sales.user)
+        client.credentials(HTTP_AUTHORIZATION=f'Token {sale_token}')
+        res_sale = client.post('/api/debt/notifications/send-reminders/', {'period': '2026-08', 'dry_run': True}, format='json')
+        self.assertEqual(res_sale.status_code, 403)
+        self.assertIn('Quyền truy cập bị từ chối', res_sale.data['error'])
+
+        # 3. VIEWER User -> 403 Forbidden
+        provision_user_for_employee(self.emp_viewer)
+        _, eng_token = AuthToken.objects.create(user=self.emp_viewer.user)
+        client.credentials(HTTP_AUTHORIZATION=f'Token {eng_token}')
+        res_eng = client.post('/api/debt/notifications/send-reminders/', {'period': '2026-08', 'dry_run': True}, format='json')
+        self.assertEqual(res_eng.status_code, 403)
+
+        # 4. BU_HEAD for unmanaged BU -> 403 Forbidden
+        provision_user_for_employee(self.emp_head)
+        _, head_token = AuthToken.objects.create(user=self.emp_head.user)
+        client.credentials(HTTP_AUTHORIZATION=f'Token {head_token}')
+        res_head_unmanaged = client.post(
+            '/api/debt/notifications/send-reminders/',
+            {'period': '2026-08', 'bu_code': 'BU_IBIZ PREMIUM', 'dry_run': True},
+            format='json'
+        )
+        self.assertEqual(res_head_unmanaged.status_code, 403)
+
+        # 5. BU_HEAD for managed BU (BU_ELEVATOR) -> 200 OK
+        with patch('accounting.views.debt_api.send_debt_reminders_process') as mock_process:
+            mock_process.return_value = {'status': 'SUCCESS', 'emails_sent': 1}
+            res_head_managed = client.post(
+                '/api/debt/notifications/send-reminders/',
+                {'period': '2026-08', 'bu_code': 'BU_ELEVATOR', 'dry_run': True},
+                format='json'
+            )
+            self.assertEqual(res_head_managed.status_code, 200)
+
+        # 6. BOD_ADMIN -> 200 OK
+        provision_user_for_employee(self.emp_bod)
+        _, bod_token = AuthToken.objects.create(user=self.emp_bod.user)
+        client.credentials(HTTP_AUTHORIZATION=f'Token {bod_token}')
+        with patch('accounting.views.debt_api.send_debt_reminders_process') as mock_process:
+            mock_process.return_value = {'status': 'SUCCESS', 'emails_sent': 5}
+            res_bod = client.post(
+                '/api/debt/notifications/send-reminders/',
+                {'period': '2026-08', 'dry_run': True},
+                format='json'
+            )
+            self.assertEqual(res_bod.status_code, 200)
+
+    def test_aging_matrix_object_level_filter_guard(self):
+        from rest_framework.test import APIClient
+        from knox.models import AuthToken
+        from accounting.services import provision_user_for_employee
+        from accounting.models import BusinessUnit, ReceivablesAgeing, Customer, CustomerGroup
+
+        client = APIClient()
+
+        # Tạo BU_ELEVATOR và BU_IBIZ PREMIUM cho test
+        bu_elevator = BusinessUnit.objects.create(code="BU_ELEVATOR", name="Thang máy", is_main=True)
+        bu_ibiz = BusinessUnit.objects.create(code="BU_IBIZ PREMIUM", name="Thiết bị điện cao cấp", is_main=True)
+
+        # 1. Unauthenticated -> 401
+        res_unauth = client.get('/api/debt/bus/BU_ELEVATOR/drilldown/')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # 2. SALES User (thuộc BU_ELEVATOR) thử truy cập BU_IBIZ PREMIUM -> 403 Forbidden
+        provision_user_for_employee(self.emp_sales)
+        _, sale_token = AuthToken.objects.create(user=self.emp_sales.user)
+        client.credentials(HTTP_AUTHORIZATION=f'Token {sale_token}')
+        res_wrong_bu = client.get('/api/debt/bus/BU_IBIZ PREMIUM/drilldown/')
+        self.assertEqual(res_wrong_bu.status_code, 403)
+        self.assertIn('Quyền truy cập bị từ chối', res_wrong_bu.data['error'])
+
+        # 3. SALES User thử query mã nhân viên của người khác -> 403 Forbidden
+        res_wrong_emp = client.get('/api/debt/bus/BU_ELEVATOR/drilldown/?employee_code=NV_OTHER_99')
+        self.assertEqual(res_wrong_emp.status_code, 403)
+        self.assertIn('chỉ có quyền xem dữ liệu khách hàng do chính mình phụ trách', res_wrong_emp.data['error'])
+
+        # 4. SALES User truy cập BU_ELEVATOR hợp lệ -> 200 OK
+        res_ok = client.get('/api/debt/bus/BU_ELEVATOR/drilldown/')
+        self.assertEqual(res_ok.status_code, 200)
+        self.assertEqual(res_ok.data['tier_1_bu']['code'], 'BU_ELEVATOR')
+
+
+
+
+
+
+
+
 
 
 

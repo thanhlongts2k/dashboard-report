@@ -1,5 +1,5 @@
 from .misa_api import (
-    LoginAPI, GoogleLoginAPI, ActivateUserAPIView, BranchViewSet, CustomerViewSet,
+    LoginAPI, GoogleLoginAPI, ActivateUserAPIView, CurrentUserAPIView, BranchViewSet, CustomerViewSet,
     EmployeeViewSet, BusinessUnitViewSet, SalesTransactionViewSet,
     AccountDetailViewSet
 )
@@ -19,7 +19,7 @@ from .debt_api import (
 )
 
 __all__ = [
-    'LoginAPI', 'GoogleLoginAPI', 'ActivateUserAPIView', 'BranchViewSet', 'CustomerViewSet',
+    'LoginAPI', 'GoogleLoginAPI', 'ActivateUserAPIView', 'CurrentUserAPIView', 'BranchViewSet', 'CustomerViewSet',
     'EmployeeViewSet', 'BusinessUnitViewSet', 'SalesTransactionViewSet',
     'AccountDetailViewSet', 'ReceivablesAgeingViewSet', 'SupplierViewSet',
     'SupplierGroupViewSet', 'SupplierDebtViewSet', 'WarehouseViewSet',

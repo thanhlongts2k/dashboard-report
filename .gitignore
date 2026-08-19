@@ -29,3 +29,10 @@ dump.rdb
 # Scratch temporary files
 scratch/
 media/debug/
+*.log
+
+# Sensitive Dev & Audit Scripts
+scripts/generate_dev_token.py
+scripts/swap_dev_email.py
+scripts/audit_all_user_rbac.py
+scripts/scratch/

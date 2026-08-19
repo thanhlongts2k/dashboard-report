@@ -1,5 +1,5 @@
 from .views import (
-    LoginAPI, GoogleLoginAPI, BranchViewSet, CustomerViewSet,
+    LoginAPI, GoogleLoginAPI, ActivateUserAPIView, CurrentUserAPIView, BranchViewSet, CustomerViewSet,
     EmployeeViewSet, BusinessUnitViewSet, SalesTransactionViewSet,
     AccountDetailViewSet, ReceivablesAgeingViewSet, SupplierViewSet,
     SupplierGroupViewSet, SupplierDebtViewSet, WarehouseViewSet,
@@ -10,7 +10,7 @@ from .views import (
 )
 
 __all__ = [
-    'LoginAPI', 'GoogleLoginAPI', 'BranchViewSet', 'CustomerViewSet',
+    'LoginAPI', 'GoogleLoginAPI', 'ActivateUserAPIView', 'CurrentUserAPIView', 'BranchViewSet', 'CustomerViewSet',
     'EmployeeViewSet', 'BusinessUnitViewSet', 'SalesTransactionViewSet',
     'AccountDetailViewSet', 'ReceivablesAgeingViewSet', 'SupplierViewSet',
     'SupplierGroupViewSet', 'SupplierDebtViewSet', 'WarehouseViewSet',
