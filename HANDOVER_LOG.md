@@ -3,6 +3,27 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-19 16:36:00] Task: Integrate Automated Debt Reminder Scheduling (settings.py & Celery Beat & Management Command) — [DONE]
+- **Objective**: Thiết lập cơ chế cấu hình linh hoạt (bật/tắt, lịch biểu, chế độ dry-run/live, đối tượng nhận) cho tiến trình tự động gửi email nhắc nợ phân cấp (`send_live_debt_reminders`) trên Backend `dashboard-report`.
+- **Các thay đổi đã thực hiện**:
+  1. `report2026/schedule_utils.py`:
+     - Bổ sung hàm `get_debt_reminder_schedule(env)` hỗ trợ cấu hình động từ `.env` với các loại `weekly` (mặc định Thứ Hai lúc 08:00 sáng), `daily`, `monthly` (ngày 01, 15), hoặc `custom` cron 5 trường.
+  2. `report2026/settings.py`:
+     - Khai báo các biến cấu hình an toàn: `AUTO_SEND_DEBT_REMINDERS_ENABLED` (mặc định `False`), `DEBT_REMINDER_DRY_RUN` (mặc định `True`), `DEBT_REMINDER_TEST_EMAIL`, `DEBT_REMINDER_RECIPIENT_TYPE`, `DEBT_REMINDER_BU_CODE`.
+     - Tự động nạp task `accounting.tasks.send_debt_reminders_task` vào `CELERY_BEAT_SCHEDULE['auto_send_debt_reminders_periodic']` khi bật cờ `AUTO_SEND_DEBT_REMINDERS_ENABLED`.
+  3. `accounting/management/commands/send_debt_reminders.py` [NEW]:
+     - Tạo Django Management Command tiêu chuẩn `python manage.py send_debt_reminders` với đầy đủ tham số: `--period`, `--live`, `--test-email`, `--bu`, `--recipient-type`, `--yes`.
+     - Tích hợp bảo vệ an toàn với prompt xác nhận khi chạy `--live` và thống kê tiến độ gửi chi tiết.
+  4. `.env.example`:
+     - Bổ sung mục 7 `AUTOMATED DEBT REMINDER EMAIL SCHEDULE & NOTIFICATION` kèm giải thích tường minh từng tham số.
+  5. `DocumentAPI_Report2026.md`:
+     - Thêm mục 20 `Tự Động Hóa Lịch Biểu Gửi Email Nhắc Nợ (Automated Debt Reminder Scheduler & CLI)` hướng dẫn vận hành 3 cơ chế thực thi (Celery Beat, Management Command, Script CLI).
+  6. Kiểm thử:
+     - `python manage.py check`: **System check identified no issues (0 silenced)**.
+     - `python manage.py send_debt_reminders --period 2026-08`: Chạy dry-run thành công, quét đúng 23 Sales & 7 Trưởng BU.
+     - `python manage.py test accounting`: **43/43 tests PASS 100% (9.46s)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-19 14:10:00] Task: Full-Stack Terminology Audit — Standardize DTCT to "Đầu tư cho thuê" — [DONE]
 - **Objective**: Quét và chuẩn hóa tận gốc tên gọi Khối ĐTCT ("Đầu tư cho thuê" / "Đầu tư cho thuê / ĐTCT") trên cả Backend (`dashboard-report`) và Frontend (`project-dashboard`), loại bỏ triệt để cụm từ cũ "Đối tác chiến lược".
 - **Các thay đổi đã thực hiện**:

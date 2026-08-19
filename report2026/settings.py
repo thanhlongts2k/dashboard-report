@@ -171,7 +171,7 @@ STATIC_URL = 'static/'
 
 
 # Cấu hình Celery Beat Schedule động từ .env (Hỗ trợ chạy theo ngày, tuần, tháng hoặc custom)
-from report2026.schedule_utils import get_import_schedule
+from report2026.schedule_utils import get_import_schedule, get_debt_reminder_schedule
 
 schedule_val, IMPORT_SCHEDULE_DESC = get_import_schedule(env)
 
@@ -181,6 +181,41 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': schedule_val,
     },
 }
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH TỰ ĐỘNG GỬI EMAIL NHẮC NỢ PHÂN CẤP (SALES & TRƯỞNG BU)
+# -----------------------------------------------------------------------------
+# 1. AUTO_SEND_DEBT_REMINDERS_ENABLED: Công tắc tổng Bật/Tắt tự động gửi mail định kỳ (Mặc định: False để an toàn)
+AUTO_SEND_DEBT_REMINDERS_ENABLED = env.bool('AUTO_SEND_DEBT_REMINDERS_ENABLED', default=False)
+
+# 2. DEBT_REMINDER_DRY_RUN: Chế độ thử nghiệm an toàn (Mặc định: True). Khi True, KHÔNG gửi mail thật ra ngoài.
+DEBT_REMINDER_DRY_RUN = env.bool('DEBT_REMINDER_DRY_RUN', default=True)
+
+# 3. DEBT_REMINDER_TEST_EMAIL: Email nhận mẫu thử nghiệm khi chạy dry_run (Tùy chọn)
+DEBT_REMINDER_TEST_EMAIL = env('DEBT_REMINDER_TEST_EMAIL', default=None)
+
+# 4. DEBT_REMINDER_RECIPIENT_TYPE: Đối tượng nhận ('ALL', 'SALES', 'MANAGERS')
+DEBT_REMINDER_RECIPIENT_TYPE = env('DEBT_REMINDER_RECIPIENT_TYPE', default='ALL')
+
+# 5. DEBT_REMINDER_BU_CODE: Mã BU cụ thể nếu muốn giới hạn gửi (None = gửi toàn bộ các BU thương mại)
+DEBT_REMINDER_BU_CODE = env('DEBT_REMINDER_BU_CODE', default=None)
+
+if AUTO_SEND_DEBT_REMINDERS_ENABLED:
+    debt_schedule_val, DEBT_REMINDER_SCHEDULE_DESC = get_debt_reminder_schedule(env)
+    CELERY_BEAT_SCHEDULE['auto_send_debt_reminders_periodic'] = {
+        'task': 'accounting.tasks.send_debt_reminders_task',
+        'schedule': debt_schedule_val,
+        'kwargs': {
+            'period': None,  # Mặc định tự động nhận diện kỳ mới nhất
+            'dry_run': DEBT_REMINDER_DRY_RUN,
+            'test_email': DEBT_REMINDER_TEST_EMAIL if DEBT_REMINDER_DRY_RUN else None,
+            'bu_code': DEBT_REMINDER_BU_CODE,
+            'recipient_type': DEBT_REMINDER_RECIPIENT_TYPE,
+        },
+    }
+else:
+    DEBT_REMINDER_SCHEDULE_DESC = "Đã tắt (Tạm ngưng tự động gửi mail nhắc nợ)"
+
 
 # Đường dẫn khởi chạy Redis Server tự động
 REDIS_SERVER_PATH = r"d:\downloads\redis-x64-5.0.14.1\redis-server.exe"

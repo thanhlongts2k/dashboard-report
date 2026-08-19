@@ -930,7 +930,47 @@ python manage.py sync_employee_users --email long.nguyen@haophuong.com
 4. **Bảo Vệ Biến Môi Trường & Mã Nguồn Git:**
    - File `.env`, `.env.*`, thư mục `scratch/`, script test nhạy cảm (`scripts/generate_dev_token.py`, `scripts/swap_dev_email.py`, `scripts/audit_all_user_rbac.py`) và toàn bộ file logs đều nằm trong `.gitignore`.
 5. **Cô Lập Công Cụ Kiểm Thử Trên Frontend:**
-   - Khối Dev Role Switcher trong `UserMenu.jsx` và `MobileNavDrawer.jsx` được bọc trong `{import.meta.env.DEV && ( ... )}` và tự động bị loại bỏ hoàn toàn (Tree-shaked 100%) trên bản build Production (`npm run build`).
+
+---
+
+## 20. Tự Động Hóa Lịch Biểu Gửi Email Nhắc Nợ (Automated Debt Reminder Scheduler & CLI)
+
+Hệ thống hỗ trợ 3 cơ chế thực thi tiến trình gửi email nhắc nợ phân cấp (`send_debt_reminders`):
+
+### 20.1. Tự động hóa qua Celery Beat (Background Daemon Scheduler)
+Cấu hình trực tiếp trong file `.env` hoặc `settings.py`:
+* `AUTO_SEND_DEBT_REMINDERS_ENABLED`: `True` / `False` (Mặc định: `False` để an toàn).
+* `DEBT_REMINDER_DRY_RUN`: `True` / `False` (Mặc định: `True` - không gửi email thật).
+* `DEBT_REMINDER_TEST_EMAIL`: Email nhận test mẫu.
+* `DEBT_REMINDER_RECIPIENT_TYPE`: `'ALL'`, `'SALES'`, hoặc `'MANAGERS'`.
+* `DEBT_REMINDER_BU_CODE`: Mã BU cụ thể hoặc để trống cho tất cả các BU.
+* `DEBT_REMINDER_SCHEDULE_TYPE`: `'weekly'` (Mặc định: 08:00 sáng Thứ Hai hàng tuần), `'daily'`, `'monthly'`, `'custom'`.
+* `DEBT_REMINDER_SCHEDULE_HOUR`: `08`
+* `DEBT_REMINDER_SCHEDULE_MINUTE`: `00`
+* `DEBT_REMINDER_SCHEDULE_DAY_OF_WEEK`: `'1'` (Thứ Hai), `'1,4'` (Thứ Hai & Thứ Năm).
+
+### 20.2. Thực thi qua Django Management Command (`manage.py send_debt_reminders`)
+Phù hợp cấu hình chạy định kỳ qua Linux crontab hoặc Windows Task Scheduler:
+```bash
+# 1. Chạy thử nghiệm thống kê (Dry-run):
+python manage.py send_debt_reminders --period 2026-08
+
+# 2. Gửi thử nghiệm 1 email mẫu:
+python manage.py send_debt_reminders --period 2026-08 --test-email admin@haophuong.com
+
+# 3. KÍCH HOẠT GỬI THỰC TẾ (LIVE):
+python manage.py send_debt_reminders --period 2026-08 --live --yes
+
+# 4. Chỉ gửi thực tế cho riêng Trưởng BU:
+python manage.py send_debt_reminders --period 2026-08 --live --recipient-type MANAGERS --yes
+```
+
+### 20.3. Thực thi qua Standalone Script (`scripts/send_live_debt_reminders.py`)
+Script CLI có cảnh báo tương tác bảo vệ an toàn:
+```bash
+python scripts/send_live_debt_reminders.py --period 2026-08 --live
+```
+
 
 
 
