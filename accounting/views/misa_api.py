@@ -144,9 +144,15 @@ class GoogleLoginAPI(KnoxLoginView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
+            avatar_url = id_info.get('picture')
+
             login(request, user)
             response = super().post(request, format=None)
-            response.data['user'] = get_user_role_info(user)
+            user_data = get_user_role_info(user)
+            if avatar_url:
+                user_data['avatar'] = avatar_url
+                user_data['avatar_url'] = avatar_url
+            response.data['user'] = user_data
             return response
 
         except ValueError as e:

@@ -206,6 +206,8 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 #### 7.1. Đăng nhập qua Google (Single Sign-On Google OAuth2 API)
 *   `POST /api/google-login/`: Đăng nhập bằng Google ID token, phát hành Knox Token cho Frontend.
+*   **Request Body (JSON)**: `{"id_token": "<google_credential_id_token>"}`
+*   **Response (JSON)**: Trả về Token Knox, thời hạn expiry và object `user` bao gồm đầy đủ `id`, `email`, `full_name`, `role`, `allowed_tabs`, `employee_code`, `bu_code`, `bu_name`, `avatar` (URL ảnh đại diện Google Profile), `avatar_url`.
 
 #### 8. Các API danh mục chi tiết (DRF ViewSets)
 *   `/api/branches/` (Chi nhánh)

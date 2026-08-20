@@ -1013,7 +1013,8 @@ class EmployeeUserProvisioningTests(TestCase):
                 'email': 'tin.le@haophuong.com',
                 'name': 'Lê Văn Tín',
                 'given_name': 'Tín',
-                'family_name': 'Lê Văn'
+                'family_name': 'Lê Văn',
+                'picture': 'https://lh3.googleusercontent.com/a/fake_avatar.jpg',
             }
             res = client.post('/api/google-login/', {'id_token': 'fake_token'}, format='json')
             self.assertEqual(res.status_code, 200)
@@ -1021,6 +1022,8 @@ class EmployeeUserProvisioningTests(TestCase):
             self.assertIn('user', res.data)
             self.assertEqual(res.data['user']['primary_role'], 'SALES')
             self.assertEqual(res.data['user']['employee_code'], 'NV_SALE_01')
+            self.assertEqual(res.data['user']['avatar'], 'https://lh3.googleusercontent.com/a/fake_avatar.jpg')
+            self.assertEqual(res.data['user']['avatar_url'], 'https://lh3.googleusercontent.com/a/fake_avatar.jpg')
             self.assertIn('aging', res.data['user']['allowed_tabs'])
             self.assertNotIn('debt_collection', res.data['user']['allowed_tabs'])
             self.assertNotIn('dashboard', res.data['user']['allowed_tabs'])

@@ -3,6 +3,24 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-20 10:38:00] Task: Integrate Google Profile Avatar with Smart Fallback (Backend & Frontend) — [DONE]
+- **Objective**: Bổ sung tính năng lấy ảnh đại diện Google (Avatar) khi đăng nhập Google SSO và hiển thị ảnh đại diện thông minh (Smart Avatar with Letter Fallback & referrerPolicy="no-referrer") trên cả Desktop Header và Mobile Nav Drawer.
+- **Các thay đổi đã thực hiện**:
+  1. Backend `dashboard-report`:
+     - `accounting/views/misa_api.py`: Tại `GoogleLoginAPI`, trích xuất `avatar_url = id_info.get('picture')` từ Google ID Token và đính kèm vào `response.data['user']['avatar']` / `avatar_url`.
+     - `accounting/tests.py`: Cập nhật `test_google_login_jit_provisioning` assert `user.avatar` và `user.avatar_url`.
+     - Chạy `python manage.py test accounting`: **43/43 tests PASS 100% (9.76s)**.
+     - Đồng bộ tài liệu [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md) mục 7.1.
+  2. Frontend `project-dashboard`:
+     - `src/context/AuthContext.jsx`: Lưu giữ `avatar` trong state `user` và lưu trữ bền vững vào `localStorage` / `sessionStorage` (`auth_user`) khi đăng nhập hoặc làm mới profile từ `/api/auth/me/`.
+     - `src/components/common/UserAvatar.jsx` [NEW]: Tạo component Smart Avatar hỗ trợ `referrerPolicy="no-referrer"`, tròn trịa (`object-cover`), và tự động fallback về chữ cái đầu nếu ảnh lỗi (`onError`).
+     - `src/components/UserMenu.jsx`: Tích hợp `UserAvatar` cho trigger button (22px) và dropdown header (36px).
+     - `src/components/navigation/MobileNavDrawer.jsx`: Tích hợp `UserAvatar` cho profile card (44px).
+     - `src/styles/dashboard.css`: Bổ sung class `.user-avatar-img` đảm bảo hiển thị hình tròn chuẩn.
+     - Chạy `npm run build`: **Built in 4.85s (0 errors)**.
+     - Cập nhật [CHANGELOG.md](file:///d:/Sources/project-dashboard/CHANGELOG.md) & [HANDOVER.md](file:///d:/Sources/project-dashboard/HANDOVER.md) cho bản phát hành `v1.0.27`.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-19 16:36:00] Task: Integrate Automated Debt Reminder Scheduling (settings.py & Celery Beat & Management Command) — [DONE]
 - **Objective**: Thiết lập cơ chế cấu hình linh hoạt (bật/tắt, lịch biểu, chế độ dry-run/live, đối tượng nhận) cho tiến trình tự động gửi email nhắc nợ phân cấp (`send_live_debt_reminders`) trên Backend `dashboard-report`.
 - **Các thay đổi đã thực hiện**:
