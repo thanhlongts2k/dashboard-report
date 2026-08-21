@@ -2,14 +2,18 @@ import os
 import sys
 
 # Đảm bảo in ký tự tiếng Việt không bị lỗi cp1252 trên Windows Terminal
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 
-import django
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from accounting.resources import SalesTransactionResource
 from accounting.models import Customer, CustomerGroup, Product, MaterialGroup

@@ -2,12 +2,16 @@ import os
 import django
 import sys
 
-# Reconfigure stdout to use UTF-8 encoding on Windows terminals
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 # Setup Django Environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from django.conf import settings
 from django.db import transaction

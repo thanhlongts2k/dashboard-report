@@ -3,6 +3,16 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-21 09:07:00] Task: Fix LoggingProxy Has No Attribute 'reconfigure' During Celery Auto-Import — [DONE]
+- **Objective**: Khắc phục triệt để lỗi `AttributeError: 'LoggingProxy' object has no attribute 'reconfigure'` xảy ra khi Celery Worker tự động import file danh mục khách hàng (`KHACH_HANG_*.xlsx`, `DANH_SACH_KHACH_HANG_*.xlsx`).
+- **Root Cause**: Trong môi trường Celery Worker daemon, `sys.stdout` được Celery chuyển hướng và bọc bằng đối tượng `LoggingProxy` (đối tượng này không có phương thức `.reconfigure()`). Script `scripts/import_customer_mapping.py` trước đây gọi `sys.stdout.reconfigure(encoding='utf-8')` trực tiếp ở module top-level, dẫn đến exception `AttributeError` ngay khi `accounting/tasks.py` thực hiện câu lệnh `from scripts.import_customer_mapping import import_customer_sales_mapping`.
+- **Các thay đổi đã thực hiện**:
+  1. `scripts/import_customer_mapping.py`: Bọc an toàn `if hasattr(sys.stdout, 'reconfigure'): try: ... except Exception: pass` và chỉ gọi `django.setup()` khi Django chưa được khởi tạo (`not django.apps.apps.ready`).
+  2. Rà soát và áp dụng cơ chế bọc an toàn tương tự cho toàn bộ các script tiện ích khác trong `scripts/` và root: `send_live_debt_reminders.py`, `send_test_debt_emails.py`, `test_debt_email_automation.py`, `test_import_customer_group.py`, `test_warehouse_api.py`, `clear_and_reset_db.py`, `import_and_calculate_months_1_to_7.py`, `reimport_months_1_to_7.py`, `sync_current_month.py`, `test_download_ban_hang.py`, `import_specific_file.py`, `scripts/legacy/*`.
+  3. Bổ sung unit test `test_import_customer_mapping_with_logging_proxy` trong `accounting/tests.py` giả lập đối tượng Celery `LoggingProxy` (chỉ có `write` & `flush`) để đảm bảo không bao giờ phát sinh lỗi `AttributeError` trong tương lai.
+  4. Chạy kiểm thử: `python manage.py test accounting`: **44/44 tests PASS 100% (24.96s)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-20 10:38:00] Task: Integrate Google Profile Avatar with Smart Fallback (Backend & Frontend) — [DONE]
 - **Objective**: Bổ sung tính năng lấy ảnh đại diện Google (Avatar) khi đăng nhập Google SSO và hiển thị ảnh đại diện thông minh (Smart Avatar with Letter Fallback & referrerPolicy="no-referrer") trên cả Desktop Header và Mobile Nav Drawer.
 - **Các thay đổi đã thực hiện**:

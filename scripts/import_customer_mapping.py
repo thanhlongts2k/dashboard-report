@@ -9,18 +9,22 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 import django
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 import pandas as pd
 from django.db import transaction
 from accounting.models import Customer, Employee, EmployeeAssignment, EmployeeReceivableSummary
 from accounting.services.employee_debt_calculator import update_employee_receivable_summary
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 

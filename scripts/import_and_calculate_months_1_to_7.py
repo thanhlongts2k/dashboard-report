@@ -154,6 +154,10 @@ def import_and_calculate_all(skip_clear=False):
 
 
 if __name__ == '__main__':
-    sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
     skip_clear_flag = '--skip-clear' in sys.argv
     import_and_calculate_all(skip_clear=skip_clear_flag)

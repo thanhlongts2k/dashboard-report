@@ -7,12 +7,18 @@ import sys
 import argparse
 import django
 
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from accounting.services.debt_mailer import send_debt_reminders_process, get_target_period
 

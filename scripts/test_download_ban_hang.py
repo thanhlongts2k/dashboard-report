@@ -92,5 +92,9 @@ async def test_download():
 
 if __name__ == '__main__':
     import sys
-    sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
     asyncio.run(test_download())

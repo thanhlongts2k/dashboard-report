@@ -268,3 +268,19 @@ for p in snapshot_list:
    - `GET /api/debt/bus/` (mặc định chỉ hiện 8 BU có nợ quá hạn, hỗ trợ `?include_all=true`).
    - `GET /api/debt/bus/<str:bu_code>/drilldown/` (Phân cấp 3 tầng BU -> Sales -> KH, đối soát khớp 0 VNĐ).
 
+### 17.3. Khám Phá Kiến Trúc: Tương Thích Celery LoggingProxy & Safe Module Import
+1. **Hiện tượng**: Khi Celery daemon thực hiện các tác vụ nền tự động nạp danh mục (`misa_pipeline_master` / `auto_import_excel_daily`), `sys.stdout` được Celery bao bọc bằng đối tượng `LoggingProxy` (chỉ có hàm `write()` và `flush()`, không có thuộc tính `.reconfigure()`).
+2. **Quy tắc chuẩn hóa**:
+   - Tất cả các file trong `scripts/` và root **tuyệt đối không gọi `sys.stdout.reconfigure(encoding='utf-8')` trực tiếp ở module top-level**.
+   - Bắt buộc bọc bảo vệ:
+     ```python
+     if hasattr(sys.stdout, 'reconfigure'):
+         try:
+             sys.stdout.reconfigure(encoding='utf-8')
+         except Exception:
+             pass
+     ```
+   - Chỉ gọi `django.setup()` khi chạy CLI độc lập (`if not django.apps.apps.ready:`), tránh khởi tạo lại môi trường Django khi được import vào Celery hoặc Django Views.
+
+
+

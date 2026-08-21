@@ -4,11 +4,17 @@ import json
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
-sys.stdout.reconfigure(encoding='utf-8')
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 import django
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from accounting.models import Warehouse, InventorySummary
 from django.contrib.auth.models import User

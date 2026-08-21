@@ -1207,6 +1207,31 @@ class EmployeeUserProvisioningTests(TestCase):
         self.assertEqual(res_ok.status_code, 200)
         self.assertEqual(res_ok.data['tier_1_bu']['code'], 'BU_ELEVATOR')
 
+    def test_import_customer_mapping_with_logging_proxy(self):
+        """
+        Kiểm thử module scripts.import_customer_mapping có tương thích với LoggingProxy của Celery
+        (không có method reconfigure) mà không làm phát sinh ngoại lệ AttributeError.
+        """
+        import sys
+        from unittest.mock import patch
+
+        class DummyLoggingProxy:
+            """Mô phỏng đối tượng LoggingProxy của Celery Worker."""
+            def write(self, s):
+                pass
+            def flush(self):
+                pass
+
+        original_stdout = sys.stdout
+        try:
+            sys.stdout = DummyLoggingProxy()
+            from scripts.import_customer_mapping import import_customer_sales_mapping
+            # File không tồn tại trả về False an toàn, không được ném Exception
+            result = import_customer_sales_mapping(excel_path="non_existent_file.xlsx", run_calculate=False)
+            self.assertFalse(result)
+        finally:
+            sys.stdout = original_stdout
+
 
 
 

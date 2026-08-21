@@ -5,12 +5,18 @@ import time
 from datetime import datetime
 
 # Cấu hình UTF-8 cho console
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from accounting.services.debt_mailer import (
     collect_sales_debt_data, collect_bu_manager_debt_data,

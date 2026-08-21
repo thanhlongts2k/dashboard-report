@@ -4,12 +4,18 @@ import django
 from decimal import Decimal
 
 # Cấu hình UTF-8 cho stdout trên Windows
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from django.template.loader import render_to_string
 from rest_framework.test import APIClient

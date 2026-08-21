@@ -14,16 +14,20 @@ Ghi chú: Đã có lệnh tiêu chuẩn `python manage.py sync_misa --action=imp
 import os
 import sys
 
-# Reconfigure stdout to use UTF-8 encoding on Windows terminals
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 # Setup Django Environment TRƯỚC KHI import bất kỳ module nào của Django
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, PROJECT_ROOT)
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
 
 import django
-django.setup()
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
+    django.setup()
 
 from import_specific_file import import_file, IMPORT_MAP
 
