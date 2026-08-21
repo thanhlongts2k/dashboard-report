@@ -115,7 +115,7 @@ BU_DEFINITIONS = {
         'name': 'Đầu tư cho thuê',
         'frontend_key': 'dtct',
         'is_commercial': True,
-        'keywords': ['đtct', 'dtct', 'cho thuê', 'đầu tư cho thuê', 'bu_dtct', 'bu_đtct']
+        'keywords': ['đtct', 'dtct', 'đầu tư cho thuê', 'bu_dtct', 'bu_đtct', 'đầu tư & cho thuê', 'dau tu cho thue']
     },
     'Oversea': {
         'code': 'Oversea',

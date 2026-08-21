@@ -3,6 +3,29 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-21 14:25:00] Task: Investigate & Resolve BU Mapping & Debt Aging Discrepancy (3003 Đào Tiến Dũng vs BOD in ĐTCT & Elevator) — [DONE]
+- **Objective**: Điều tra và xử lý triệt để sự cố lệch số liệu báo cáo tuổi nợ giữa tài khoản 3003 (Đào Tiến Dũng - BU_HEAD) và tài khoản BOD trên trang Báo cáo Tuổi nợ (/aging) tại kỳ 2026-08.
+- **Root Cause & Investigation Findings**:
+  1. **Nguồn gốc con số 7.2 tỷ (6.56 tỷ trong hạn, 638 triệu quá hạn, 5 khách hàng) ở ĐTCT**:
+     - Con số `7.198.000.000 đ` chính xác là **MOCK DATA FALLBACK** nằm trong `src/utils/agingMockData.js` (`MOCK_STAFF_LIST` cho mã nhân viên `3003` gồm 5 khách hàng mẫu: Phát Tiến, Đặng Hùng Đức, An Thịnh, Tiến Đạt, Fuji Tech).
+     - Trong `src/utils/agingMapper.js` (dòng 77), khi API trả về danh sách trống `bu_teams: []` (vì thực tế anh Dũng không có nợ trong BU ĐTCT), frontend trước đây có điều kiện `if (rawGroups.length === 0) rawGroups = MOCK_STAFF_LIST`.
+     - Đồng thời tại `DebtAgingReportPage.jsx`, khi nhân viên có 0 bản ghi trong BU thì bị fallback lấy phần tử đầu của mock list, dẫn đến việc màn hình của anh Dũng khi chọn BU "Đầu tư cho thuê" tự động hiển thị 5 khách hàng mock data (7.2 tỷ) thay vì hiển thị trạng thái rỗng (0 đồng / không có phát sinh).
+  2. **Dữ liệu công nợ thực tế trong CSDL của Đào Tiến Dũng**:
+     - Thực tế trong CSDL, anh Dũng có **24 khách hàng thật** với tổng công nợ **7.808.400.736 đ** (Trong hạn: 6.553.540.481 đ, Quá hạn: 1.254.860.255 đ).
+     - Toàn bộ 24 khách hàng này 100% thuộc về **BU Thang máy (`BU_ELEVATOR`)** (chính là hình ảnh 1 của người dùng).
+     - Khi BOD chọn BU "Thang máy", BOD nhìn thấy đầy đủ nhóm 7.8 tỷ này của anh Dũng.
+  3. **Thực tế phân công phòng ban & BU của nhân sự 3003**:
+     - `3003 - ĐÀO TIẾN DŨNG` có chức danh `Trưởng BU elevator`, phòng ban `BU_Elevator`. Anh Dũng là Trưởng BU **Thang máy (`BU_ELEVATOR`)**.
+     - Trưởng BU của **Đầu tư cho thuê (`ĐTCT`)** là `9004 - PHẠM VĂN MỪNG` (tổng công nợ ĐTCT thực tế là 446 triệu / 6 khách hàng).
+- **Các file đã chỉnh sửa**:
+  - `accounting/services/user_provisioner.py`: Tinh chỉnh keywords của `ĐTCT` thành `['đtct', 'dtct', 'đầu tư cho thuê', 'bu_dtct', 'bu_đtct', 'đầu tư & cho thuê', 'dau tu cho thue']`.
+  - `project-dashboard/src/utils/agingMapper.js`: Khắc phục logic fallback mock data. Chỉ fallback khi không có API response (`!isApiLoaded`). Nếu API đã trả về dữ liệu rỗng hợp lệ từ máy chủ thì giữ nguyên danh sách rỗng (`[]`).
+  - `project-dashboard/src/pages/DebtAgingReportPage.jsx`: Loại bỏ logic fallback cướp dữ liệu khi nhân viên có 0 bản ghi công nợ trong BU.
+- **Kết quả kiểm thử & Build**:
+  - Backend: `python manage.py test accounting`: **44/44 tests PASS 100% (9.41s)**.
+  - Frontend: `npm run build`: **PASS (847 modules transformed, 0 error)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-21 09:07:00] Task: Fix LoggingProxy Has No Attribute 'reconfigure' During Celery Auto-Import — [DONE]
 - **Objective**: Khắc phục triệt để lỗi `AttributeError: 'LoggingProxy' object has no attribute 'reconfigure'` xảy ra khi Celery Worker tự động import file danh mục khách hàng (`KHACH_HANG_*.xlsx`, `DANH_SACH_KHACH_HANG_*.xlsx`).
 - **Root Cause**: Trong môi trường Celery Worker daemon, `sys.stdout` được Celery chuyển hướng và bọc bằng đối tượng `LoggingProxy` (đối tượng này không có phương thức `.reconfigure()`). Script `scripts/import_customer_mapping.py` trước đây gọi `sys.stdout.reconfigure(encoding='utf-8')` trực tiếp ở module top-level, dẫn đến exception `AttributeError` ngay khi `accounting/tasks.py` thực hiện câu lệnh `from scripts.import_customer_mapping import import_customer_sales_mapping`.
