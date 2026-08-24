@@ -250,10 +250,22 @@ async def select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341', '
             continue
 
         try:
-            await acc_input.click(force=True)
+            await acc_input.click(force=True, click_count=3)
+            await asyncio.sleep(0.1)
+            await page.keyboard.press("Control+A")
+            await asyncio.sleep(0.1)
+            await page.keyboard.press("Backspace")
             await asyncio.sleep(0.2)
-            await acc_input.fill("")
-            await acc_input.type(account_code)
+            # Dispatch JS input & change event để Vue/React reactive state xóa sạch giá trị
+            await acc_input.evaluate("""el => {
+                el.value = '';
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }""")
+            await asyncio.sleep(0.3)
+            await acc_input.type(account_code, delay=50)
+            await asyncio.sleep(0.3)
+            await page.keyboard.press("Enter")
             await asyncio.sleep(1.5)  # Chờ bảng filter hiển thị kết quả
             logger.info(f"Typed account code '{account_code}' in search box.")
         except Exception as e:
@@ -462,7 +474,7 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         skip_parameters = True
         logger.info(f"[{prefix}] Master Data export mode activated (Streamlined 5-step flow without parameter modals).")
 
-    if prefix == 'TUOI_NO_KH' and target_account is None:
+    if prefix == 'TUOI_NO_KH' and not skip_parameters and target_account is None:
         accounts_to_fetch = getattr(settings, 'MISA_TUOI_NO_KH_ACCOUNTS', ['131', '1311'])
         if len(accounts_to_fetch) > 1:
             logger.info(f"[TUOI_NO_KH] Multi-account export mode enabled for accounts: {accounts_to_fetch}")
@@ -508,12 +520,13 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         except Exception:
             pass
             
-        if "home" in page.url or "dashboard" in page.url:
-            logger.info("Auto-redirected to home page. Returning to report URL...")
+        if report_url and ("home" in page.url or "dashboard" in page.url or "verify" in page.url or "callback" in page.url or (not is_master_data and "RP" not in page.url)):
+            logger.info("Auto-redirected away from target URL. Returning to report URL...")
             await close_misa_popups(page)
             await asyncio.sleep(1)
             await page.goto(report_url, timeout=30000, wait_until="load")
             await asyncio.sleep(3)
+            await close_misa_popups(page)
 
     if "login" in page.url or "sso" in page.url or "id.misa.vn" in page.url or "amisapp.misa.vn/login" in page.url:
         logger.warning("Redirected to login page. Session might be expired.")
@@ -588,14 +601,14 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                         if await checkbox_span.count() > 0:
                             span_class_after = await checkbox_span.get_attribute("class") or ""
                             logger.info(f"Checkbox span class after click: '{span_class_after}'")
-                            if "checked-true" in span_class_after:
-                                branch_checked_success = True
-                            else:
-                                logger.warning("Checkbox may not have been checked! Trying JS click on input as fallback...")
-                                checkbox_input_fb = checkbox_label.locator("input[type='checkbox']").first
-                                if await checkbox_input_fb.count() > 0:
-                                    await checkbox_input_fb.evaluate("el => el.click()")
-                                    await asyncio.sleep(0.5)
+                            is_already_checked = "checked-true" in span_class_after
+
+                        if not is_already_checked:
+                            for retry_sel in ["label:has-text('chi nhánh phụ thuộc')", ".ms-checkbox-label:has-text('chi nhánh phụ thuộc')"]:
+                                cb_retry = target_frame_for_checkbox.locator(retry_sel).first
+                                if await cb_retry.count() > 0:
+                                    await cb_retry.click(force=True)
+                                    await asyncio.sleep(1.0)
                                     span_class_after2 = await checkbox_span.get_attribute("class") or ""
                                     if "checked-true" in span_class_after2:
                                         branch_checked_success = True
@@ -752,9 +765,30 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
 
                 logger.info("Waiting 20s for report data to load...")
                 await asyncio.sleep(20)
+        else:
+            # Saved Report mode or Master Data: Quản lý trạng thái chờ bảng dữ liệu load hoàn tất
+            if not is_master_data:
+                logger.info(f"[{prefix}] Saved Report mode: Waiting for report grid data and loading overlays to finish...")
+                for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading", ".dx-loadindicator", ".loading-spinner"]:
+                    for f in [page] + page.frames:
+                        try:
+                            loc = f.locator(loading_sel).first
+                            if await loc.is_visible(timeout=500):
+                                await loc.wait_for(state="hidden", timeout=25000)
+                        except Exception:
+                            pass
+                for f in [page] + page.frames:
+                    try:
+                        grid_loc = f.locator("tr.dx-data-row, .dx-datagrid-rowsview, .ms-grid-viewer, .grid-container, table tbody tr").first
+                        if await grid_loc.is_visible(timeout=1000):
+                            break
+                    except Exception:
+                        pass
+                await asyncio.sleep(3.0)
+                await close_misa_popups(page)
 
         # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) for BAN_HANG only (Fail-Fast)
-        if prefix == 'BAN_HANG':
+        if prefix == 'BAN_HANG' and not skip_parameters:
             logger.info("[BAN_HANG] Selecting 'Mẫu chuẩn.' template via gear settings button...")
             gear_selectors = [
                 ".mi-setting__list-bold",  # Nút bánh răng cài đặt của lưới báo cáo MISA
@@ -865,214 +899,343 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
 
         # Step 8: Click Excel icon dropdown button (100% Commit 57a0e59)
         if is_master_data:
-            master_excel_selectors = [
-                "div[class*='excel']:visible",
-                ".mi-excel:visible",
-                ".mi-export__excel:visible",
-                ".icon-excel:visible",
-                ".mi-icon-excel:visible",
-                "[title*='Xuất']:visible",
-                "[title*='Excel']:visible",
-                ".dx-icon-export-excel-button:visible",
-                "button:has-text('Xuất khẩu')",
-                "div.ms-dropdown:has-text('Xuất khẩu')"
-            ]
-            green_excel_btn, frame = await find_locator_in_any_frame(page, master_excel_selectors, timeout=6000, close_blockers=False)
-            if green_excel_btn:
-                logger.info(f"[{prefix}] Clicking Master Data Green Excel icon and listening for download...")
-                try:
-                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                    async with page.expect_download(timeout=30000) as download_info:
-                        await green_excel_btn.click(force=True)
-                    download = await download_info.value
-                    await download.save_as(output_path)
-                    logger.info(f"SUCCESS: Successfully downloaded Master Data report to: {output_path} (Size: {os.path.getsize(output_path)} bytes)")
-                    return True
-                except Exception as direct_err:
-                    logger.info(f"[{prefix}] Direct download event did not fire ({direct_err}). Falling back to dropdown/panel flow...")
+            logger.info(f"[{prefix}] Looking for Master Data export button (.mi-s1-file-export / .ls-file-export)...")
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            downloads = []
+            page.on("download", lambda dl: downloads.append(dl))
 
-        logger.info("Looking for Excel export icon dropdown button...")
-        excel_btn_selectors = [
-            "[title*='Xuất khẩu']",
-            "[title*='Xuất Excel']",
-            "button:has-text('Xuất khẩu')",
-            "div.ms-dropdown:has-text('Xuất khẩu')",
-            ".mi-export__excel-bold",
-            ".mi-excel",
-            ".mi-icon-excel",
-            ".mi-export",
-            ".icon-excel",
-            ".btn-excel"
-        ]
-        if export_selector:
-            excel_btn_selectors.insert(0, export_selector)
+            created_pages = []
+            page.context.on("page", lambda p: (created_pages.append(p), p.on("download", lambda dl: downloads.append(dl))))
 
-        excel_btn, frame = await find_locator_in_any_frame(page, excel_btn_selectors, timeout=10000, close_blockers=False)
-        if not excel_btn:
-            for f in page.frames:
+            clicked = False
+            for f in [page] + page.frames:
                 try:
-                    locator = f.locator("xpath=//*[contains(@class,'mi-excel') or contains(@class,'export') or contains(text(),'Xuất khẩu')]").first
-                    if await locator.is_visible(timeout=2000):
-                        excel_btn = locator
-                        frame = f
+                    res = await f.evaluate("""() => {
+                        const el = document.querySelector('.mi-s1-file-export, .ls-file-export, [class*="file-export"]');
+                        if (el) {
+                            const target = el.closest('.ls-toolbar-icon-btn') || el;
+                            target.click();
+                            return true;
+                        }
+                        return false;
+                    }""")
+                    if res:
+                        logger.info(f"[{prefix}] Successfully clicked Master Data export icon in frame: {getattr(f, 'url', '') or getattr(f, 'name', '')}")
+                        clicked = True
                         break
                 except Exception:
                     continue
 
-        if not excel_btn:
-            logger.error("Could not find Excel icon dropdown button in any frame.")
-            return False
+            if not clicked:
+                master_btn_selectors = [
+                    ".mi-s1-file-export",
+                    ".ls-file-export",
+                    ".ls-toolbar-icon-btn:has(.mi-s1-file-export)",
+                    "div.ls-file-export",
+                    "div[class*='file-export']",
+                    ".mi-s1.mi-s1-file-export",
+                    ".ls-toolbar-icon-btn"
+                ]
+                export_btn, frame = await find_locator_in_any_frame(page, master_btn_selectors, timeout=5000, close_blockers=False)
+                if export_btn:
+                    await export_btn.click(force=True)
+                    clicked = True
 
-        logger.info(f"Clicking Excel icon button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
-        await excel_btn.click(force=True)
-        await asyncio.sleep(2.5)
+            if not clicked:
+                logger.error(f"[{prefix}] Could not find or click Master Data export icon.")
+                return False
 
-        # Step 8: Click Excel export option (dạng báo cáo / dạng tổng hợp cho TUOI_NO_KH, master data, dạng dữ liệu cho các báo cáo khác)
-        if prefix == 'TUOI_NO_KH':
-            dropdown_selectors = [
-                "text='Xuất Excel (dạng báo cáo)'",
-                "span:has-text('Xuất Excel (dạng báo cáo)')",
-                "div:has-text('Xuất Excel (dạng báo cáo)')",
-                ".dx-menu-item-text:has-text('Xuất Excel (dạng báo cáo)')",
-                "text='Mẫu tổng hợp'",
-                "span:has-text('Mẫu tổng hợp')",
-                "text='Excel'",
-                "span:has-text('Excel')",
-                "div:has-text('Excel')"
-            ]
-        elif is_master_data:
-            dropdown_selectors = [
-                "text='Xuất khẩu toàn bộ'",
-                "span:has-text('Xuất khẩu toàn bộ')",
-                "div:has-text('Xuất khẩu toàn bộ')",
-                "text='Xuất khẩu danh sách'",
-                "span:has-text('Xuất khẩu danh sách')",
-                "div:has-text('Xuất khẩu danh sách')",
-                "text='Xuất toàn bộ danh sách'",
-                "span:has-text('Xuất toàn bộ danh sách')",
-                "text='Xuất ra Excel'",
-                "span:has-text('Xuất ra Excel')",
-                "text='Xuất Excel (dạng dữ liệu)'",
-                "span:has-text('Xuất Excel (dạng dữ liệu)')",
-                ".dx-menu-item-text:has-text('Xuất khẩu')",
-                ".dx-menu-item-text:has-text('Xuất')",
-                "text='Mẫu ngầm định'",
-                "text='Mẫu chuẩn'",
-                "button:has-text('Xuất khẩu')",
-                "span:has-text('Xuất khẩu')",
-                "div:has-text('Xuất khẩu')"
-            ]
-        else:
-            dropdown_selectors = [
-                "text='Xuất Excel (dạng dữ liệu)'",
-                "span:has-text('Xuất Excel (dạng dữ liệu)')",
-                "div:has-text('Xuất Excel (dạng dữ liệu)')",
-                ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
-                "xpath=//*[contains(text(), 'dạng dữ liệu')]",
-                "text='Excel'",
-                "span:has-text('Excel')",
-                "div:has-text('Excel')"
-            ]
-        dropdown_item = None
-        for sel in dropdown_selectors:
-            loc, _ = await find_locator_in_any_frame(page, [sel], timeout=1500, close_blockers=False)
-            if loc:
+            logger.info(f"[{prefix}] Waiting up to 35 seconds for MISA to prepare data and trigger download...")
+            download_saved = False
+            for sec in range(35):
+                await asyncio.sleep(1)
+                if downloads:
+                    dl = downloads[0]
+                    await dl.save_as(output_path)
+                    logger.info(f"SUCCESS: Successfully downloaded Master Data report to: {output_path} (Size: {os.path.getsize(output_path)} bytes)")
+                    download_saved = True
+                    break
+
+            for p in created_pages:
                 try:
-                    txt = (await loc.inner_text()).strip()
-                    if 'nhập' in txt.lower():
-                        logger.info(f"Skipping import item: '{txt}'")
-                        continue
-                    dropdown_item = loc
-                    break
+                    await p.close()
                 except Exception:
-                    dropdown_item = loc
-                    break
+                    pass
 
-        if dropdown_item:
-            item_text = await dropdown_item.inner_text()
-            logger.info(f"Clicking Excel export item '{item_text.strip()}' for prefix '{prefix}'...")
-            await dropdown_item.click(force=True)
+            if download_saved:
+                return True
+            else:
+                logger.error(f"[{prefix}] Master Data download event did not fire within 35 seconds.")
+                return False
+        else:
+            logger.info("Looking for Excel export icon dropdown button...")
+            excel_btn_selectors = [
+                "[title*='Xuất khẩu']",
+                "[title*='Xuất Excel']",
+                "button:has-text('Xuất khẩu')",
+                "div.ms-dropdown:has-text('Xuất khẩu')",
+                ".mi-export__excel-bold",
+                ".mi-excel",
+                ".mi-icon-excel",
+                ".mi-export",
+                ".icon-excel",
+                ".btn-excel"
+            ]
+            if export_selector:
+                excel_btn_selectors.insert(0, export_selector)
+
+            excel_btn, frame = await find_locator_in_any_frame(page, excel_btn_selectors, timeout=10000, close_blockers=False)
+            if not excel_btn:
+                for f in page.frames:
+                    try:
+                        locator = f.locator("xpath=//*[contains(@class,'mi-excel') or contains(@class,'export') or contains(text(),'Xuất khẩu')]").first
+                        if await locator.is_visible(timeout=2000):
+                            excel_btn = locator
+                            frame = f
+                            break
+                    except Exception:
+                        continue
+
+            if not excel_btn:
+                logger.error("Could not find Excel icon dropdown button in any frame.")
+                return False
+
+            logger.info(f"Clicking Excel icon button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
+            await excel_btn.click(force=True)
             await asyncio.sleep(2.5)
 
-        # Check for options dialog "Đồng ý" / "Xuất khẩu" button
-        agree_btn_selectors = [
-            "button:has-text('Đồng ý')",
-            "button:has-text('Xuất khẩu')",
-            ".btn:has-text('Đồng ý')",
-            ".ms-button:has-text('Đồng ý')",
-            ".ms-button:has-text('Xuất khẩu')",
-            ".dx-button-content:has-text('Đồng ý')",
-            ".dx-button-content:has-text('Xuất khẩu')",
-            "span:has-text('Đồng ý')",
-            "span:has-text('Xuất khẩu')"
-        ]
-        agree_btn, _ = await find_locator_in_any_frame(page, agree_btn_selectors, timeout=3000, close_blockers=False)
-        if agree_btn:
-            logger.info("Found confirmation button in options dialog. Clicking it...")
-            await agree_btn.click(force=True)
-            await asyncio.sleep(2.0)
+            # Step 8: Click Excel export option (dạng báo cáo / dạng tổng hợp cho TUOI_NO_KH, dạng dữ liệu cho các báo cáo khác)
+            if prefix == 'TUOI_NO_KH':
+                dropdown_selectors = [
+                    "text='Xuất Excel (dạng báo cáo)'",
+                    "span:has-text('Xuất Excel (dạng báo cáo)')",
+                    "div:has-text('Xuất Excel (dạng báo cáo)')",
+                    ".dx-menu-item-text:has-text('Xuất Excel (dạng báo cáo)')",
+                    "text='Mẫu tổng hợp'",
+                    "span:has-text('Mẫu tổng hợp')",
+                    "text='Excel'",
+                    "span:has-text('Excel')",
+                    "div:has-text('Excel')"
+                ]
+            else:
+                dropdown_selectors = [
+                    "text='Xuất Excel (dạng dữ liệu)'",
+                    "span:has-text('Xuất Excel (dạng dữ liệu)')",
+                    "div:has-text('Xuất Excel (dạng dữ liệu)')",
+                    ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
+                    "xpath=//*[contains(text(), 'dạng dữ liệu')]",
+                    "text='Excel'",
+                    "span:has-text('Excel')",
+                    "div:has-text('Excel')"
+                ]
+            dropdown_item = None
+            for sel in dropdown_selectors:
+                loc, _ = await find_locator_in_any_frame(page, [sel], timeout=1500, close_blockers=False)
+                if loc:
+                    try:
+                        txt = (await loc.inner_text()).strip()
+                        if 'nhập' in txt.lower():
+                            logger.info(f"Skipping import item: '{txt}'")
+                            continue
+                        dropdown_item = loc
+                        break
+                    except Exception:
+                        dropdown_item = loc
+                        break
 
-        # Step 9: Open download manager panel if not open and click "Tải tệp" (100% Commit 57a0e59)
-        wait_seconds = 8 if is_master_data else 20
-        logger.info(f"Waiting {wait_seconds} seconds for MISA to generate file in background...")
+            if dropdown_item:
+                item_text = await dropdown_item.inner_text()
+                logger.info(f"Clicking Excel export item '{item_text.strip()}' for prefix '{prefix}'...")
+                await dropdown_item.click(force=True)
+                await asyncio.sleep(2.0)
+
+            # Check for options dialog "Đồng ý" / "Xuất khẩu" button
+            for _ in range(5):
+                dialog_clicked = False
+                try:
+                    for f in [page] + page.frames:
+                        res = await f.evaluate("""() => {
+                            const pop = document.querySelector('.popup-application-ui, .con-ms-popup.popup-is-show, .ms-popup');
+                            if (pop && pop.offsetWidth > 0 && pop.offsetHeight > 0) {
+                                const buttons = Array.from(pop.querySelectorAll('button, div.ms-button, a, span'));
+                                const okBtn = buttons.find(b => {
+                                    const t = (b.textContent || '').trim().normalize('NFC');
+                                    return t === 'Đồng ý' || t === 'Xuất khẩu';
+                                });
+                                if (okBtn) {
+                                    okBtn.click();
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }""")
+                        if res:
+                            dialog_clicked = True
+                            logger.info("Found and clicked confirmation button in export options dialog via DOM evaluation.")
+                            break
+                except Exception:
+                    pass
+
+                if not dialog_clicked:
+                    agree_btn_selectors = [
+                        "button:has-text('Đồng ý')",
+                        "button:has-text('Xuất khẩu')",
+                        ".btn:has-text('Đồng ý')",
+                        ".ms-button:has-text('Đồng ý')",
+                        ".ms-button:has-text('Xuất khẩu')",
+                        ".dx-button-content:has-text('Đồng ý')",
+                        ".dx-button-content:has-text('Xuất khẩu')",
+                        "span:has-text('Đồng ý')",
+                        "span:has-text('Xuất khẩu')"
+                    ]
+                    agree_btn, _ = await find_locator_in_any_frame(page, agree_btn_selectors, timeout=1500, close_blockers=False)
+                    if agree_btn:
+                        logger.info("Found confirmation button in options dialog via locator. Clicking it...")
+                        await agree_btn.click(force=True)
+                        dialog_clicked = True
+                
+                if dialog_clicked:
+                    await asyncio.sleep(1.5)
+                else:
+                    break
+
+        # Step 9: Open download manager panel if not open and click "Tải tệp"
+        wait_seconds = 15
+        logger.info(f"Waiting {wait_seconds} seconds for MISA to start generating file in background...")
         await asyncio.sleep(wait_seconds)
 
-        panel_open = False
-        try:
-            for panel_indicator in ["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn", "Xóa hết lịch sử tải tệp"]:
-                for f in [page] + page.frames:
-                    indicator = f.locator(f"text='{panel_indicator}'").first
-                    if await indicator.is_visible(timeout=300):
-                        panel_open = True
-                        logger.info(f"Download manager panel is already open (indicator: '{panel_indicator}').")
-                        break
-                if panel_open:
-                    break
-        except Exception:
-            pass
-
         download_manager_selectors = [
-            "div.ms-download",
-            "div.icon-feature-download",
-            ".ms-download",
+            ".ms-download.header-menu-icon",
             ".icon-feature-download",
-            ".mi-download",
-            ".mi-cloud-download"
+            ".ms-download",
+            "xpath=//div[contains(@class,'header-menu-icon') and contains(@class,'ms-download')]",
+            "[title*='Tải tệp']",
+            "[aria-label*='Tải tệp']"
         ]
 
-        if not panel_open:
-            logger.info("Opening download manager panel via download icon...")
-            manager_btn, _ = await find_locator_in_any_frame(page, download_manager_selectors, timeout=4000, close_blockers=False)
-            if manager_btn:
-                await manager_btn.click(force=True)
-                await asyncio.sleep(2.0)
+        panel_indicators = [
+            "text='Tải tệp Excel, tệp in,...'",
+            "text='Xóa hết lịch sử tải tệp'",
+            "text='Đang tạo đường dẫn tải tệp...'",
+            ".con-ms-download:visible",
+            ".ms-download-list:visible"
+        ]
+
+        # Kiểm tra và mở panel nếu chưa mở
+        panel_loc, _ = await find_locator_in_any_frame(page, panel_indicators, timeout=800, close_blockers=False)
+        if not panel_loc:
+            logger.info("Opening download manager panel...")
+            mgr_btn, _ = await find_locator_in_any_frame(page, download_manager_selectors, timeout=2500, close_blockers=False)
+            if mgr_btn:
+                await mgr_btn.click(force=True)
+                await asyncio.sleep(1.5)
+
+        logger.info("Waiting for file generation to complete and capturing download...")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        saved = False
+
+        download_event = asyncio.Event()
+        captured_downloads = []
+
+        def on_dl(dl):
+            logger.info(f"Captured download event: {dl.suggested_filename}")
+            captured_downloads.append(dl)
+            download_event.set()
+
+        def on_aux_page(p):
+            p.on("download", on_dl)
+
+        page.on("download", on_dl)
+        if hasattr(page, 'context') and page.context:
+            page.context.on("page", on_aux_page)
+
+        download_btn_selectors = [
+            "xpath=(//a[normalize-space(text())='Tải tệp' or starts-with(normalize-space(text()),'Tải tệp')])[1]",
+            "xpath=(//button[normalize-space(text())='Tải tệp' or starts-with(normalize-space(text()),'Tải tệp')])[1]",
+            "xpath=(//span[normalize-space(text())='Tải tệp' or starts-with(normalize-space(text()),'Tải tệp')])[1]",
+            "xpath=(//div[normalize-space(text())='Tải tệp'])[1]",
+            "text='Tải tệp'",
+            "text='Tải về'",
+        ]
+
+        for attempt in range(60): # Chờ tối đa 90 giây
+            # 1. Đảm bảo panel luôn mở (kiểm tra mỗi 5 attempt hoặc khi không thấy indicator)
+            panel_loc, _ = await find_locator_in_any_frame(page, ["text='Tải tệp Excel, tệp in,...'", "text='Xóa hết lịch sử tải tệp'"], timeout=300, close_blockers=False)
+            if not panel_loc or (attempt > 0 and attempt % 10 == 0):
+                mgr_btn, _ = await find_locator_in_any_frame(page, download_manager_selectors, timeout=1000, close_blockers=False)
+                if mgr_btn:
+                    await mgr_btn.click(force=True)
+                    await asyncio.sleep(1.0)
+
+            # 2. Tìm nút Tải tệp sẵn sàng
+            btn_loc, frame = await find_locator_in_any_frame(page, download_btn_selectors, timeout=800, close_blockers=False)
+            if btn_loc:
+                try:
+                    txt = (await btn_loc.text_content() or '').strip()
+                    txt_lower = txt.lower()
+                    if not any(k in txt_lower for k in ['đang tạo', 'đang xử lý', 'xóa hết', 'tải tệp excel', 'ava', 'trợ lý']):
+                        logger.info(f"Found ready 'Tải tệp' button (text: '{txt}') at attempt {attempt + 1}. Clicking...")
+                        
+                        # Thử lấy href trực tiếp
+                        try:
+                            href = await btn_loc.get_attribute('href')
+                            if not href:
+                                href = await btn_loc.evaluate("el => el.closest('a') ? el.closest('a').href : ''")
+                            if href and href.startswith('http') and not href.endswith('#'):
+                                logger.info(f"Direct URL found: {href[:80]}... Fetching with APIRequestContext...")
+                                resp = await page.request.get(href)
+                                if resp.status == 200:
+                                    with open(output_path, 'wb') as f:
+                                        f.write(await resp.body())
+                                    if os.path.exists(output_path) and os.path.getsize(output_path) > 100:
+                                        saved = True
+                                        logger.info(f"SUCCESS: Saved file via direct URL: {output_path} ({os.path.getsize(output_path)} bytes)")
+                                        break
+                        except Exception as he:
+                            logger.debug(f"Direct request failed: {he}")
+
+                        # Click DOM và Playwright đồng thời
+                        try:
+                            await btn_loc.evaluate("el => (el.closest('a') || el).click()")
+                        except Exception:
+                            pass
+                        try:
+                            await btn_loc.click(force=True)
+                        except Exception:
+                            pass
+
+                        try:
+                            await asyncio.wait_for(download_event.wait(), timeout=15.0)
+                            if captured_downloads:
+                                dl = captured_downloads[0]
+                                await dl.save_as(output_path)
+                                if os.path.exists(output_path) and os.path.getsize(output_path) > 100:
+                                    saved = True
+                                    logger.info(f"SUCCESS: Saved download via event listener: {output_path} ({os.path.getsize(output_path)} bytes)")
+                                    break
+                        except asyncio.TimeoutError:
+                            logger.warning("Download event not fired after click. Continuing loop...")
+                except Exception as eval_err:
+                    logger.debug(f"Button evaluation error: {eval_err}")
             else:
-                logger.warning("Could not find download manager button. Checking if 'Tải tệp' is visible anyway.")
+                if (attempt + 1) % 5 == 0:
+                    logger.info(f"Attempt {attempt + 1}: Waiting for MISA file generation...")
 
-        first_entry_selectors = [
-            "xpath=(//span[text()='Tải tệp'] | //a[text()='Tải tệp'] | //div[text()='Tải tệp'])[1]",
-            "xpath=(//span[contains(text(),'Tải tệp')] | //a[contains(text(),'Tải tệp')])[1]",
-        ]
-
-        download_btn = None
-        for attempt in range(50):
-            download_btn, _ = await find_locator_in_any_frame(page, first_entry_selectors, timeout=1000)
-            if download_btn:
-                logger.info(f"Found newest 'Tải tệp' button (first entry) after attempt {attempt + 1}.")
+            if saved:
                 break
             await asyncio.sleep(1.5)
 
-        if not download_btn:
-            logger.error("Could not find the 'Tải tệp' button in download manager panel after waiting.")
+        try:
+            page.remove_listener("download", on_dl)
+            if hasattr(page, 'context') and page.context:
+                page.context.remove_listener("page", on_aux_page)
+        except Exception:
+            pass
+
+        if not saved:
+            logger.error("Could not download file via direct URL or download event.")
             return False
 
-        logger.info("Clicking 'Tải tệp' button and waiting for Playwright download event (Commit 57a0e59)...")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        async with page.expect_download(timeout=45000) as download_info:
-            await download_btn.click(force=True)
-
-        download = await download_info.value
-        await download.save_as(output_path)
         logger.info(f"SUCCESS: Successfully downloaded and saved report to: {output_path}")
 
         # Close download manager panel to clean UI

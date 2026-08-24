@@ -29,26 +29,41 @@ from accounting.services import (
 logger = logging.getLogger(__name__)
 
 
+def normalize_report_prefix(prefix):
+    p = str(prefix).upper()
+    if p in ['BAN_HANG', 'SO_CHI_TIET_BAN_HANG']: return 'BAN_HANG'
+    if p in ['MUA_HANG', 'SO_CHI_TIET_MUA_HANG']: return 'MUA_HANG'
+    if p in ['TON_KHO', 'TONG_HOP_TON_KHO']: return 'TON_KHO'
+    if p in ['CONG_NO_NCC', 'TONG_HOP_CONG_NO_PHAI_TRA_NCC']: return 'CONG_NO_NCC'
+    if p in ['TUOI_NO_KH', 'TONG_HOP_CONG_NO_PHAI_THU_KH', 'CONG_NO_KH']: return 'TUOI_NO_KH'
+    if p in ['TAI_KHOAN_CT', 'SO_CHI_TIET_CAC_TAI_KHOAN', 'SO_CHI_TIET_TAI_KHOAN']: return 'TAI_KHOAN_CT'
+    if p in ['SO_DU_NH', 'SO_DU_NGAN_HANG', 'BANG_KE_SO_DU_NGAN_HANG']: return 'SO_DU_NH'
+    if p in ['DANH_SACH_NHAN_VIEN', 'NHAN_VIEN']: return 'DANH_SACH_NHAN_VIEN'
+    if p in ['DANH_SACH_KHACH_HANG', 'KHACH_HANG']: return 'DANH_SACH_KHACH_HANG'
+    return p
+
+
 def load_and_clean_excel(file_path, prefix):
     # Read raw Excel file
     df = pd.read_excel(file_path, header=None)
+    norm_prefix = normalize_report_prefix(prefix)
     
     # 1. Find header row
     header_idx = -1
     required_cols = []
-    if prefix in ['BAN_HANG', 'MUA_HANG', 'TAI_KHOAN_CT']:
+    if norm_prefix in ['BAN_HANG', 'MUA_HANG', 'TAI_KHOAN_CT']:
         required_cols = ['Ngày hạch toán', 'Số chứng từ', 'Mã hàng']
-    elif prefix == 'TON_KHO':
+    elif norm_prefix == 'TON_KHO':
         required_cols = ['Mã hàng', 'Mã kho']
-    elif prefix == 'CONG_NO_NCC':
+    elif norm_prefix == 'CONG_NO_NCC':
         required_cols = ['Mã nhà cung cấp']
-    elif prefix == 'TUOI_NO_KH':
+    elif norm_prefix == 'TUOI_NO_KH':
         required_cols = ['Mã khách hàng']
-    elif prefix == 'SO_DU_NH':
+    elif norm_prefix == 'SO_DU_NH':
         required_cols = ['Tên ngân hàng']
-    elif prefix in ['DANH_SACH_NHAN_VIEN', 'NHAN_VIEN']:
+    elif norm_prefix in ['DANH_SACH_NHAN_VIEN', 'NHAN_VIEN']:
         required_cols = ['Mã nhân viên', 'Tên nhân viên']
-    elif prefix in ['DANH_SACH_KHACH_HANG', 'KHACH_HANG']:
+    elif norm_prefix in ['DANH_SACH_KHACH_HANG', 'KHACH_HANG']:
         required_cols = ['Mã khách hàng']
 
     for idx, row in df.iterrows():
@@ -61,7 +76,7 @@ def load_and_clean_excel(file_path, prefix):
         raise ValueError(f"Không tìm thấy dòng tiêu đề cho {prefix} trong file Excel.")
 
     # 2. Clean headers based on prefix (mimicking resource.before_import)
-    if prefix == 'TON_KHO':
+    if norm_prefix == 'TON_KHO':
         main_h = df.iloc[header_idx]
         sub_h = df.iloc[header_idx + 1]
         new_headers = []
@@ -80,7 +95,7 @@ def load_and_clean_excel(file_path, prefix):
                     current_main = ""
         headers = new_headers
         data_start_idx = header_idx + 2
-    elif prefix == 'CONG_NO_NCC':
+    elif norm_prefix == 'CONG_NO_NCC':
         main_headers = df.iloc[header_idx]
         sub_headers = df.iloc[header_idx + 1]
         new_headers = []
@@ -97,7 +112,7 @@ def load_and_clean_excel(file_path, prefix):
                 new_headers.append(m_str if m_str else s_str)
         headers = new_headers
         data_start_idx = header_idx + 2
-    elif prefix == 'TUOI_NO_KH':
+    elif norm_prefix == 'TUOI_NO_KH':
         h_main = df.iloc[header_idx]
         h_sub = df.iloc[header_idx + 1]
         new_headers = []
@@ -156,13 +171,22 @@ def auto_import_excel_from_folder(specific_file=None):
         'NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1},
         'DANH_SACH_KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True},
         'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True},
+        'SO_CHI_TIET_BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3},
         'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3},
+        'SO_CHI_TIET_MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3},
         'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3},
+        'TONG_HOP_TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3},
         'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3},
+        'TONG_HOP_CONG_NO_PHAI_TRA_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3},
         'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3},
+        'TONG_HOP_CONG_NO_PHAI_THU_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3},
         'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3},
+        'SO_CHI_TIET_CAC_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
+        'SO_CHI_TIET_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
         'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
         'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
+        'SO_DU_NGAN_HANG': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
+        'BANG_KE_SO_DU_NGAN_HANG': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
     }
 
     # Nếu specific_file được chỉ định → chỉ xử lý đúng 1 file đó (bỏ qua quét thư mục)
@@ -335,13 +359,25 @@ def auto_import_excel_from_folder(specific_file=None):
                         )
                         
                         # Lưu lại các kỳ đã nạp thành công để tính lại KPI sau này
-                        current_dt = start_date
-                        while current_dt <= end_date:
-                            imported_periods.add((current_dt.month, current_dt.year))
-                            if current_dt.month == 12:
-                                current_dt = datetime(current_dt.year + 1, 1, 1).date()
+                        if is_snapshot or not is_range:
+                            # Đối với snapshot (Tuổi nợ, Tồn kho, Công nợ NCC, Số dư NH) hoặc file tháng đơn lẻ, chỉ tính KPI cho đúng kỳ báo cáo
+                            if reporting_period and reporting_period != "N/A":
+                                try:
+                                    rp_y, rp_m = map(int, reporting_period.split('-'))
+                                    imported_periods.add((rp_m, rp_y))
+                                except Exception:
+                                    imported_periods.add((end_date.month, end_date.year))
                             else:
-                                current_dt = datetime(current_dt.year, current_dt.month + 1, 1).date()
+                                imported_periods.add((end_date.month, end_date.year))
+                        else:
+                            # Chỉ lặp qua nhiều tháng khi file thực sự là dải tháng giao dịch (ví dụ BAN_HANG_202601-202605.xlsx)
+                            current_dt = start_date
+                            while current_dt <= end_date:
+                                imported_periods.add((current_dt.month, current_dt.year))
+                                if current_dt.month == 12:
+                                    current_dt = datetime(current_dt.year + 1, 1, 1).date()
+                                else:
+                                    current_dt = datetime(current_dt.year, current_dt.month + 1, 1).date()
                     else:
                         msg = f"Lỗi dữ liệu file tại lô dòng {imported_count + 1}...\nChi tiết lỗi:\n{err_msg}"
                         report.append(msg)
@@ -367,7 +403,7 @@ def auto_import_excel_from_folder(specific_file=None):
                     end_time=timezone.now()
                 )
 
-    if len(msgFileNotFound) > 0:
+    if not specific_file and len(msgFileNotFound) > 0:
         files_list = '\n'.join([f'- {prefix}' for prefix in msgFileNotFound])
         schedule_desc = getattr(settings, 'IMPORT_SCHEDULE_DESC', 'N/A')
         msg = f"Đã thực hiện import theo chu kỳ: {schedule_desc}\nKhông tìm thấy file:\n{files_list}"
@@ -379,22 +415,24 @@ def auto_import_excel_from_folder(specific_file=None):
             end_time=timezone.now()
         )
 
-    # BƯỚC D: SAU KHI IMPORT XONG, TÍNH TOÁN LẠI KPI CHO TOÀN BỘ BU THEO CÁC KỲ ĐÃ NẠP
+    # BƯỚC D: SAU KHI IMPORT XONG, TÍNH TOÁN LẠI KPI CHO TOÀN BỘ BU & TOÀN CÔNG TY
     if not imported_periods:
         today = datetime.now()
         imported_periods.add((today.month, today.year))
 
     for m, y in sorted(list(imported_periods)):
         logger.info(f"Kích hoạt tính toán hiệu suất (KPI) cho kỳ {m}/{y}")
+        # 1. Tính cho tất cả các BU con trước
+        for bu in BusinessUnit.objects.all():
+            try:
+                update_single_bu_performance_logic(bu.id, month=m, year=y)
+            except Exception as bu_calc_err:
+                logger.error(f"Lỗi tính KPI BU {bu.code}: {bu_calc_err}")
+        # 2. Tính Tổng Toàn Công Ty (business_unit=None) sau cùng để tổng hợp đầy đủ từ các BU
         try:
-            update_single_bu_performance.delay(None, month=m, year=y)
-            for bu in BusinessUnit.objects.all():
-                update_single_bu_performance.delay(bu.id, month=m, year=y)
-        except Exception as celery_err:
-            logger.warning(f"Không thể kết nối đến Redis/Celery ({celery_err}). Thực hiện tính toán KPI đồng bộ...")
-            update_single_bu_performance(None, month=m, year=y)
-            for bu in BusinessUnit.objects.all():
-                update_single_bu_performance(bu.id, month=m, year=y)
+            update_single_bu_performance_logic(None, month=m, year=y)
+        except Exception as corp_calc_err:
+            logger.error(f"Lỗi tính KPI Toàn Công Ty: {corp_calc_err}")
 
     # Tự động đồng bộ tồn kho vào Warehouse sau khi tính KPI
     latest_period = None

@@ -3,6 +3,62 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-24 13:25:00] Task: Optimize KPI & Debt Calculation to Target Only Current Reporting Period — [DONE]
+- **Objective**: Khắc phục hiện tượng hệ thống tính toán lại KPI và Công nợ cho toàn bộ 9 kỳ (từ tháng 1/2026 đến tháng 8/2026 và 12/2025) khi chạy `sync_misa --action=all` đối với dữ liệu kỳ hiện tại, rút ngắn thời gian xử lý từ ~5 phút xuống < 20 giây.
+- **Root Cause**:
+  - File Tuổi nợ (`TUOI_NO_KH`) chứa các hóa đơn nợ quá hạn có ngày từ `2025-12-31` đến `2026-08-24`.
+  - Bộ bóc tách kỳ (`period_parser.py`) quét min/max ngày trả về `start_date=2025-12-31`, `end_date=2026-08-24`, `reporting_period='2026-08'`.
+  - Trong `accounting/tasks.py`, vòng lặp `while current_dt <= end_date` trước đây tự động gom tất cả các tháng từ `start_date` đến `end_date` vào `imported_periods` bất kể file là snapshot hay file tháng đơn lẻ.
+  - Hậu quả: Hệ thống kích hoạt tính toán KPI (23 BU x 9 kỳ = 207 lần) và công nợ nhân viên 9 lần liên tiếp không cần thiết.
+- **Giải pháp kỹ thuật**:
+  - Trong `accounting/tasks.py`: Bổ sung điều kiện kiểm tra `if is_snapshot or not is_range`. Đối với các file snapshot (`TUOI_NO_KH`, `TON_KHO`, `CONG_NO_NCC`, `SO_DU_NH`) hoặc file tháng đơn lẻ, chỉ lấy đúng kỳ báo cáo `reporting_period` (ví dụ `(8, 2026)`) đưa vào `imported_periods`.
+  - Chỉ duyệt qua nhiều tháng khi file thực sự là dải tháng giao dịch (ví dụ `BAN_HANG_202601-202605.xlsx`).
+- **Kết quả kiểm thử**:
+  - `python manage.py test accounting`: **44/44 tests PASS 100% (9.58s)**.
+  - Khi nạp dữ liệu kỳ Tháng 8/2026, hệ thống chỉ kích hoạt tính KPI và chốt công nợ duy nhất cho kỳ `2026-08`.
+- **Current Status**: **[DONE]**
+- **Root Cause & Các giải pháp kỹ thuật đã áp dụng**:
+  1. **Khắc phục lỗi Cascade Failure**: Loại bỏ hoàn toàn việc gọi `login_to_misa()` gây hỏng session khi 1 báo cáo tải lỗi. Bổ sung cơ chế bảo vệ luôn điều hướng về `https://actapp.misa.vn/app/RP/ReportSavedList` và đợi lưới dữ liệu sẵn sàng trước khi sang báo cáo tiếp theo.
+  2. **Khắc phục Selector Nút Tải Tệp trong Download Manager**:
+     - Loại bỏ việc quét nhầm thẻ header/loading container hoặc trợ lý ảo `AVA Kế toán` trên body.
+     - Cập nhật bộ selector nhắm trực tiếp vào phần tử có text `'Tải tệp'` / `'Tải về'` hoặc bên trong `.con-ms-download` / `.ms-download-list`.
+     - Tự động duy trì trạng thái mở của panel tải tệp trong suốt thời gian MISA sinh file (15-60s).
+  3. **Kiểm thử End-to-End thực tế qua `python manage.py sync_misa --action=all`**:
+     - Tải thành công **10/10 báo cáo thực tế** (100% không phát sinh lỗi):
+       1. `BAN_HANG_20260824_114702.xlsx` (415 KB)
+       2. `MUA_HANG_20260824_114702.xlsx` (367 KB)
+       3. `TON_KHO_20260824_114702.xlsx` (592 KB)
+       4. `CONG_NO_NCC_20260824_114702.xlsx` (23 KB)
+       5. `TAI_KHOAN_CT_20260824_114702.xlsx` (233 KB)
+       6. `SO_DU_NH_20260824_114702.xlsx` (8.9 KB)
+       7. `TUOI_NO_KH_20260824_114702.xlsx` (309 KB — tự động gộp từ 131 & 1311)
+       8. `DANH_SACH_KHACH_HANG_20260824_114702.xlsx` (1.46 MB — 11.030 dòng, 9.360 sales mapping)
+       9. `DANH_SACH_NHAN_VIEN_20260824_114702.xlsx` (48 KB — 190 nhân viên)
+     - Nạp dữ liệu vào Database PostgreSQL tự động.
+     - Tính toán hiệu suất KPI cho toàn bộ 22 BU con và Tổng Toàn Công Ty từ Kỳ 1/2026 đến Kỳ 8/2026 hoàn tất 100%.
+- **Danh sách file đã chỉnh sửa**:
+  - `accounting/misa/report_exporter.py`
+  - `accounting/misa/automation.py`
+  - `accounting/misa/browser.py`
+  - `run_test_scripts.md`
+- **Kết quả kiểm thử**:
+  - `python manage.py test accounting`: **44/44 tests PASS 100% (9.96s)**.
+  - Chạy thực tế `python manage.py sync_misa --action=all`: **SUCCESS 100% (0 errors)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-24 08:58:00] Task: Support Vietnamese Report Prefixes & Synchronous Company Total Calculation — [DONE]
+- **Objective**: Hỗ trợ tự động nhận diện các tiền tố file tiếng Việt của MISA khi nạp file (`So_chi_tiet_ban_hang.xlsx`, `So_chi_tiet_cac_tai_khoan.xlsx`, `Tong_hop_ton_kho.xlsx`...) và đảm bảo tính toán KPI đồng bộ cho toàn bộ 22 BUs và Tổng Toàn Công Ty (`None`) ngay sau khi import.
+- **Root Cause & Giải pháp**:
+  1. `IMPORT_MAP` và `load_and_clean_excel` trong `accounting/tasks.py` trước đây chỉ nhận diện tiền tố viết tắt (`BAN_HANG`, `TAI_KHOAN_CT`...). Đã bổ sung hàm `normalize_report_prefix` và mở rộng `IMPORT_MAP` hỗ trợ đầy đủ các định dạng tên file tiếng Việt xuất từ MISA.
+  2. Bổ sung cơ chế tính toán tuần tự: Tính toàn bộ các BU con trước ➔ Tính Tổng Toàn Công Ty (`None`) sau cùng để đảm bảo số liệu tổng hợp không bị phụ thuộc vào Celery daemon.
+  3. Khắc phục lỗi `django.apps.apps` trong `import_specific_file.py`.
+- **Kết quả kiểm thử**:
+  - `python manage.py test accounting`: **44/44 tests PASS 100% (10.31s)**.
+  - Sau khi nạp lại `TAI_KHOAN_CT` đầy đủ (1.278 dòng), số liệu Tháng 8/2026 của Toàn Công Ty đã cập nhật chính xác:
+    - **Doanh thu MTD**: `33.711.646.671 VNĐ` (33.7 tỷ)
+    - **Thu tiền MTD (Thực thu)**: `30.324.112.447 VNĐ` (30.3 tỷ)
+- **Current Status**: **[DONE]**
+
 ## [2026-08-21 14:25:00] Task: Investigate & Resolve BU Mapping & Debt Aging Discrepancy (3003 Đào Tiến Dũng vs BOD in ĐTCT & Elevator) — [DONE]
 - **Objective**: Điều tra và xử lý triệt để sự cố lệch số liệu báo cáo tuổi nợ giữa tài khoản 3003 (Đào Tiến Dũng - BU_HEAD) và tài khoản BOD trên trang Báo cáo Tuổi nợ (/aging) tại kỳ 2026-08.
 - **Root Cause & Investigation Findings**:

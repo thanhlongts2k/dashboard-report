@@ -108,9 +108,38 @@ graph TD
         - Đối với các bảng giao dịch (`SalesTransaction`, `PurchaseDetail`, `AccountDetail`): Hệ thống xóa dữ liệu trong khoảng ngày hạch toán `[start_date, end_date]` được nhận diện từ file Excel.
         - Đối với các bảng số dư/lũy kế (`InventorySummary`, `SupplierDebt`, `ReceivablesAgeing`, `BankBalance`): Hệ thống xóa theo kỳ báo cáo cụ thể `reporting_period` (định dạng `YYYY-MM`) nhận diện từ file.
 
+### Luồng B: Tự động hóa tải báo cáo MISA (Playwright MISA Automation — Option 2)
+
+Hệ thống hỗ trợ cơ chế tự động hóa bằng Playwright Chromium để đăng nhập MISA Web và trích xuất báo cáo:
+
+```mermaid
+graph TD
+    A[Lệnh CLI: python manage.py sync_misa --action=all] --> B[MISA Controller: automation.py]
+    B --> C[Kiểm tra Session: misa_session.json / Smart Anti-Popup]
+    C --> D[Tải 8 Báo Cáo Đã Lưu tại ReportSavedList: Option 2]
+    D --> E[Tự động tải 2 file Tuổi nợ 131 & 1311 -> Gộp thành TUOI_NO_KH_*.xlsx]
+    D --> F[Tải Master Data: Khách hàng DICustomer & Nhân viên DIEmployee]
+    E --> G[Lưu tệp vào media/auto_imports/]
+    F --> G
+    G --> H[Nạp CSDL PostgreSQL via auto_import_excel_from_folder]
+    H --> I[Tính toán KPI Hiệu suất 22 BU & Toàn Công Ty]
+```
+
+1. **Option 2 (Báo cáo đã lưu — `USE_OPTION_EXPORT_REPORT_MISA=2`)**:
+   - Truy cập thẳng vào danh mục Báo cáo đã lưu `https://actapp.misa.vn/app/RP/ReportSavedList`.
+   - Lần lượt click mở các mẫu báo cáo đã lưu cấu hình sẵn (`01 - Sổ chi tiết bán hàng` đến `07 - Bảng kê số dư ngân hàng`), chọn `Xuất Excel (dạng dữ liệu)` và nhận tệp từ Trung tâm tải tệp (Report Viewer Download Manager).
+2. **Cơ chế gộp tự động Tuổi nợ KH (`merge_tuoi_no_kh_excel_files`)**:
+   - Hệ thống tự động tải độc lập 2 file báo cáo đã lưu: `06 - Tuổi nợ 131` và `06 - Tuổi nợ 1311`.
+   - Kích hoạt hàm `merge_tuoi_no_kh_excel_files` gộp 2 file theo mã khách hàng thành 1 file `TUOI_NO_KH_*.xlsx` chuẩn trước khi đưa vào hàng đợi import.
+3. **Master Data Khách hàng & Nhân viên**:
+   - Truy cập danh mục Khách hàng (`DICustomer`) và Nhân viên (`DIEmployee`).
+   - Kích hoạt nút xuất khẩu qua DOM `.click()` trên icon `.mi-s1-file-export`, bắt sự kiện download đa kênh và lưu trực tiếp vào `media/auto_imports/`.
+4. **Tối ưu hóa phạm vi tính KPI**:
+   - Hệ thống nhận diện chính xác `reporting_period` của từng file nạp (ví dụ `2026-08`), chỉ kích hoạt tính toán KPI và công nợ nhân viên cho đúng kỳ báo cáo hiện tại, giảm thời gian tính toán từ 5 phút xuống dưới 20 giây.
+
 ---
 
-### Luồng B: Tự động tính toán chỉ số hiệu suất (KPI Calculation Engine)
+### Luồng C: Tự động tính toán chỉ số hiệu suất (KPI Calculation Engine)
 
 Sau khi dữ liệu Excel mới được nạp vào, hệ thống chạy hàm `update_single_bu_performance` để tổng hợp số liệu cho từng đơn vị kinh doanh (BU) và cho Tổng công ty. Dưới đây là logic nghiệp vụ và kỹ thuật chi tiết:
 

@@ -9,7 +9,8 @@ if hasattr(sys.stdout, 'reconfigure'):
         pass
 
 # Setup Django Environment
-if not django.apps.apps.ready:
+from django.apps import apps
+if not apps.ready:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'report2026.settings')
     django.setup()
 

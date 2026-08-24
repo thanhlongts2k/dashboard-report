@@ -4,8 +4,8 @@ import logging
 from datetime import datetime
 from django.conf import settings
 from playwright.async_api import async_playwright
-from .browser import login_to_misa, close_misa_popups
-from .report_exporter import download_report_from_url
+from .browser import login_to_misa, close_misa_popups, click_saved_report_link
+from .report_exporter import download_report_from_url, merge_tuoi_no_kh_excel_files
 
 logger = logging.getLogger(__name__)
 
@@ -88,115 +88,179 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
         use_saved_reports_option = getattr(settings, 'USE_OPTION_EXPORT_REPORT_MISA', 2) == 2
         
         if use_saved_reports_option:
-            logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 2 (Hybrid Flow)")
+            logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 2 (Saved Reports Flow)")
             if prefix_filter:
                 logger.info(f"[prefix_filter] Only processing prefix: '{prefix_filter}'")
             
-            so_du_nh_url = settings.MISA_REPORTS.get('SO_DU_NH')
-            if so_du_nh_url and (not prefix_filter or prefix_filter == 'SO_DU_NH'):
-                prefix = 'SO_DU_NH'
-                filename = f"{prefix}_{file_suffix}.xlsx"
-                output_path = os.path.join(auto_imports_dir, filename)
-                logger.info(f"Downloading {prefix} via step-by-step export flow...")
-                try:
-                    success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
-                    if not success:
-                        logger.info("Retrying SO_DU_NH download after re-logging in...")
-                        await login_to_misa(page, context, email, password)
-                        success = await download_report_from_url(page, so_du_nh_url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=False, period_option=period_option)
-                        
-                    if success:
-                        downloaded_count += 1
-                    else:
-                        failed_count += 1
-                        logger.error(f"Failed to download report for prefix {prefix}")
-                        failed_details.append(f"{prefix}: Failed to download/login expired")
-                except Exception as e:
-                    failed_count += 1
-                    logger.error(f"Error downloading report for prefix {prefix}: {str(e)}")
-                    failed_details.append(f"{prefix}: {str(e)}")
-            
-            logger.info(f"Navigating to MISA Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
-            try:
-                await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
-            except Exception as e:
-                logger.warning(f"Navigation to Saved Reports List timed out or failed: {str(e)}")
-            try:
-                await page.wait_for_load_state("domcontentloaded", timeout=10000)
-            except Exception:
-                pass
-            
-            await close_misa_popups(page)
-            await asyncio.sleep(2)
-            
-            saved_reports_to_download = [
-                ('BAN_HANG', '01 - Sổ chi tiết bán hàng - Important'),
-                ('MUA_HANG', '02 - Sổ chi tiết mua hàng - Important'),
-                ('TON_KHO', '03 - Tổng hợp tồn kho - Important'),
-                ('CONG_NO_NCC', '04 - Tổng hợp công nợ phải trả nhà cung cấp - Important'),
-                ('TAI_KHOAN_CT', '06 - Sổ chi tiết các tài khoản - Important'),
+            # 1. Danh sách các báo cáo đơn lẻ từ MISA Saved Reports
+            standard_saved_reports = [
+                ('BAN_HANG', '01 - Sổ chi tiết bán hàng'),
+                ('MUA_HANG', '02 - Sổ chi tiết mua hàng'),
+                ('TON_KHO', '03 - Tổng hợp tồn kho'),
+                ('CONG_NO_NCC', '04 - Tổng hợp công nợ phải trả nhà cung cấp'),
+                ('TAI_KHOAN_CT', '05 - Sổ chi tiết các tài khoản'),
+                ('SO_DU_NH', '07 - Bảng kê số dư ngân hàng'),
             ]
-            
-            for prefix, report_name in saved_reports_to_download:
-                # Lọc theo prefix_filter nếu được chỉ định
-                if prefix_filter and prefix != prefix_filter:
-                    logger.info(f"[prefix_filter] Skipping '{prefix}' (filter='{prefix_filter}')")
+
+            needs_saved_reports = not prefix_filter or prefix_filter in [p for p, _ in standard_saved_reports] or prefix_filter == 'TUOI_NO_KH'
+
+            if needs_saved_reports:
+                logger.info(f"Navigating to MISA Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+                try:
+                    await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                except Exception as e:
+                    logger.warning(f"Navigation to Saved Reports List timed out or failed: {str(e)}")
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                except Exception:
+                    pass
+                
+                await close_misa_popups(page)
+                await asyncio.sleep(2)
+                
+                # A. Tải lần lượt các báo cáo đơn lẻ
+                for prefix, report_name in standard_saved_reports:
+                    if prefix_filter and prefix != prefix_filter:
+                        continue
+                    filename = f"{prefix}_{file_suffix}.xlsx"
+                    output_path = os.path.join(auto_imports_dir, filename)
+                    logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix})")
+                    
+                    # Đảm bảo page đang ở ReportSavedList
+                    try:
+                        if not page.url.startswith(settings.MISA_URL_REPORT_SAVED):
+                            logger.info(f"Ensuring page is at Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+                            await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                            await close_misa_popups(page)
+                    except Exception:
+                        pass
+
+                    target_page, is_popup = await click_saved_report_link(page, report_name)
+                    if not target_page:
+                        logger.error(f"Failed to find or click saved report link: '{report_name}'")
+                        failed_count += 1
+                        failed_details.append(f"{prefix} (Saved Report): Link not found")
+                        continue
+                        
+                    try:
+                        success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
+                        if success:
+                            downloaded_count += 1
+                        else:
+                            failed_count += 1
+                            logger.error(f"Failed to download saved report: '{report_name}'")
+                            failed_details.append(f"{prefix} (Saved Report): Failed to download")
+                    except Exception as e:
+                        failed_count += 1
+                        logger.error(f"Error downloading saved report '{report_name}': {str(e)}")
+                        failed_details.append(f"{prefix} (Saved Report): {str(e)}")
+                    finally:
+                        if is_popup and target_page:
+                            try:
+                                logger.info("Closing report popup tab to free RAM...")
+                                await target_page.close()
+                            except Exception as ce:
+                                logger.warning(f"Failed to close popup tab: {str(ce)}")
+                        
+                        # Luôn đảm bảo page quay lại Saved Reports List an toàn
+                        try:
+                            if not page.url.startswith(settings.MISA_URL_REPORT_SAVED):
+                                logger.info(f"Returning to Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+                                await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                                await close_misa_popups(page)
+                                await asyncio.sleep(1.5)
+                        except Exception as e:
+                            logger.warning(f"Failed to navigate back to Saved Reports List: {str(e)}")
+
+                # B. Tải và gộp Tuổi nợ TUOI_NO_KH (131 và 1311)
+                if not prefix_filter or prefix_filter == 'TUOI_NO_KH':
+                    logger.info("[TUOI_NO_KH] Processing Tuoi No multi-account saved reports (131 & 1311)...")
+                    tuoi_no_saved_reports = [
+                        ('131', '06 - Chi tiết công nợ phải thu theo tuổi nợ 131'),
+                        ('1311', '06 - Chi tiết công nợ phải thu theo tuổi nợ 1311'),
+                    ]
+                    acc_file_map = {}
+                    scratch_dir = os.path.join(settings.BASE_DIR, 'scratch', 'temp_tuoi_no')
+                    os.makedirs(scratch_dir, exist_ok=True)
+
+                    for acc_code, report_name in tuoi_no_saved_reports:
+                        temp_file = os.path.join(scratch_dir, f"temp_TUOI_NO_KH_{acc_code}.xlsx")
+                        logger.info(f"[TUOI_NO_KH] Downloading saved report '{report_name}' -> {temp_file}")
+                        
+                        # Đảm bảo page đang ở ReportSavedList
+                        try:
+                            if not page.url.startswith(settings.MISA_URL_REPORT_SAVED):
+                                logger.info(f"Ensuring page is at Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+                                await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                                await close_misa_popups(page)
+                        except Exception:
+                            pass
+
+                        target_page, is_popup = await click_saved_report_link(page, report_name)
+                        if not target_page:
+                            logger.error(f"Failed to find or click saved report link: '{report_name}'")
+                            continue
+
+                        try:
+                            success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, temp_file, prefix='TUOI_NO_KH', skip_parameters=True)
+                            if success and os.path.exists(temp_file):
+                                acc_file_map[acc_code] = temp_file
+                        except Exception as e:
+                            logger.error(f"Error downloading '{report_name}': {str(e)}")
+                        finally:
+                            if is_popup and target_page:
+                                try:
+                                    logger.info("Closing report popup tab to free RAM...")
+                                    await target_page.close()
+                                except Exception as ce:
+                                    logger.warning(f"Failed to close popup tab: {str(ce)}")
+
+                            try:
+                                if not page.url.startswith(settings.MISA_URL_REPORT_SAVED):
+                                    logger.info(f"Returning to Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
+                                    await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
+                                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                                    await close_misa_popups(page)
+                                    await asyncio.sleep(1.5)
+                            except Exception as e:
+                                logger.warning(f"Failed to navigate back to Saved Reports List: {str(e)}")
+
+                    if acc_file_map:
+                        final_tuoi_no_path = os.path.join(auto_imports_dir, f"TUOI_NO_KH_{file_suffix}.xlsx")
+                        merged = merge_tuoi_no_kh_excel_files(acc_file_map, final_tuoi_no_path)
+                        if merged and os.path.exists(final_tuoi_no_path):
+                            downloaded_count += 1
+                            logger.info(f"[TUOI_NO_KH] SUCCESS: Created merged file: {final_tuoi_no_path} ({os.path.getsize(final_tuoi_no_path)} bytes)")
+                        else:
+                            failed_count += 1
+                            failed_details.append("TUOI_NO_KH: Failed to merge 131 and 1311")
+                    else:
+                        failed_count += 1
+                        failed_details.append("TUOI_NO_KH: No temp files downloaded for 131/1311")
+
+            # 2. Tải Master Data trực tiếp từ URL (Khách hàng & Nhân viên)
+            master_data_reports = [
+                ('DANH_SACH_KHACH_HANG', getattr(settings, 'MISA_URL_CUSTOMER', 'https://actapp.misa.vn/app/DI/DICustomer')),
+                ('DANH_SACH_NHAN_VIEN', getattr(settings, 'MISA_URL_EMPLOYEE', 'https://actapp.misa.vn/app/DI/DIEmployee')),
+            ]
+            for prefix, url in master_data_reports:
+                if prefix_filter and prefix != prefix_filter and prefix.replace('DANH_SACH_', '') != prefix_filter:
                     continue
                 filename = f"{prefix}_{file_suffix}.xlsx"
                 output_path = os.path.join(auto_imports_dir, filename)
-                logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix})")
-                
-                target_page, is_popup = await click_saved_report_link(page, report_name)
-                if not target_page:
-                    logger.error(f"Failed to find or click saved report link: '{report_name}'")
-                    failed_count += 1
-                    failed_details.append(f"{prefix} (Saved Report): Link not found")
-                    continue
-                    
+                logger.info(f"Downloading Master Data '{prefix}' from URL: {url}")
                 try:
-                    success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
-                    if not success:
-                        logger.info("Retrying download after re-logging in...")
-                        if is_popup:
-                            try:
-                                await target_page.close()
-                            except Exception:
-                                pass
-                        await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
-                        await login_to_misa(page, context, email, password)
-                        await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
-                        await close_misa_popups(page)
-                        target_page, is_popup = await click_saved_report_link(page, report_name)
-                        if target_page:
-                            success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
-                        
+                    success = await download_report_from_url(page, url, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
                     if success:
                         downloaded_count += 1
                     else:
                         failed_count += 1
-                        logger.error(f"Failed to download saved report: '{report_name}'")
-                        failed_details.append(f"{prefix} (Saved Report): Failed to download/login expired")
+                        failed_details.append(f"{prefix}: Failed to export Master Data")
                 except Exception as e:
                     failed_count += 1
-                    logger.error(f"Error downloading saved report '{report_name}': {str(e)}")
-                    failed_details.append(f"{prefix} (Saved Report): {str(e)}")
-                finally:
-                    if is_popup and target_page:
-                        try:
-                            logger.info("Closing report popup tab...")
-                            await target_page.close()
-                        except Exception as ce:
-                            logger.warning(f"Failed to close popup tab: {str(ce)}")
-                    
-                if not is_popup:
-                    logger.info(f"Returning to Saved Reports List: {settings.MISA_URL_REPORT_SAVED}")
-                    try:
-                        await page.goto(settings.MISA_URL_REPORT_SAVED, timeout=30000, wait_until="load")
-                        await page.wait_for_load_state("domcontentloaded", timeout=10000)
-                        await close_misa_popups(page)
-                        await asyncio.sleep(2)
-                    except Exception as e:
-                        logger.warning(f"Failed to navigate back to Saved Reports List: {str(e)}")
+                    logger.error(f"Error downloading Master Data '{prefix}': {str(e)}")
+                    failed_details.append(f"{prefix}: {str(e)}")
         else:
             logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 1 (Step-by-step Flow)")
             if prefix_filter:

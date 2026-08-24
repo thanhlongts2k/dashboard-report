@@ -324,3 +324,110 @@ async def close_misa_popups(page):
     logger.info("Smart Anti-Popup Engine execution completed.")
     return True
 
+
+async def click_saved_report_link(page, report_name):
+    """
+    Tìm và click vào link báo cáo đã lưu có tên `report_name` trên trang ReportSavedList.
+    Hỗ trợ:
+    - Bắt sự kiện mở tab mới (popup page) hoặc chuyển trang cùng tab.
+    - So khớp tên báo cáo linh hoạt (exact text, contains, normalized).
+    - Tự động đóng popups/blockers trước và sau khi click.
+    Trả về: (target_page, is_popup)
+    """
+    logger.info(f"Searching for saved report link: '{report_name}'...")
+    
+    # 1. Dọn dẹp popups trên trang trước khi tìm
+    await close_misa_popups(page)
+    await asyncio.sleep(1.0)
+    
+    # Chuẩn bị các biến thể tìm kiếm
+    variations = [report_name]
+    if " - " in report_name:
+        parts = report_name.split(" - ", 1)
+        if len(parts) > 1 and parts[1].strip():
+            variations.append(parts[1].strip())
+            if " - Important" in parts[1]:
+                variations.append(parts[1].replace(" - Important", "").strip())
+                
+    report_link = None
+    target_frame = page
+    
+    # Đợi bảng dữ liệu danh sách báo cáo xuất hiện
+    for _ in range(12):
+        try:
+            grid = page.locator(".dx-datagrid, .ms-grid, table, tbody, tr, [class*='grid']").first
+            if await grid.is_visible(timeout=800):
+                break
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+    
+    for name_var in variations:
+        selectors = [
+            f"xpath=//a[contains(normalize-space(text()), '{name_var}')]",
+            f"xpath=//span[contains(normalize-space(text()), '{name_var}')]",
+            f"xpath=//span[normalize-space(text())='{name_var}']",
+            f"xpath=//span[contains(normalize-space(text()), '{name_var}')]",
+            f"xpath=//td[contains(normalize-space(text()), '{name_var}')]//a",
+            f"xpath=//td[contains(normalize-space(text()), '{name_var}')]",
+            f"xpath=//div[contains(@class,'dx-datagrid') or contains(@class,'ms-grid')]//*[contains(text(), '{name_var}')]",
+            f"text='{name_var}'",
+            f"text={name_var}",
+        ]
+        for sel in selectors:
+            for f in [page] + page.frames:
+                try:
+                    loc = f.locator(sel).first
+                    if await loc.is_visible(timeout=800):
+                        report_link = loc
+                        target_frame = f
+                        break
+                except Exception:
+                    continue
+            if report_link:
+                break
+        if report_link:
+            break
+            
+    if not report_link:
+        # Fallback: scan tất cả element trong frame tìm text khớp
+        for f in [page] + page.frames:
+            try:
+                loc = f.locator(f"xpath=//*[contains(text(), '{report_name}')]").first
+                if await loc.is_visible(timeout=1000):
+                    report_link = loc
+                    target_frame = f
+                    break
+            except Exception:
+                continue
+
+    if not report_link:
+        logger.error(f"Could not find saved report link for '{report_name}' (tried variations: {variations})")
+        return None, False
+
+    logger.info(f"Found saved report link for '{report_name}'. Clicking and listening for tab/page load...")
+    
+    # Lắng nghe sự kiện mở popup tab hoặc chuyển trang
+    new_page = None
+    try:
+        async with page.context.expect_page(timeout=6000) as new_page_info:
+            await report_link.click(force=True)
+        new_page = await new_page_info.value
+        logger.info(f"Report opened in a new tab: {new_page.url}")
+        
+        try:
+            await new_page.wait_for_load_state("domcontentloaded", timeout=15000)
+        except Exception:
+            pass
+        await close_misa_popups(new_page)
+        return new_page, True
+    except Exception:
+        logger.info("Report clicked on same page (no new tab opened). Waiting for DOM load...")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=15000)
+        except Exception:
+            pass
+        await close_misa_popups(page)
+        return page, False
+
+
