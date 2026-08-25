@@ -3,6 +3,175 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-25 11:33:00] Task: Clone Exact Dashboard Overview UI & Metrics to Executive Dashboard Email — [DONE]
+- **Objective**:
+  1. Tái cấu trúc lại email `executive_dashboard_summary.html` khớp 100% với Web Dashboard (`~/dashboard`):
+     - **Khối 1 (4 Top KPI Cards)**: DT theo kỳ (37.41 tỷ / 47.20 tỷ), Thu tiền theo kỳ (33.96 tỷ / 56.41 tỷ), Tồn kho (211.64 tỷ / Ngưỡng 200.00 tỷ), Nợ ngân hàng (176.14 tỷ / Ngưỡng 175.00 tỷ).
+     - **Khối 2 (4 Oversea Cards)**: Doanh thu Oversea MTD (10.39 tỷ / 27.8%), DT không gồm Oversea MTD (27.02 tỷ / 72.2%), Doanh thu Oversea YTD (34.55 tỷ / 10.4%), DT không gồm Oversea YTD (297.83 tỷ / 89.6%).
+     - **Khối 3 (Bảng 8 BU Thương mại)**: Sắp xếp theo doanh thu thực tế giảm dần, hiển thị đầy đủ DT Thực tế/KH, Thu tiền Thực tế/KH, Dư nợ 1311, Nợ quá hạn (% quá hạn).
+  2. Đồng bộ hàm `collect_executive_dashboard_data` trong `debt_mailer.py` lấy trực tiếp từ Root Record `BUPerformance` (`business_unit__isnull=True`) và 8 BU thương mại (`is_main=True`).
+  3. Cập nhật `send_executive_dashboard.py` in đầy đủ 3 khối số liệu và hỗ trợ gửi mail trực tiếp kèm CC.
+  4. Chạy `python manage.py test accounting` 47/47 tests PASS 100%.
+- **Files Modified**:
+  - `accounting/services/debt_mailer.py` (Cập nhật `format_vnd_short`, `collect_executive_dashboard_data`, `send_executive_dashboard_email`)
+  - `templates/emails/executive_dashboard_summary.html` (Thiết kế lại toàn bộ giao diện HTML 3 khối chuẩn Dashboard HPC)
+  - `accounting/management/commands/send_executive_dashboard.py` (Nâng cấp CLI in đầy đủ 3 khối số liệu)
+  - `accounting/tests.py` (Cập nhật assertion test khớp header mới)
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **47/47 tests PASS 100% (9.757s)**
+  - Test command Dry-run: `python manage.py send_executive_dashboard --to-email long.nguyenthanh@haophuong.com --date 2026-08-24 --dry-run` ➡️ **SUCCESS (In chuẩn 100% từng con số)**
+  - Test command Gửi Thật: `python manage.py send_executive_dashboard --to-email long.nguyenthanh@haophuong.com --cc thanhlongts2k@gmail.com,zanzac007@gmail.com --date 2026-08-24` ➡️ **SUCCESS (Đã gửi email thành công kèm 2 CC)**
+- **Current Status**: **[DONE]**
+- **Objective**:
+  1. Dọn dẹp template trùng lặp giữa `templates/emails/` và `accounting/templates/emails/`, đồng bộ theo `DIRS: [BASE_DIR / 'templates']`.
+  2. Cập nhật command `send_debt_reminders.py` và `debt_mailer.py` hỗ trợ `--override-email` (hoặc `--test-email`), `--bu`, `--recipients` để chuyển hướng gửi email test an toàn kèm tiền tố `[TEST - <BU_NAME>]`.
+  3. Tạo management command `send_executive_dashboard.py` kết nối số liệu thật vào template `executive_dashboard_summary.html` để gửi email báo cáo điều hành cho BOD.
+  4. Kiểm thử chạy cả 2 command và chạy `python manage.py test accounting` 47/47 tests PASS 100%.
+- **Files Modified/Created/Deleted**:
+  - `accounting/templates/emails/executive_dashboard_summary.html` (Đã XÓA bản sao thừa, giữ 1 bản chuẩn duy nhất tại `templates/emails/`)
+  - `accounting/services/debt_mailer.py` (Cập nhật `send_sales_debt_email`, `send_bu_manager_debt_email`, `send_debt_reminders_process`, thêm `collect_executive_dashboard_data` & `send_executive_dashboard_email`)
+  - `accounting/management/commands/send_debt_reminders.py` (Bổ sung `--override-email`, `--test-email`, `--bu`, `--recipients`)
+  - `accounting/management/commands/send_executive_dashboard.py` (Tạo mới command gửi Executive Dashboard)
+  - `accounting/tests.py` (Bổ sung 2 unit test cho `send_debt_reminders` và `send_executive_dashboard`)
+  - `DocumentAPI_Report2026.md` (Cập nhật tài liệu command CLI Section 5.2)
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **47/47 tests PASS 100% (8.666s)**
+  - `npm run build` ➡️ **0 LỖI (498ms)**
+  - Test command: `python manage.py send_debt_reminders --recipients=MANAGERS --override-email test@haophuong.com --bu BU_ELEVATOR` ➡️ **SUCCESS (Gửi thành công 1 email)**
+  - Test command: `python manage.py send_executive_dashboard --to-email test@haophuong.com --date 2026-08-24 --dry-run` ➡️ **SUCCESS (Thống kê đầy đủ 38.74 tỷ DT, 59.50 tỷ Công nợ)**
+- **Current Status**: **[DONE]**
+
+## [2026-08-25 10:29:00] Task: Implement Oversea Customer Mapping & Full Debt Reconciliation — [DONE]
+- **Objective**:
+  1. Cập nhật `Customer.business_unit_id = 77` (BU Oversea) cho 22 khách hàng thuộc nhóm Nước ngoài (`Oversea`, `Overseas`) và các đối tác quốc tế.
+  2. Nâng cấp script `scripts/import_customer_mapping.py` tự động gán BU Oversea cho khách hàng quốc tế trong các lần import định kỳ.
+  3. Đối soát lại số liệu toàn bộ 8 BU (Tổng nợ: 59.50 tỷ, Quá hạn: 13.62 tỷ, Oversea: 2.22 tỷ nợ / 1.94 tỷ quá hạn).
+  4. Kiểm thử 2 API `/receivables` và `~/aging` đảm bảo khớp 100% (0 đ chênh lệch), chạy `python manage.py test accounting` và `npm run build`.
+- **Implemented Changes**:
+  - `scripts/assign_oversea_customers.py`: Chạy migration gán 22 khách hàng quốc tế (`FUJI LIFT ENGINEERING`, `HAO PHUONG CAMBODIA`, `FUJI ELECTRIC THAILAND`, `THAI VATANA`, v.v.) về BU `Oversea` (`id=77`).
+  - `scripts/import_customer_mapping.py`: Bổ sung cơ chế auto-detect và bulk update `business_unit_id = bu_oversea.id` khi nạp file MISA.
+- **Reconciliation Results (Kỳ 2026-08, TK 1311)**:
+  - **BU Oversea**: Tổng nợ = **2,217,492,137 đ (2.22 tỷ)**, Nợ quá hạn = **1,942,619,988 đ (1.94 tỷ)**, Trong hạn = **274,872,149 đ (0.27 tỷ)**.
+  - **BU Elevator**: Tổng nợ = **33,360,588,265 đ (33.36 tỷ)** (Đã chuyển chính xác nợ KH Cambodia sang Oversea).
+  - **BU Manufacturing**: Tổng nợ = **1,091,763,792 đ (1.09 tỷ)** (Đã chuyển chính xác nợ Fuji Electric Thailand sang Oversea).
+  - **Tổng cộng 8 BU Toàn công ty**:
+    + Tổng dư nợ cần thu (`/receivables`) = **59,504,198,443 đ (59.50 tỷ đ)**
+    + Tổng công nợ toàn công ty (`~/aging`) = **59,504,198,443 đ (59.50 tỷ đ)**
+    + Nợ quá hạn / Cam kết thu = **13,621,986,874 đ (13.62 tỷ đ)**
+    + Chênh lệch giữa 2 màn hình = **0 đ (✅ Khớp 100%)**.
+  - **Overdue Customers API (`/api/debt/overdue-customers/`)**: Trả về đúng **13,621,986,874 đ (76 khách hàng)**.
+- **Verification Results**:
+  - `python manage.py test accounting`: **45/45 tests PASS (10.385s)**.
+  - Frontend Build (`npm run build`): **0 LỖI (553ms)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-25 10:24:00] Task: Investigate BU Oversea Zero Debt (Account 1311/1312, BU Mapping, Customer Assignment) — [DONE]
+- **Objective**:
+  1. Kiểm tra tài khoản hạch toán công nợ của Oversea trong `ReceivablesAgeing` (1311, 1312 hay đầu tài khoản 131 khác).
+  2. Kiểm tra record `BusinessUnit` của Oversea trong DB (`code`, `is_main`, `get_all_descendant_ids()`).
+  3. Kiểm tra mapping khách hàng thuộc Oversea trong bảng `Customer` (có bao nhiêu khách hàng, có khách hàng nào bị gán nhầm vào BU khác không như `VHC_BOD`).
+  4. Soi file Excel Tuổi nợ gốc từ MISA (`TUOI_NO_KH`) xem thực tế có phát sinh công nợ Oversea không.
+  5. Đưa ra kết luận và đề xuất phương án chuẩn hóa.
+- **Root Cause & Key Findings**:
+  - **Tài khoản**: TK `1312` có 0 bản ghi. 100% công nợ MISA (kể cả quốc tế) được nạp vào TK `1311`.
+  - **Mã BU**: `BusinessUnit` `Oversea` (`id=77`, `is_main=True`) tồn tại chuẩn xác.
+  - **Nguyên nhân gốc rễ**: MISA không có mã thống kê BU Oversea trên từng chứng từ mà phân loại qua `CustomerGroup` (`'Oversea'`, `'Overseas'`). Khi import dữ liệu, các khách hàng quốc tế bị gán vào `VHC_BOD`, `BU_ELEVATOR`, `BU_MANUFACTURING` khiến BU `Oversea` có 0 khách hàng gán trực tiếp.
+  - **Dữ liệu nợ thực tế kỳ 2026-08 (TK 1311)**: Tổng nợ Oversea = **2.217.492.137 đ (2.22 tỷ)**, Trong hạn = **274.872.149 đ (0.27 tỷ)**, Quá hạn = **1.942.619.988 đ (1.94 tỷ)** với 3 khách hàng (`FUJI LIFT ENGINEERING`: 1.74 tỷ, `FUJI ELECTRIC THAILAND`: 199.7 triệu, `HAO PHUONG CAMBODIA`: 274.8 triệu).
+- **Current Status**: **[DONE]**
+
+## [2026-08-25 10:18:00] Task: Investigate and Synchronize Total Debt between /receivables and ~/aging — [DONE]
+- **Objective**:
+  1. Điều tra nguồn dữ liệu, điều kiện lọc tài khoản (131 vs 1311) và phạm vi BU giữa `DashboardCollectionByBUAPIView` (`dashboard_api.py`) và `AllBUsDebtSummaryAPIView` / `AgingMatrixAPIView` (`debt_api.py`).
+  2. Viết script đối soát số liệu thực tế tại ngày `2026-08-24` (kỳ `2026-08`) để chỉ ra nguyên nhân gây lệch số liệu giữa 2 trang.
+  3. Thống nhất quy chuẩn và đồng bộ câu lệnh query để "Tổng dư nợ cần thu" trên `/receivables` khớp 100% với "Tổng công nợ toàn công ty" trên `~/aging`.
+  4. Chạy `python manage.py test accounting` và `npm run build`.
+- **Root Cause & Implemented Changes**:
+  - **Nguyên nhân lệch**: `AllBUsDebtSummaryAPIView` trước đây đọc từ model cache `BUPerformance` (tổng hợp tháng cũ, bị trùng lặp các đơn vị con hoặc lệch cấu hình BU) thay vì truy vấn trực tiếp từ bảng nguồn gốc `ReceivablesAgeing` (báo cáo tuổi nợ MISA).
+  - **Giải pháp**: Chuyển đổi `AllBUsDebtSummaryAPIView` và `AgingMatrixAPIView` sang truy vấn trực tiếp bảng `ReceivablesAgeing` (lọc TK `1311`, 8 BU `is_main=True` và `get_all_descendant_ids()`), đồng bộ 100% với `DashboardCollectionByBUAPIView`.
+- **Test Results**:
+  - **Tổng công nợ toàn công ty**: Cả 2 trang `/receivables` và `~/aging` đều trả về **57,761,281,611 VND (57.76 tỷ VND)** -> Lệch: **0 VND (Khớp 100%)**.
+  - **Nợ quá hạn / Cam kết thu**: Cả 2 trang đều trả về **11,879,070,042 VND (11.88 tỷ VND)** -> Lệch: **0 VND (Khớp 100%)**.
+  - **8 Khối BU thương mại**: Khớp 100% từng đồng trên cả 2 màn hình.
+  - Backend Unit Tests (`python manage.py test accounting`): **45/45 PASS 100% (9.014s)**.
+  - Frontend Build (`npm run build` in `project-dashboard`): **0 LỖI (526ms)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-25 10:12:00] Task: Synchronize BU Filter for Overdue Customers API (11.88 Billion VND Alignment) — [DONE]
+- **Objective**:
+  1. Đồng bộ logic query trong `OverdueCustomersAPIView` (`debt_api.py`) với `DailyDebtCollectionAPIView` / `DashboardCollectionByBUAPIView`:
+     - Nếu không truyền `bu_code` (hoặc `ALL`): Chỉ quét các BU thương mại cốt lõi (`BusinessUnit.objects.filter(is_main=True)` và `get_all_descendant_ids()`), loại trừ `VHC_BOD` và các BU ngoài phạm vi để khớp chính xác **11.88 tỷ VND**.
+     - Nếu truyền `bu_code` cụ thể: Lọc theo `bu.get_all_descendant_ids()`.
+  2. Đồng bộ Frontend: Truyền `buCode` được chọn từ Dashboard vào Modal và hỗ trợ lọc linh hoạt trong Modal.
+  3. Kiểm thử: Chạy script đối soát tổng tiền khớp 11.88 tỷ, chạy `python manage.py test accounting` và `npm run build`.
+- **Implemented Changes**:
+  - `accounting/views/debt_api.py`: Đồng bộ logic lọc `is_main=True` và `get_all_descendant_ids()` cho trường hợp Tất cả BU và từng BU cụ thể.
+  - `project-dashboard/src/components/receivable/ReceivableCommitmentDetailModal.jsx`: Đồng bộ `buCode` từ props, hỗ trợ lọc BU động và cập nhật tổng tiền tức thì theo từng BU.
+  - `project-dashboard/src/pages/ReceivableReportPage.jsx` & `src/routes/AppRoutes.jsx`: Truyền `selectedBu` xuống Modal.
+  - `DocumentAPI_Report2026.md`: Cập nhật đặc tả tổng nợ quá hạn 8 BU cốt lõi (11.88 tỷ VND).
+- **Test Results**:
+  - API Overdue Query Verification: Trả về **Status 200, 75 khách hàng, tổng tiền 11,879,070,042 VND (11.88 tỷ VND)**.
+  - Breakdown từng BU:
+    * `BU_ELEVATOR`: 7,716,302,352 VND (7.72 tỷ) - 50 KH
+    * `BU_IBIZ PREMIUM`: 1,300,829,041 VND (1.30 tỷ) - 12 KH
+    * `BU_MANUFACTURING`: 1,291,466,948 VND (1.29 tỷ) - 2 KH
+    * `BU_ECO`: 1,194,106,655 VND (1.19 tỷ) - 4 KH
+    * `BU_IBIZ VALUE`: 169,675,032 VND (0.17 tỷ) - 4 KH
+    * `BU_AGRITECH`: 147,875,213 VND (0.15 tỷ) - 2 KH
+    * `ĐTCT`: 58,814,801 VND (0.06 tỷ) - 1 KH
+    * `Oversea`: 0 VND - 0 KH
+  - Backend Unit Tests (`python manage.py test accounting`): **45/45 PASS 100% (9.419s)**.
+  - Frontend Build (`npm run build` in `project-dashboard`): **0 LỖI (521ms)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-25 10:10:00] Task: Fix Live Overdue Customers Data Flow & Exclude BU Codes (`DEBT_REMINDER_EXCLUDE_BU_CODES`) — [DONE]
+- **Objective**:
+  1. Loại bỏ 100% Mock Data khỏi Frontend (`receivableMapper.js`, `ReceivableCommitmentDetailModal.jsx`).
+  2. Sửa lỗi `customer__employee` -> `customer__assigned_employee` trong `OverdueCustomersAPIView`, hỗ trợ parse đa định dạng ngày và gom nhóm theo Khách Hàng.
+  3. Bổ sung cấu hình loại trừ BU (`DEBT_REMINDER_EXCLUDE_BU_CODES`) trong `settings.py`, `.env` và `debt_mailer.py`.
+  4. Cập nhật `python manage.py list_bu_managers` hiển thị cột trạng thái `Trạng Thái Gửi Mail` (`[BỎ QUA - BU LOẠI TRỪ]`, `[BỎ QUA - EMAIL BLACKLIST]`, `[BỎ QUA - THIẾU EMAIL]`, `[SẴN SÀNG GỬI]`).
+  5. Viết Unit Test kiểm thử logic loại trừ BU (`test_bu_exclusion_in_debt_reminder`).
+- **Implemented Changes**:
+  - `accounting/views/debt_api.py`: Sửa lỗi `FieldError` (chuyển sang `customer__assigned_employee`), tối ưu parser ngày (YYYY-MM-DD, DD/MM/YYYY) và gom nhóm theo từng khách hàng.
+  - `accounting/services/debt_mailer.py`: Thêm helper `is_bu_code_excluded` và lọc bỏ các BU trong `DEBT_REMINDER_EXCLUDE_BU_CODES` tại `collect_sales_debt_data`, `collect_bu_manager_debt_data` và `send_debt_reminders_process`.
+  - `report2026/settings.py` & `.env`: Cấu hình `DEBT_REMINDER_EXCLUDE_BU_CODES = env.list('DEBT_REMINDER_EXCLUDE_BU_CODES', default=['ĐTCT', 'BU_DTCT'])`.
+  - `accounting/management/commands/list_bu_managers.py`: Thêm cột `Trạng Thái Gửi Mail` có phân biệt màu sắc và thống kê trực quan.
+  - `accounting/tests.py`: Viết Unit Test `test_bu_exclusion_in_debt_reminder`.
+  - Frontend `project-dashboard`:
+    * `src/utils/receivableMapper.js`: Xóa hoàn toàn hàm `buildCustomerCommitmentDetails()` và mock data.
+    * `src/pages/ReceivableReportPage.jsx`: Truyền `date={selectedDate}` và `reportDate` chính xác vào Modal.
+    * `src/components/receivable/ReceivableCommitmentDetailModal.jsx`: Gọi trực tiếp API thật, xóa sạch fallback mock data, thêm loading spinner và `console.log('[DEBUG Modal API]')`.
+- **Test Results**:
+  - Backend Unit Tests (`python manage.py test accounting`): **45/45 PASS 100% (9.360s)**.
+  - Command Test (`python manage.py list_bu_managers`): Hiển thị `ĐTCT` là `[BỎ QUA - BU LOẠI TRỪ]`, các BU hợp lệ là `[SẴN SÀNG GỬI]`.
+  - API Overdue Query Verification: Trả về **Status 200, 82 khách hàng gom nhóm, tổng tiền 15.45 tỷ** (hoặc toàn bộ danh sách chi tiết).
+  - Frontend Build (`npm run build` in `project-dashboard`): **0 LỖI (529ms)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-25 09:56:00] Task: Real-time Overdue Customers API, Account 1311 Standardization, Debt Reminder Configuration & Management Commands — [DONE]
+- **Objective**:
+  1. Xây dựng API `GET /api/reports/debt/overdue-customers/` cung cấp danh sách khách hàng nợ quá hạn thật từ `ReceivablesAgeing` (khớp chính xác 23.76 tỷ VND).
+  2. Chuẩn hóa điều kiện lọc tài khoản công nợ `1311` trong `DashboardCollectionByBUAPIView`.
+  3. Cấu hình gửi mail nhắc nợ (`MANAGERS`, `CC_EMAILS`, `EXCLUDE_EMAILS`) trong `settings.py`, `.env` và `debt_mailer.py`.
+  4. Tạo management command `python manage.py list_bu_managers`.
+  5. Tạo template HTML Email responsive `executive_dashboard_summary.html` clone giao diện Dashboard.
+- **Implemented Changes**:
+  - `accounting/views/debt_api.py`: Thêm `OverdueCustomersAPIView` trả về danh sách khách hàng nợ quá hạn thật với phân loại 4 nhóm tuổi nợ, RBAC và tổng tiền khớp với Card KPI bên ngoài.
+  - `accounting/views/dashboard_api.py`: Chuẩn hóa điều kiện lọc tài khoản công nợ `1311` (`offset_cond = Q(offset_account__startswith='1311')` và `account_code__startswith='1311'`).
+  - `accounting/views/__init__.py` & `accounting/urls.py`: Khai báo và đăng ký routes `debt/overdue-customers/` và `reports/debt/overdue-customers/`.
+  - `report2026/settings.py` & `.env`: Cấu hình `DEBT_REMINDER_RECIPIENT_TYPE = 'MANAGERS'`, `DEBT_REMINDER_CC_EMAILS`, `DEBT_REMINDER_EXCLUDE_EMAILS`.
+  - `accounting/services/debt_mailer.py`: Hỗ trợ gửi email cho Trưởng BU có đính kèm CC và lọc email Blacklist.
+  - `accounting/management/commands/list_bu_managers.py`: Management command in danh sách 8 Trưởng BU, mã NV và email nhận báo cáo.
+  - `templates/emails/executive_dashboard_summary.html` & `accounting/templates/emails/executive_dashboard_summary.html`: Responsive HTML Email template tổng quan điều hành.
+  - `DocumentAPI_Report2026.md`: Cập nhật đặc tả API `GET /api/debt/overdue-customers/`.
+  - Frontend `project-dashboard`:
+    * `src/api/agingApi.js` & `src/api/dashboardApi.js`: Thêm hàm `fetchOverdueCustomers`.
+    * `src/components/receivable/ReceivableCommitmentDetailModal.jsx`: Kết nối API thật, hỗ trợ lọc theo 4 nhóm tuổi nợ và hiển thị số tiền khớp 100% với Card KPI.
+- **Test Results**:
+  - Backend Unit Tests (`python manage.py test accounting`): **44/44 PASS 100% (9.285s)**.
+  - Command Test (`python manage.py list_bu_managers`): In chuẩn xác 8 BU thương mại.
+  - Frontend Build (`npm run build` in `project-dashboard`): **0 LỖI (644ms)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-24 13:25:00] Task: Optimize KPI & Debt Calculation to Target Only Current Reporting Period — [DONE]
 - **Objective**: Khắc phục hiện tượng hệ thống tính toán lại KPI và Công nợ cho toàn bộ 9 kỳ (từ tháng 1/2026 đến tháng 8/2026 và 12/2025) khi chạy `sync_misa --action=all` đối với dữ liệu kỳ hiện tại, rút ngắn thời gian xử lý từ ~5 phút xuống < 20 giây.
 - **Root Cause**:

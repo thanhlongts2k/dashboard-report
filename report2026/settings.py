@@ -195,9 +195,18 @@ DEBT_REMINDER_DRY_RUN = env.bool('DEBT_REMINDER_DRY_RUN', default=True)
 DEBT_REMINDER_TEST_EMAIL = env('DEBT_REMINDER_TEST_EMAIL', default=None)
 
 # 4. DEBT_REMINDER_RECIPIENT_TYPE: Đối tượng nhận ('ALL', 'SALES', 'MANAGERS')
-DEBT_REMINDER_RECIPIENT_TYPE = env('DEBT_REMINDER_RECIPIENT_TYPE', default='ALL')
+DEBT_REMINDER_RECIPIENT_TYPE = env('DEBT_REMINDER_RECIPIENT_TYPE', default='MANAGERS')
 
-# 5. DEBT_REMINDER_BU_CODE: Mã BU cụ thể nếu muốn giới hạn gửi (None = gửi toàn bộ các BU thương mại)
+# 5. DEBT_REMINDER_CC_EMAILS: Danh sách email nhận CC (ví dụ: BOD, Kế toán trưởng)
+DEBT_REMINDER_CC_EMAILS = env.list('DEBT_REMINDER_CC_EMAILS', default=[])
+
+# 6. DEBT_REMINDER_EXCLUDE_EMAILS: Danh sách email loại trừ (Blacklist không gửi)
+DEBT_REMINDER_EXCLUDE_EMAILS = env.list('DEBT_REMINDER_EXCLUDE_EMAILS', default=[])
+
+# 7. DEBT_REMINDER_EXCLUDE_BU_CODES: Danh sách mã BU loại trừ (Blacklist không gửi email)
+DEBT_REMINDER_EXCLUDE_BU_CODES = env.list('DEBT_REMINDER_EXCLUDE_BU_CODES', default=['ĐTCT', 'BU_DTCT'])
+
+# 8. DEBT_REMINDER_BU_CODE: Mã BU cụ thể nếu muốn giới hạn gửi (None = gửi toàn bộ các BU thương mại)
 DEBT_REMINDER_BU_CODE = env('DEBT_REMINDER_BU_CODE', default=None)
 
 if AUTO_SEND_DEBT_REMINDERS_ENABLED:

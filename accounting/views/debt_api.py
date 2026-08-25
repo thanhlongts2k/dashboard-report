@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from datetime import datetime
 from collections import defaultdict
 from django.db.models import Sum, Q
 from django.conf import settings
@@ -70,34 +71,39 @@ class AllBUsDebtSummaryAPIView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Query danh sách 6 BU Kinh Doanh Cốt Lõi (Loại trừ mã mẹ HPC, Global và các khối vận hành/loại trừ)
-        excluded_bu_codes = getattr(settings, 'EXCLUDED_DEBT_BU_CODES', ['ĐTCT', 'Oversea', 'VHC_HR'])
-        core_bu_codes = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
-            'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE'
-        ])
-        perfs_qs = BUPerformance.objects.filter(
-            month=month, year=year
-        ).exclude(
-            business_unit=None
-        ).exclude(
-            business_unit__code='HPC'
-        ).exclude(
-            business_unit__code__in=excluded_bu_codes
-        )
-        if core_bu_codes:
-            perfs_qs = perfs_qs.filter(business_unit__code__in=core_bu_codes)
-
-        perfs = perfs_qs.select_related('business_unit').order_by('-receivable_total')
+        # 1. Query danh sách 8 BU Kinh Doanh Cốt Lõi (is_main=True và các BU con trực thuộc)
+        target_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+        bus = BusinessUnit.objects.filter(is_main=True).order_by('code')
+        if not bus.exists():
+            bus = BusinessUnit.objects.all().order_by('code')
 
         bus_data = []
         calc_total_debt = Decimal('0')
         calc_total_due = Decimal('0')
         calc_total_overdue = Decimal('0')
 
-        for p in perfs:
-            bu = p.business_unit
-            tot = p.receivable_total or Decimal('0')
-            ovd = p.receivable_overdue or Decimal('0')
+        for bu in bus:
+            bu_ids = bu.get_all_descendant_ids()
+            res = ReceivablesAgeing.objects.filter(
+                reporting_period=period,
+                account_code__in=target_accounts,
+                customer__business_unit_id__in=bu_ids
+            ).aggregate(
+                t=Sum('total_debt'),
+                o=Sum('overdue_total'),
+            )
+            # Fallback nếu chưa phân tách theo TK 1311
+            if res['t'] is None and res['o'] is None:
+                res = ReceivablesAgeing.objects.filter(
+                    reporting_period=period,
+                    customer__business_unit_id__in=bu_ids
+                ).aggregate(
+                    t=Sum('total_debt'),
+                    o=Sum('overdue_total'),
+                )
+
+            tot = res['t'] or Decimal('0')
+            ovd = res['o'] or Decimal('0')
             due = tot - ovd if tot >= ovd else Decimal('0')
             rate = float(round(ovd / tot * 100, 2)) if tot > 0 else 0.0
 
@@ -106,7 +112,7 @@ class AllBUsDebtSummaryAPIView(views.APIView):
             calc_total_overdue += ovd
 
             # Nếu không bật include_all, chỉ lấy các BU có phát sinh nợ quá hạn hoặc tổng nợ > 0
-            if not include_all and (ovd <= 0 or tot <= 0):
+            if not include_all and (ovd <= 0 and tot <= 0):
                 continue
 
             bus_data.append({
@@ -118,22 +124,20 @@ class AllBUsDebtSummaryAPIView(views.APIView):
                 "due_total": due,
                 "overdue_total": ovd,
                 "overdue_rate": rate,
-                "performance_id": p.id
+                "performance_id": bu.id
             })
 
-        # 2. Query Global KPI Toàn Công Ty (Luôn tính trên toàn bộ 22 BU chuẩn xác 100%)
-        global_perf = BUPerformance.objects.filter(month=month, year=year, business_unit=None).first()
-        g_tot = global_perf.receivable_total if global_perf else calc_total_debt
-        g_ovd = global_perf.receivable_overdue if global_perf else calc_total_overdue
-        g_due = g_tot - g_ovd if g_tot >= g_ovd else Decimal('0')
-        g_rate = float(round(g_ovd / g_tot * 100, 2)) if g_tot > 0 else 0.0
+        # Sắp xếp các BU theo tổng nợ giảm dần
+        bus_data.sort(key=lambda x: x["receivable_total"], reverse=True)
+
+        g_rate = float(round(calc_total_overdue / calc_total_debt * 100, 2)) if calc_total_debt > 0 else 0.0
 
         response_payload = {
             "period": period,
             "global_summary": {
-                "receivable_total": g_tot,
-                "due_total": g_due,
-                "overdue_total": g_ovd,
+                "receivable_total": calc_total_debt,
+                "due_total": calc_total_due,
+                "overdue_total": calc_total_overdue,
                 "overdue_rate": g_rate,
                 "bu_count": len(bus_data)
             },
@@ -241,10 +245,30 @@ class AgingMatrixAPIView(views.APIView):
                     )
                 employee_code = user_emp_code
 
-        # 2. Cấp 1: Thông tin BU & Tổng Nợ BU từ BUPerformance
-        bu_perf = BUPerformance.objects.filter(business_unit=bu, month=month, year=year).first()
-        tot_bu_debt = bu_perf.receivable_total if bu_perf else Decimal('0')
-        ovd_bu_debt = bu_perf.receivable_overdue if bu_perf else Decimal('0')
+        # 2. Cấp 1: Thông tin BU & Tổng Nợ BU từ ReceivablesAgeing
+        bu_ids = bu.get_all_descendant_ids()
+        target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
+        excluded_cust_groups = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', ['Internal'])
+
+        res_bu = ReceivablesAgeing.objects.filter(
+            reporting_period=period,
+            account_code__in=target_rec_accounts,
+            customer__business_unit_id__in=bu_ids
+        ).aggregate(
+            t=Sum('total_debt'),
+            o=Sum('overdue_total'),
+        )
+        if res_bu['t'] is None and res_bu['o'] is None:
+            res_bu = ReceivablesAgeing.objects.filter(
+                reporting_period=period,
+                customer__business_unit_id__in=bu_ids
+            ).aggregate(
+                t=Sum('total_debt'),
+                o=Sum('overdue_total'),
+            )
+
+        tot_bu_debt = res_bu['t'] or Decimal('0')
+        ovd_bu_debt = res_bu['o'] or Decimal('0')
         due_bu_debt = tot_bu_debt - ovd_bu_debt if tot_bu_debt >= ovd_bu_debt else Decimal('0')
         rate = float(round(ovd_bu_debt / tot_bu_debt * 100, 2)) if tot_bu_debt > 0 else 0.0
 
@@ -260,10 +284,7 @@ class AgingMatrixAPIView(views.APIView):
         }
 
         # 3. Cấp 2 & 3: Lọc chi tiết ReceivablesAgeing (Đồng bộ bộ lọc Tài khoản mục tiêu 1311 & loại trừ nhóm Internal)
-        excluded_cust_groups = getattr(settings, 'EXCLUDED_CUSTOMER_GROUP_CODES', ['Internal'])
-        target_rec_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
-
-        ageing_filter = Q(reporting_period=period, customer__business_unit=bu)
+        ageing_filter = Q(reporting_period=period, customer__business_unit_id__in=bu_ids)
         if target_rec_accounts:
             ageing_filter &= Q(account_code__in=target_rec_accounts)
         if excluded_cust_groups:
@@ -554,4 +575,180 @@ class SendDebtRemindersAPIView(views.APIView):
                 {"error": f"Lỗi hệ thống khi gửi email nhắc nợ: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class OverdueCustomersAPIView(views.APIView):
+    """
+    API: Danh sách chi tiết Khách Hàng Nợ Quá Hạn (Overdue Customers Detail)
+    - Route: GET /api/reports/debt/overdue-customers/ hoặc /api/debt/overdue-customers/
+    - Query Params:
+        + date: YYYY-MM-DD (Mặc định: ngày hiện tại)
+        + bu_code: Mã BU cần lọc (Tùy chọn, ví dụ: BU_ELEVATOR)
+    - Output: Danh sách khách hàng có nợ quá hạn thật từ ReceivablesAgeing, phân loại nhóm tuổi nợ và tổng tiền khớp với Card KPI bên ngoài.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        role_info = get_user_role_info(request.user) if request.user.is_authenticated else {}
+        user_role = role_info.get('primary_role', 'VIEWER')
+        assigned_bus = role_info.get('assigned_bus', [])
+        managed_bus = role_info.get('managed_bus', [])
+
+        date_str_raw = request.query_params.get('date')
+        bu_code_filter = request.query_params.get('bu_code')
+
+        date = timezone.now().date()
+        if date_str_raw:
+            parsed_date = None
+            for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y/%m/%d']:
+                try:
+                    parsed_date = datetime.strptime(date_str_raw.strip(), fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if parsed_date:
+                date = parsed_date
+            else:
+                logger.warning(f"⚠️ [OverdueCustomersAPIView] Không thể parse date_str '{date_str_raw}', sử dụng ngày hiện tại.")
+
+        date_str = date.strftime('%Y-%m-%d')
+        req_period = date.strftime('%Y-%m')
+        if not ReceivablesAgeing.objects.filter(reporting_period=req_period).exists():
+            latest_rec_period = ReceivablesAgeing.objects.order_by('-reporting_period').values_list('reporting_period', flat=True).first()
+            if latest_rec_period:
+                req_period = latest_rec_period
+
+        # Target account 1311
+        qs = ReceivablesAgeing.objects.filter(
+            reporting_period=req_period,
+            account_code__startswith='1311',
+            overdue_total__gt=0
+        ).select_related('customer', 'customer__business_unit', 'customer__assigned_employee')
+
+        # Fallback if no records with 1311 explicitly
+        if not qs.exists():
+            qs = ReceivablesAgeing.objects.filter(
+                reporting_period=req_period,
+                overdue_total__gt=0
+            ).select_related('customer', 'customer__business_unit', 'customer__assigned_employee')
+
+        # Filter by BU:
+        # Nếu có bu_code_filter cụ thể (khác 'all'): Lọc BU đó và toàn bộ BU con
+        if bu_code_filter and bu_code_filter.lower() != 'all':
+            clean_bu = bu_code_filter.replace('BU_', '').strip().upper()
+            matched_bu = BusinessUnit.objects.filter(
+                Q(code__iexact=bu_code_filter) |
+                Q(code__iexact=f"BU_{clean_bu}") |
+                Q(code__iexact=clean_bu)
+            ).first()
+            if matched_bu:
+                target_bu_ids = matched_bu.get_all_descendant_ids()
+                qs = qs.filter(customer__business_unit_id__in=target_bu_ids)
+            else:
+                qs = qs.filter(
+                    Q(customer__business_unit__code__iexact=bu_code_filter) |
+                    Q(customer__business_unit__code__iexact=f"BU_{clean_bu}") |
+                    Q(customer__business_unit__code__iexact=clean_bu)
+                )
+        else:
+            # Mặc định (Tất cả BU): Chỉ lấy 8 BU thương mại cốt lõi (is_main=True), loại trừ các BU nội bộ / ngoài phạm vi như VHC_BOD
+            core_bu_ids = []
+            for bu in BusinessUnit.objects.filter(is_main=True):
+                core_bu_ids.extend(bu.get_all_descendant_ids())
+            qs = qs.filter(customer__business_unit_id__in=core_bu_ids)
+
+        # RBAC Check
+        if user_role not in ['BOD_ADMIN', 'BOD']:
+            allowed_codes = set(assigned_bus + managed_bus)
+            if allowed_codes:
+                rbac_bu_ids = []
+                for c in allowed_codes:
+                    clean = c.replace('BU_', '').strip().upper()
+                    b_obj = BusinessUnit.objects.filter(
+                        Q(code__iexact=c) | Q(code__iexact=f"BU_{clean}") | Q(code__iexact=clean)
+                    ).first()
+                    if b_obj:
+                        rbac_bu_ids.extend(b_obj.get_all_descendant_ids())
+                if rbac_bu_ids:
+                    qs = qs.filter(customer__business_unit_id__in=rbac_bu_ids)
+                else:
+                    qs = qs.none()
+            else:
+                qs = qs.none()
+
+        # Gom nhóm theo Khách Hàng (Customer Aggregation) để tránh trùng lặp
+        cust_map = {}
+        for row in qs:
+            c = row.customer
+            c_key = c.id if c else f"ROW_{row.id}"
+            c_code = c.code if c else f"KH_{row.customer_id}"
+            c_name = c.name if c else f"Khách hàng {row.customer_id}"
+            bu = c.business_unit if c else None
+            emp = c.assigned_employee if c else None
+
+            if c_key not in cust_map:
+                cust_map[c_key] = {
+                    "id": f"OVERDUE-{c_key}",
+                    "customer_code": c_code,
+                    "customer_name": c_name,
+                    "bu_code": bu.code if bu else "UNKNOWN",
+                    "bu_name": bu.name if bu else "Khác",
+                    "overdue_amount": 0.0,
+                    "total_debt": 0.0,
+                    "undue_total": 0.0,
+                    "sales_code": emp.employee_code if emp else "",
+                    "sales_name": emp.full_name if emp else "Chưa phân công",
+                    "overdue_0_14": 0.0,
+                    "overdue_15_30": 0.0,
+                    "overdue_31_60": 0.0,
+                    "overdue_60_plus": 0.0,
+                    "due_date": date_str,
+                }
+
+            entry = cust_map[c_key]
+            entry["overdue_amount"] += float(row.overdue_total or 0)
+            entry["total_debt"] += float(row.total_debt or 0)
+            entry["undue_total"] += float(row.due_total or 0)
+            entry["overdue_0_14"] += float(row.overdue_0_14 or 0)
+            entry["overdue_15_30"] += float(row.overdue_15_30 or 0)
+            entry["overdue_31_60"] += float((row.overdue_31_45 or 0) + (row.overdue_46_60 or 0))
+            entry["overdue_60_plus"] += float(
+                (row.overdue_61_90 or 0) + (row.overdue_91_120 or 0) + (row.overdue_above_120 or 0)
+            )
+
+        items = []
+        total_overdue = 0.0
+
+        for entry in sorted(cust_map.values(), key=lambda x: x["overdue_amount"], reverse=True):
+            ovd_amt = entry["overdue_amount"]
+            if ovd_amt <= 0:
+                continue
+
+            total_overdue += ovd_amt
+
+            if entry["overdue_60_plus"] > 0:
+                age_bucket = "Quá hạn sâu (> 60 ngày)"
+                segment_key = "deep"
+            elif entry["overdue_31_60"] > 0:
+                age_bucket = "31-60 ngày"
+                segment_key = "30days"
+            elif entry["overdue_15_30"] > 0:
+                age_bucket = "15-30 ngày"
+                segment_key = "15days"
+            else:
+                age_bucket = "Trong tuần (1-14 ngày)"
+                segment_key = "week"
+
+            entry["age_bucket"] = age_bucket
+            entry["segment_key"] = segment_key
+            entry["note"] = f"Quá hạn MISA: {ovd_amt:,.0f} VND"
+            items.append(entry)
+
+        return Response({
+            "date": date_str,
+            "reporting_period": req_period,
+            "total_overdue": total_overdue,
+            "count": len(items),
+            "customers": items
+        })
 

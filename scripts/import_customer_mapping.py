@@ -95,6 +95,20 @@ def import_customer_sales_mapping(excel_path=None, run_calculate=True, reporting
             emp_map[raw_c] = emp_map[raw_c[:20]]
 
     # 3. Nạp và Cập nhật Customer
+    from accounting.models import BusinessUnit, CustomerGroup
+    bu_oversea = BusinessUnit.objects.filter(code__iexact='Oversea').first()
+    oversea_bu_id = bu_oversea.id if bu_oversea else None
+    oversea_codes = {
+        'KH2025/000427', 'PAR2019/001242', 'PAR2023/006728', 'PAR2020/000504',
+        'KH2025/000629', 'KH2025/000542', 'PAR2022/001669', 'PAR2023/008733',
+        'KH2026/000153', 'PAR2019/001547', 'PAR2022/003364', 'THAISEMCON',
+        'VIREAK0220', 'ORKNHA0617', 'PAR2019/001642', 'PAR2019/002216',
+        'PAR2019/002666', 'PAR2019/002682', 'PAR2022/002753', 'PAR2022/002766',
+        'KH2025/000286'
+    }
+
+    grp_col = 'Nhóm khách hàng, nhà cung cấp' if 'Nhóm khách hàng, nhà cung cấp' in df_valid.columns else None
+
     existing_customers = {c.code: c for c in Customer.objects.all()}
     
     customers_to_update = []
@@ -106,12 +120,21 @@ def import_customer_sales_mapping(excel_path=None, run_calculate=True, reporting
         cust_name = row['Tên khách hàng'][:255]
         cust_addr = row['Địa chỉ'] if 'Địa chỉ' in row else ''
         sales_code = row[emp_code_col]
+        grp_val = str(row[grp_col]).lower() if grp_col and pd.notna(row[grp_col]) else ''
 
         if not cust_code or cust_code in ['None', 'nan'] or cust_code in seen_codes:
             continue
         seen_codes.add(cust_code)
 
         target_emp_id = emp_map.get(sales_code) if sales_code else None
+        
+        # Tự động gán BU Oversea cho khách hàng quốc tế
+        is_oversea = (
+            cust_code in oversea_codes or 
+            'oversea' in grp_val or 
+            'nước ngoài' in grp_val or
+            'hải ngoại' in grp_val
+        )
 
         if cust_code in existing_customers:
             cust = existing_customers[cust_code]
@@ -125,6 +148,9 @@ def import_customer_sales_mapping(excel_path=None, run_calculate=True, reporting
             if cust_addr and not cust.address:
                 cust.address = cust_addr
                 need_save = True
+            if is_oversea and oversea_bu_id and cust.business_unit_id != oversea_bu_id:
+                cust.business_unit_id = oversea_bu_id
+                need_save = True
             
             if need_save:
                 customers_to_update.append(cust)
@@ -135,6 +161,7 @@ def import_customer_sales_mapping(excel_path=None, run_calculate=True, reporting
                     name=cust_name or cust_code,
                     address=cust_addr,
                     assigned_employee_id=target_emp_id,
+                    business_unit_id=oversea_bu_id if is_oversea else None,
                     has_revenue=True
                 )
             )
@@ -148,10 +175,10 @@ def import_customer_sales_mapping(excel_path=None, run_calculate=True, reporting
         if customers_to_update:
             Customer.objects.bulk_update(
                 customers_to_update,
-                fields=['assigned_employee', 'name', 'address'],
+                fields=['assigned_employee', 'name', 'address', 'business_unit'],
                 batch_size=1000
             )
-            print(f"🔄 Đã cập nhật Sales phụ trách cho: {len(customers_to_update):,} Khách hàng.")
+            print(f"🔄 Đã cập nhật Sales & BU cho: {len(customers_to_update):,} Khách hàng.")
 
     total_customers_db = Customer.objects.count()
     assigned_count = Customer.objects.filter(assigned_employee__isnull=False).count()

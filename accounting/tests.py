@@ -1232,6 +1232,94 @@ class EmployeeUserProvisioningTests(TestCase):
         finally:
             sys.stdout = original_stdout
 
+    def test_bu_exclusion_in_debt_reminder(self):
+        """
+        Kiểm thử logic loại trừ BU (DEBT_REMINDER_EXCLUDE_BU_CODES):
+        - is_bu_code_excluded chuẩn hóa chính xác (ĐTCT, BU_DTCT)
+        - collect_bu_manager_debt_data bỏ qua BU bị loại trừ (ĐTCT), chỉ giữ lại BU hợp lệ (BU_ELEVATOR)
+        """
+        from accounting.services.debt_mailer import is_bu_code_excluded, collect_bu_manager_debt_data
+        from accounting.models import BusinessUnit, Customer, ReceivablesAgeing
+        from decimal import Decimal
+        from django.test import override_settings
+
+        # 1. Kiểm tra helper is_bu_code_excluded
+        with override_settings(DEBT_REMINDER_EXCLUDE_BU_CODES=['ĐTCT', 'BU_DTCT']):
+            self.assertTrue(is_bu_code_excluded('ĐTCT'))
+            self.assertTrue(is_bu_code_excluded('BU_DTCT'))
+            self.assertTrue(is_bu_code_excluded('dtct'))
+            self.assertTrue(is_bu_code_excluded('bu_dtct'))
+            self.assertFalse(is_bu_code_excluded('BU_ELEVATOR'))
+            self.assertFalse(is_bu_code_excluded('BU_ECO'))
+
+        # 2. Tạo BU_ELEVATOR (Hợp lệ) và ĐTCT (Loại trừ)
+        bu_elev, _ = BusinessUnit.objects.get_or_create(code="BU_ELEVATOR", defaults={"name": "Thang máy", "is_main": True})
+        bu_dtct, _ = BusinessUnit.objects.get_or_create(code="ĐTCT", defaults={"name": "Đầu tư cho thuê", "is_main": True})
+
+        cust_elev = Customer.objects.create(code="KH_TEST_ELEV", name="Khách hàng Elev Test", business_unit=bu_elev)
+        cust_dtct = Customer.objects.create(code="KH_TEST_DTCT", name="Khách hàng DTCT Test", business_unit=bu_dtct)
+
+        ReceivablesAgeing.objects.create(
+            reporting_period="2026-08",
+            account_code="1311",
+            customer=cust_elev,
+            total_debt=Decimal("100000000"),
+            overdue_total=Decimal("50000000"),
+        )
+        ReceivablesAgeing.objects.create(
+            reporting_period="2026-08",
+            account_code="1311",
+            customer=cust_dtct,
+            total_debt=Decimal("200000000"),
+            overdue_total=Decimal("150000000"),
+        )
+
+        with override_settings(
+            CORE_COMMERCIAL_BU_CODES=['BU_ELEVATOR', 'ĐTCT'],
+            DEBT_REMINDER_EXCLUDE_BU_CODES=['ĐTCT', 'BU_DTCT']
+        ):
+            bu_data_list = collect_bu_manager_debt_data(period="2026-08")
+            bu_codes = [b['bu_code'] for b in bu_data_list]
+            self.assertIn('BU_ELEVATOR', bu_codes)
+            self.assertNotIn('ĐTCT', bu_codes)
+            self.assertNotIn('BU_DTCT', bu_codes)
+
+    def test_send_debt_reminders_management_command_with_override_email(self):
+        from django.core.management import call_command
+        from io import StringIO
+
+        out = StringIO()
+        call_command(
+            'send_debt_reminders',
+            period='2026-08',
+            recipient_type='MANAGERS',
+            override_email='test_override@haophuong.com',
+            bu='BU_ELEVATOR',
+            stdout=out
+        )
+        output_str = out.getvalue()
+        self.assertIn('CHẾ ĐỘ TEST CHUYỂN HƯỚNG', output_str)
+        self.assertIn('test_override@haophuong.com', output_str)
+
+    def test_send_executive_dashboard_management_command(self):
+        from django.core.management import call_command
+        from io import StringIO
+
+        out = StringIO()
+        call_command(
+            'send_executive_dashboard',
+            to_email='sep_test@haophuong.com',
+            date='2026-08-24',
+            dry_run=True,
+            stdout=out
+        )
+        output_str = out.getvalue()
+        self.assertIn('CHẾ ĐỘ THỬ NGHIỆM (DRY-RUN)', output_str)
+        self.assertIn('sep_test@haophuong.com', output_str)
+        self.assertIn('DT THEO KỲ', output_str)
+
+
+
 
 
 

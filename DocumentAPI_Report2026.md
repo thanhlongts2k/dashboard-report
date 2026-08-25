@@ -225,7 +225,39 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 *   `GET /api/performance/daily/`: Trả về dữ liệu doanh thu và thực thu phát sinh trong từng ngày của tháng.
 
 #### 5. Lấy số liệu Báo cáo Thu nợ theo BU (Dashboard Thu Nợ)
-*   `GET /api/dashboard/collection-by-bu/`: Trả về 5 chỉ số thu nợ chi tiết theo từng đơn vị kinh doanh chính (`is_main=True`) cho một ngày cụ thể (`?date=YYYY-MM-DD`).
+*   `GET /api/dashboard/collection-by-bu/`: Trả về 5 chỉ số thu nợ chi tiết theo từng đơn vị kinh doanh chính (`is_main=True`) cho một ngày cụ thể (`?date=YYYY-MM-DD`). Chuẩn hóa lọc tài khoản công nợ 1311 và khớp 100% với Báo cáo Tuổi Nợ `GET /api/debt/bus/`.
+
+#### 5.1. Lấy danh sách Khách hàng Nợ quá hạn Chi tiết (Modal Cam kết Thu / Quá hạn)
+*   `GET /api/debt/overdue-customers/` (hoặc `/api/reports/debt/overdue-customers/`):
+    *   **Mô tả**: Trả về danh sách chi tiết các khách hàng có nợ quá hạn thật từ `ReceivablesAgeing` (`overdue_total > 0`, TK `1311`), phân loại 4 nhóm tuổi nợ (1-14 ngày, 15-30 ngày, 31-60 ngày, > 60 ngày), nhân sự phụ trách và tổng tiền khớp chính xác với Card KPI Cam kết thu (nợ quá hạn) bên ngoài (11.88 tỷ VND). Hỗ trợ đa định dạng ngày (`YYYY-MM-DD`, `DD/MM/YYYY`) và tự động gom nhóm theo từng khách hàng.
+    *   **Query Parameters**:
+        *   `?date=YYYY-MM-DD`: Ngày báo cáo (Mặc định: ngày hiện tại hoặc kỳ mới nhất).
+        *   `?bu_code=BU_...`: Mã BU cần lọc (Tùy chọn).
+    *   **Response (JSON)**: `{"date": "...", "reporting_period": "...", "total_overdue": 13621986874, "count": 76, "customers": [...]}`
+
+#### 5.2. Cấu hình & Quản lý Email Báo cáo & Nhắc nợ Phân cấp
+*   **Cấu hình biến môi trường (`.env` / `settings.py`)**:
+    *   `DEBT_REMINDER_EXCLUDE_BU_CODES`: Danh sách mã BU bị loại trừ không gửi email nhắc nợ (Mặc định: `['ĐTCT', 'BU_DTCT']`).
+    *   `DEBT_REMINDER_RECIPIENT_TYPE`: Đối tượng nhận email (`'MANAGERS'` - Chỉ Trưởng BU, `'SALES'`, `'ALL'`).
+    *   `DEBT_REMINDER_CC_EMAILS`: Danh sách email CC (BOD, KTT).
+    *   `DEBT_REMINDER_EXCLUDE_EMAILS`: Blacklist email cá nhân không gửi.
+*   **Các Management Commands hỗ trợ điều hành & kiểm thử**:
+    *   `python manage.py list_bu_managers`: Liệt kê bảng danh sách 8 Trưởng BU, mã NV, email và trạng thái gửi.
+    *   `python manage.py send_debt_reminders`: Gửi email nhắc nợ phân cấp tự động.
+        *   `--recipients=MANAGERS`: Chỉ gửi Trưởng BU (hoặc `SALES`, `ALL`).
+        *   `--override-email <email>`: Chuyển hướng toàn bộ email về email test an toàn, tự động thêm tiền tố `[TEST - <BU_NAME>]`.
+        *   `--bu <BU_CODE>`: Giới hạn gửi cho riêng 1 BU chỉ định (ví dụ `--bu BU_ELEVATOR`).
+        *   `--period <YYYY-MM>`: Chỉ định kỳ báo cáo.
+        *   `--live --yes`: Bật chế độ gửi thực tế ra email công ty của Trưởng BU/Sales.
+    *   `python manage.py send_executive_dashboard`: Gửi Email Báo Cáo Điều Hành Tổng Quan (Executive Dashboard) đồng bộ 100% với Web Dashboard (`~/dashboard`):
+        *   **Khối 1**: 4 Top KPI Cards (DT theo kỳ, Thu tiền theo kỳ, Tồn kho, Nợ ngân hàng).
+        *   **Khối 2**: 4 Cards Tỷ trọng Doanh thu Oversea & Nội địa (MTD, YTD).
+        *   **Khối 3**: Bảng Tổng hợp Hiệu suất 8 BU Thương mại (Doanh thu Thực tế/KH, Thu tiền Thực tế/KH, Dư nợ 1311, Nợ quá hạn).
+        *   `--to-email <email>` (Bắt buộc): Địa chỉ người nhận.
+        *   `--cc <email1,email2>`: Danh sách CC.
+        *   `--date <YYYY-MM-DD>`: Ngày chốt số liệu (mặc định: hôm qua T-1).
+        *   `--period <YYYY-MM>`: Kỳ báo cáo (ví dụ: `2026-08`).
+        *   `--dry-run`: Chạy thử nghiệm thống kê số liệu và render không gửi mail.
 
 #### 6. Kích hoạt tính toán lại dữ liệu (Manual Trigger)
 *   `POST /api/update-performance/`: Cho phép trigger tính toán và cập nhật lại chỉ số hiệu suất bất đồng bộ qua Celery ngầm.

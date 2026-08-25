@@ -42,23 +42,37 @@ class Command(BaseCommand):
             help='BẬT CHẾ ĐỘ GỬI THỰC TẾ (LIVE) đến email công ty của từng nhân viên'
         )
         parser.add_argument(
+            '--override-email',
+            type=str,
+            default=None,
+            help='Chuyển hướng toàn bộ email nhắc nợ về địa chỉ test được chỉ định'
+        )
+        parser.add_argument(
             '--test-email',
             type=str,
             default=None,
-            help='Email nhận thử nghiệm khi chạy dry-run'
+            help='Alias của --override-email'
         )
         parser.add_argument(
             '--bu',
             type=str,
             default=None,
-            help='Mã BU cụ thể (Ví dụ: BU_ELEVATOR, BU_IBIZ PREMIUM...)'
+            help='Mã BU cụ thể (Ví dụ: BU_ELEVATOR, BU_IBIZ PREMIUM, Oversea...)'
         )
         parser.add_argument(
+            '--recipients',
             '--recipient-type',
+            dest='recipient_type',
             type=str,
             choices=['ALL', 'SALES', 'MANAGERS'],
             default='ALL',
             help='Đối tượng nhận (ALL, SALES, MANAGERS)'
+        )
+        parser.add_argument(
+            '--cc',
+            type=str,
+            default=None,
+            help='Danh sách email CC tùy chọn phân cách bằng dấu phẩy (ghi đè DEBT_REMINDER_CC_EMAILS)'
         )
         parser.add_argument(
             '--yes', '-y',
@@ -76,20 +90,26 @@ class Command(BaseCommand):
         period = get_target_period(options.get('period'))
         is_live = options.get('live', False)
         is_dry_run = not is_live
-        test_email = options.get('test_email')
+        override_email = options.get('override_email') or options.get('test_email')
         bu_code = options.get('bu')
         recipient_type = options.get('recipient_type', 'ALL')
         auto_yes = options.get('yes', False)
+        cc_raw = options.get('cc')
+        cc_list = [e.strip() for e in cc_raw.split(',') if e.strip()] if cc_raw else None
 
         self.stdout.write("=" * 85)
-        if is_dry_run:
+        if override_email:
+            self.stdout.write(self.style.WARNING(
+                f"🧪 TIẾN TRÌNH GỬI EMAIL NHẮC NỢ [CHẾ ĐỘ TEST CHUYỂN HƯỚNG] — KỲ {period}"
+            ))
+            self.stdout.write(f"📧 Toàn bộ email ({recipient_type}) sẽ được chuyển hướng về: {override_email}")
+            if bu_code:
+                self.stdout.write(f"🏢 Giới hạn phạm vi BU: {bu_code}")
+        elif is_dry_run:
             self.stdout.write(self.style.WARNING(
                 f"🧪 TIẾN TRÌNH GỬI EMAIL NHẮC NỢ [CHẾ ĐỘ THỬ NGHIỆM - DRY-RUN] — KỲ {period}"
             ))
-            if test_email:
-                self.stdout.write(f"📧 Email nhận test chỉ định: {test_email}")
-            else:
-                self.stdout.write("ℹ️ Chỉ thống kê dữ liệu, KHÔNG gửi email thật ra ngoài.")
+            self.stdout.write("ℹ️ Chỉ thống kê dữ liệu, KHÔNG gửi email thật ra ngoài.")
         else:
             self.stdout.write(self.style.ERROR(
                 f"🚨 TIẾN TRÌNH GỬI EMAIL NHẮC NỢ [CHẾ ĐỘ THỰC TẾ - LIVE PRODUCTION] — KỲ {period}"
@@ -110,9 +130,11 @@ class Command(BaseCommand):
             result = send_debt_reminders_process(
                 period=period,
                 dry_run=is_dry_run,
-                test_email=test_email,
+                test_email=override_email,
+                override_email=override_email,
                 bu_code=bu_code,
-                recipient_type=recipient_type
+                recipient_type=recipient_type,
+                cc_emails=cc_list
             )
 
             self.stdout.write("\n" + "-" * 85)

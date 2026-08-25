@@ -1,0 +1,256 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo Cáo Điều Hành Tổng Quan — Hạo Phương Executive Dashboard</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; color: #1e293b; -webkit-font-smoothing: antialiased;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 0;">
+        <tr>
+            <td align="center">
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 900px; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);">
+                    
+                    <!-- 1. BANNER HEADER -->
+                    <tr>
+                        <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; padding: 28px 32px; text-align: left;">
+                            <div style="font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: #60a5fa; font-weight: 800; margin: 0 0 6px 0;">
+                                HẠO PHƯƠNG EXECUTIVE REPORT
+                            </div>
+                            <div style="font-size: 22px; font-weight: 800; margin: 0 0 12px 0; color: #ffffff; line-height: 1.3;">
+                                BÁO CÁO ĐIỀU HÀNH TỔNG QUAN DOANH THU & CÔNG NỢ
+                            </div>
+                            <table border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="background-color: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #ffffff;">
+                                        📅 Kỳ Báo Cáo: {{ period_display|default:period }}
+                                    </td>
+                                    <td style="padding-left: 8px;">
+                                        <div style="background-color: #2563eb; color: #ffffff; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 800;">
+                                            🏢 8 Đơn Vị Kinh Doanh
+                                        </div>
+                                    </td>
+                                    {% if report_date %}
+                                    <td style="padding-left: 8px;">
+                                        <div style="background-color: #334155; color: #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600;">
+                                            Chốt ngày: {{ report_date }}
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- 2. BODY CONTENT -->
+                    <tr>
+                        <td style="padding: 32px; background-color: #ffffff;">
+                            
+                            <!-- GREETING -->
+                            <div style="font-size: 15px; line-height: 1.6; margin-bottom: 24px; color: #1e293b;">
+                                Kính gửi <strong style="color: #0f172a; font-size: 16px;">Ban Lãnh Đạo (BOD) & Quý Trưởng Khối Kinh Doanh</strong>,<br>
+                                Hệ thống Báo cáo Quản trị kính gửi số liệu tổng quan kết quả kinh doanh, thu tiền và trạng thái công nợ toàn công ty tính đến kỳ <strong>{{ period_display|default:period }}</strong> (Chốt ngày {{ report_date }}):
+                            </div>
+
+                            <!-- ========================================================= -->
+                            <!-- KHỐI 1: TOP 4 KPI CARDS TỔNG QUAN                         -->
+                            <!-- ========================================================= -->
+                            <div style="font-size: 15px; font-weight: 800; text-transform: uppercase; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center;">
+                                📈 Chỉ Số Tài Chính & Kinh Doanh Cốt Lõi
+                            </div>
+
+                            <table width="100%" border="0" cellspacing="8" cellpadding="0" style="margin-bottom: 28px;">
+                                <tr>
+                                    {% for card in top_kpis %}
+                                    <td width="25%" bgcolor="{{ card.bg_color }}" style="background-color: {{ card.bg_color }}; border: 1px solid {{ card.border_color }}; border-top: 4px solid {{ card.theme_color }}; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
+                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: {{ card.theme_color }}; margin-bottom: 4px;">
+                                            {{ card.title }}
+                                        </div>
+                                        <div style="font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.2;">
+                                            {{ card.actual_display }}
+                                        </div>
+                                        <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;">
+                                            / {{ card.plan_display }}
+                                        </div>
+                                        
+                                        <!-- Progress Bar -->
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 10px; background-color: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">
+                                            <tr>
+                                                <td width="{{ card.progress_bar }}%" bgcolor="{{ card.theme_color }}" style="background-color: {{ card.theme_color }}; height: 6px; border-radius: 4px;"></td>
+                                                <td width="{{ 100|add:card.progress_bar|default:0 }}%" style="height: 6px;"></td>
+                                            </tr>
+                                        </table>
+
+                                        <!-- Footer Note -->
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 8px; font-size: 11px;">
+                                            <tr>
+                                                <td align="left" style="font-weight: 700; color: {{ card.theme_color }};">
+                                                    {{ card.rate }}%
+                                                </td>
+                                                <td align="right" style="font-weight: 700; color: {% if card.is_negative %}#b91c1c{% elif card.is_warning %}#b45309{% else %}#15803d{% endif %};">
+                                                    {{ card.gap_display }}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                            </table>
+
+                            <!-- ========================================================= -->
+                            <!-- KHỐI 2: TỶ TRỌNG DOANH THU OVERSEA (4 CARDS)              -->
+                            <!-- ========================================================= -->
+                            <div style="font-size: 15px; font-weight: 800; text-transform: uppercase; color: #0f172a; margin: 28px 0 12px 0;">
+                                🌐 Tỷ Trọng Doanh Thu Oversea & Nội Địa
+                            </div>
+
+                            <table width="100%" border="0" cellspacing="8" cellpadding="0" style="margin-bottom: 28px;">
+                                <tr>
+                                    {% for card in oversea_kpis %}
+                                    <td width="25%" bgcolor="{{ card.bg_color }}" style="background-color: {{ card.bg_color }}; border: 1px solid {{ card.border_color }}; border-top: 4px solid {{ card.theme_color }}; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
+                                        <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: {{ card.theme_color }}; margin-bottom: 4px; min-height: 24px;">
+                                            {{ card.title }}
+                                        </div>
+                                        <div style="font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.2;">
+                                            {{ card.actual_display }}
+                                        </div>
+                                        <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;">
+                                            / {{ card.base_display }}
+                                        </div>
+                                        
+                                        <!-- Progress Bar -->
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 10px; background-color: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">
+                                            <tr>
+                                                <td width="{{ card.progress_bar }}%" bgcolor="{{ card.theme_color }}" style="background-color: {{ card.theme_color }}; height: 6px; border-radius: 4px;"></td>
+                                                <td width="{{ 100|add:card.progress_bar|default:0 }}%" style="height: 6px;"></td>
+                                            </tr>
+                                        </table>
+
+                                        <div style="margin-top: 8px; font-size: 11px; font-weight: 700; color: {{ card.theme_color }}; text-align: right;">
+                                            Tỷ trọng: {{ card.share_rate }}%
+                                        </div>
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                            </table>
+
+                            <!-- ========================================================= -->
+                            <!-- KHỐI 3: BẢNG TỔNG HỢP HIỆU SUẤT 8 BU THƯƠNG MẠI            -->
+                            <!-- ========================================================= -->
+                            <div style="font-size: 15px; font-weight: 800; text-transform: uppercase; color: #0f172a; margin: 28px 0 12px 0;">
+                                📊 Bảng Tổng Hợp Hiệu Suất 8 Đơn Vị Kinh Doanh (BU)
+                            </div>
+
+                            <table width="100%" border="0" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-size: 12px; border: 1px solid #cbd5e1; margin-bottom: 28px;">
+                                <thead>
+                                    <tr bgcolor="#1e293b" style="background-color: #1e293b; color: #ffffff;">
+                                        <th align="center" width="4%" style="padding: 10px 4px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">#</th>
+                                        <th align="left" width="22%" style="padding: 10px 8px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">Đơn Vị Kinh Doanh</th>
+                                        <th align="right" width="18%" style="padding: 10px 6px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">Doanh Thu (Thực tế / KH)</th>
+                                        <th align="center" width="9%" style="padding: 10px 4px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">% Đạt DT</th>
+                                        <th align="right" width="18%" style="padding: 10px 6px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">Thu Tiền (Thực tế / KH)</th>
+                                        <th align="center" width="9%" style="padding: 10px 4px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">% Đạt Thu</th>
+                                        <th align="right" width="11%" style="padding: 10px 6px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">Dư Nợ (1311)</th>
+                                        <th align="right" width="9%" style="padding: 10px 6px; border: 1px solid #334155; font-size: 10px; font-weight: 800; text-transform: uppercase;">Quá Hạn</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bu in bu_rows %}
+                                    <tr bgcolor="{% cycle '#ffffff' '#f8fafc' %}">
+                                        <td align="center" style="border: 1px solid #e2e8f0; color: #64748b; font-weight: 600;">{{ forloop.counter }}</td>
+                                        <td style="border: 1px solid #e2e8f0;">
+                                            <div style="font-weight: 700; color: #0f172a; font-size: 12px;">{{ bu.bu_name }}</div>
+                                            <div style="font-size: 10px; color: #64748b; margin-top: 1px;">{{ bu.bu_code }} | Phụ trách: {{ bu.manager_name }}</div>
+                                        </td>
+                                        <td align="right" style="border: 1px solid #e2e8f0;">
+                                            <div style="font-weight: 700; color: #1e40af;">{{ bu.revenue_actual|floatformat:0|intcomma }} đ</div>
+                                            {% if bu.revenue_plan > 0 %}
+                                            <div style="font-size: 10px; color: #64748b;">/ {{ bu.revenue_plan|floatformat:0|intcomma }} đ</div>
+                                            {% endif %}
+                                        </td>
+                                        <td align="center" style="border: 1px solid #e2e8f0; font-weight: 700; color: {% if bu.revenue_rate >= 100 %}#15803d{% elif bu.revenue_rate >= 70 %}#b45309{% else %}#b91c1c{% endif %};">
+                                            {{ bu.revenue_rate|floatformat:1 }}%
+                                        </td>
+                                        <td align="right" style="border: 1px solid #e2e8f0;">
+                                            <div style="font-weight: 700; color: #15803d;">{{ bu.collection_actual|floatformat:0|intcomma }} đ</div>
+                                            {% if bu.collection_plan > 0 %}
+                                            <div style="font-size: 10px; color: #64748b;">/ {{ bu.collection_plan|floatformat:0|intcomma }} đ</div>
+                                            {% endif %}
+                                        </td>
+                                        <td align="center" style="border: 1px solid #e2e8f0; font-weight: 700; color: {% if bu.collection_rate >= 100 %}#15803d{% elif bu.collection_rate >= 70 %}#b45309{% else %}#b91c1c{% endif %};">
+                                            {{ bu.collection_rate|floatformat:1 }}%
+                                        </td>
+                                        <td align="right" style="border: 1px solid #e2e8f0; font-weight: 600; color: #7e22ce;">
+                                            {{ bu.total_debt|floatformat:0|intcomma }} đ
+                                        </td>
+                                        <td align="right" style="border: 1px solid #e2e8f0;">
+                                            <div style="font-weight: 700; color: #b91c1c;">{{ bu.overdue_debt|floatformat:0|intcomma }} đ</div>
+                                            <div style="font-size: 10px; color: {% if bu.overdue_rate > 20 %}#b91c1c{% else %}#64748b{% endif %};">({{ bu.overdue_rate|floatformat:1 }}%)</div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="8" align="center" style="padding: 20px; border: 1px solid #e2e8f0; color: #64748b;">
+                                            Không có dữ liệu đơn vị kinh doanh cho kỳ này.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr bgcolor="#f1f5f9" style="font-weight: 800; background-color: #f1f5f9; border-top: 2px solid #0f172a;">
+                                        <td colspan="2" align="center" style="border: 1px solid #cbd5e1; padding: 12px 8px; color: #0f172a; text-transform: uppercase;">
+                                            🏢 TỔNG TOÀN CÔNG TY (8 BU)
+                                        </td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; padding: 12px 6px; color: #1e40af; font-size: 13px;">
+                                            <div>{{ total_summary.revenue_actual|floatformat:0|intcomma }} đ</div>
+                                            <div style="font-size: 10px; color: #64748b; font-weight: 600;">/ {{ total_summary.revenue_plan|floatformat:0|intcomma }} đ</div>
+                                        </td>
+                                        <td align="center" style="border: 1px solid #cbd5e1; padding: 12px 4px; color: #0f172a; font-size: 13px;">
+                                            {{ total_summary.revenue_rate|floatformat:1 }}%
+                                        </td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; padding: 12px 6px; color: #15803d; font-size: 13px;">
+                                            <div>{{ total_summary.collection_actual|floatformat:0|intcomma }} đ</div>
+                                            <div style="font-size: 10px; color: #64748b; font-weight: 600;">/ {{ total_summary.collection_plan|floatformat:0|intcomma }} đ</div>
+                                        </td>
+                                        <td align="center" style="border: 1px solid #cbd5e1; padding: 12px 4px; color: #0f172a; font-size: 13px;">
+                                            {{ total_summary.collection_rate|floatformat:1 }}%
+                                        </td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; padding: 12px 6px; color: #7e22ce; font-size: 13px;">
+                                            {{ total_summary.total_debt|floatformat:0|intcomma }} đ
+                                        </td>
+                                        <td align="right" style="border: 1px solid #cbd5e1; padding: 12px 6px; color: #b91c1c; font-size: 13px;">
+                                            <div>{{ total_summary.overdue_debt|floatformat:0|intcomma }} đ</div>
+                                            <div style="font-size: 10px; font-weight: 600;">({{ total_summary.overdue_rate|floatformat:1 }}%)</div>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            <!-- CTA BUTTON -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0 16px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ dashboard_url|default:'https://report.haophuong.com/dashboard' }}" target="_blank" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 800; font-size: 15px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+                                            👉 Truy Cập Executive Dashboard Trực Tuyến
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- 3. FOOTER -->
+                    <tr>
+                        <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; font-size: 12px; color: #64748b; line-height: 1.5; text-align: center;">
+                            Email này được gửi tự động từ <strong>Hệ Thống Báo Cáo Điều Hành — Công Ty Cổ Phần Hạo Phương</strong>.<br>
+                            Mọi thắc mắc về số liệu vui lòng liên hệ Ban Quản Trị Hệ Thống (Phòng IT / Kế toán).<br>
+                            <span style="font-size: 11px; color: #94a3b8;">Thời gian xuất báo cáo: {{ generation_time }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

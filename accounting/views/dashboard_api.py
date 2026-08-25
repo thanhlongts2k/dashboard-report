@@ -111,7 +111,7 @@ class DashboardCollectionByBUAPIView(APIView):
         managed_bus = role_info.get('managed_bus', [])
 
         cash_cond = Q(account_number__startswith='111') | Q(account_number__startswith='112')
-        offset_cond = Q(offset_account__startswith='1311') | Q(offset_account__startswith='1312')
+        offset_cond = Q(offset_account__startswith='1311')
 
         # 1. Xác định ngày phát sinh thu tiền gần nhất trong CSDL
         latest_ad_date = AccountDetail.objects.filter(cash_cond & offset_cond).aggregate(
@@ -162,13 +162,24 @@ class DashboardCollectionByBUAPIView(APIView):
         for bu in bu_qs.order_by('code'):
             bu_ids = bu.get_all_descendant_ids()
 
+            # Ưu tiên lọc công nợ theo tài khoản 1311
             rec = ReceivablesAgeing.objects.filter(
                 reporting_period=req_period,
+                account_code__startswith='1311',
                 customer__business_unit_id__in=bu_ids
             ).aggregate(
                 total=Sum('total_debt'),
                 overdue=Sum('overdue_total'),
             )
+            if rec['total'] is None and rec['overdue'] is None:
+                rec = ReceivablesAgeing.objects.filter(
+                    reporting_period=req_period,
+                    customer__business_unit_id__in=bu_ids
+                ).aggregate(
+                    total=Sum('total_debt'),
+                    overdue=Sum('overdue_total'),
+                )
+
             receivable_total = rec['total'] or 0
             commitment_overdue = rec['overdue'] or 0
 
