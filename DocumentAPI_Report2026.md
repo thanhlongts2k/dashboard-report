@@ -134,7 +134,10 @@ graph TD
 3. **Master Data Khách hàng & Nhân viên**:
    - Truy cập danh mục Khách hàng (`DICustomer`) và Nhân viên (`DIEmployee`).
    - Kích hoạt nút xuất khẩu qua DOM `.click()` trên icon `.mi-s1-file-export`, bắt sự kiện download đa kênh và lưu trực tiếp vào `media/auto_imports/`.
-4. **Tối ưu hóa phạm vi tính KPI**:
+4. **Cơ chế phân nhóm 9 loại báo cáo chuẩn (`REQUIRED_REPORT_GROUPS`)**:
+   - `IMPORT_MAP` hỗ trợ nhiều alias cho cùng 1 loại báo cáo (`DANH_SACH_NHAN_VIEN` & `NHAN_VIEN`, `BAN_HANG` & `SO_CHI_TIET_BAN_HANG`, v.v.).
+   - Bộ quét tự động phân nhóm theo 9 nhóm báo cáo chuẩn (`NHAN_VIEN`, `KHACH_HANG`, `BAN_HANG`, `MUA_HANG`, `TON_KHO`, `CONG_NO_NCC`, `TUOI_NO_KH`, `TAI_KHOAN_CT`, `SO_DU_NH`). Chỉ khi 1 trong 9 nhóm này hoàn toàn không có file nào mới ghi nhận log `NOTFOUND`, loại bỏ hoàn toàn hiện tượng cảnh báo giả.
+5. **Tối ưu hóa phạm vi tính KPI**:
    - Hệ thống nhận diện chính xác `reporting_period` của từng file nạp (ví dụ `2026-08`), chỉ kích hoạt tính toán KPI và công nợ nhân viên cho đúng kỳ báo cáo hiện tại, giảm thời gian tính toán từ 5 phút xuống dưới 20 giây.
 
 ---

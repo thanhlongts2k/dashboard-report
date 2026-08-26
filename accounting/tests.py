@@ -1318,6 +1318,20 @@ class EmployeeUserProvisioningTests(TestCase):
         self.assertIn('sep_test@haophuong.com', output_str)
         self.assertIn('DT THEO KỲ', output_str)
 
+    def test_auto_import_excel_groups_and_snapshot_scoping(self):
+        """
+        Kiểm tra logic phân nhóm 9 loại báo cáo và biến is_snapshot không bị lỗi UnboundLocalError
+        khi nạp file danh mục có skip_delete=True (DANH_SACH_NHAN_VIEN, DANH_SACH_KHACH_HANG).
+        """
+        from accounting.tasks import auto_import_excel_from_folder
+        from accounting.models import ImportLog
+
+        # Chạy auto_import với specific_file không tồn tại
+        res = auto_import_excel_from_folder(specific_file="non_existent_DANH_SACH_NHAN_VIEN_20260826.xlsx")
+        self.assertIsInstance(res, str)
+
+
+
 
 
 

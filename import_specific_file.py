@@ -73,9 +73,9 @@ def import_file(file_path, recalculate=True):
         
         with transaction.atomic():
             deleted_count = 0
+            is_snapshot = config.get('model') in [InventorySummary, SupplierDebt, ReceivablesAgeing, BankBalance]
             # 2. Xóa phân đoạn dữ liệu cũ
             if not config.get('skip_delete', False):
-                is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing, BankBalance]
                 if is_snapshot:
                     if config['model'] == BankBalance:
                         deleted_count = config['model'].objects.filter(

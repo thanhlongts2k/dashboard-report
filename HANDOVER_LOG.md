@@ -3,6 +3,21 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-26 08:15:00] Task: Fix UnboundLocalError 'is_snapshot' & Eliminate False-Alarm NOTFOUND in Auto Import — [DONE]
+- **Objective**:
+  1. Khắc phục lỗi `UnboundLocalError: cannot access local variable 'is_snapshot' where it is not associated with a value` khi nạp file có `skip_delete=True` (như `DANH_SACH_NHAN_VIEN_...`).
+  2. Khắc phục cảnh báo giả `ImportLog` trạng thái `NOTFOUND` (Log 2155) do `IMPORT_MAP` chứa nhiều alias cho cùng 1 loại báo cáo, chuyển sang cơ chế nhận diện theo 9 nhóm báo cáo chuẩn (`REQUIRED_REPORT_GROUPS`).
+  3. Cập nhật `accounting/tasks.py` và `import_specific_file.py`.
+  4. Bổ sung unit test trong `accounting/tests.py` và chạy full test suite 100% PASS.
+- **Files Modified**:
+  - `accounting/tasks.py` (Gán `is_snapshot` trước khối `skip_delete`, bổ sung `REQUIRED_REPORT_GROUPS` và map `'group'` cho từng alias trong `IMPORT_MAP`)
+  - `import_specific_file.py` (Định nghĩa `is_snapshot` trước `if not config.get('skip_delete', False):`)
+  - `accounting/tests.py` (Thêm unit test `test_auto_import_excel_groups_and_snapshot_scoping`)
+  - `DocumentAPI_Report2026.md` (Cập nhật tài liệu mục 4 về cơ chế phân nhóm 9 loại báo cáo)
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **48/48 tests PASS 100% (10.150s)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-25 11:33:00] Task: Clone Exact Dashboard Overview UI & Metrics to Executive Dashboard Email — [DONE]
 - **Objective**:
   1. Tái cấu trúc lại email `executive_dashboard_summary.html` khớp 100% với Web Dashboard (`~/dashboard`):

@@ -165,28 +165,41 @@ def auto_import_excel_from_folder(specific_file=None):
     # 1. Cấu hình đường dẫn
     BASE_IMPORT_PATH = os.path.join(settings.BASE_DIR, 'media', 'auto_imports')
     
-    # 2. Mapping giữa Tiền tố File - Model - Resource (kèm Priority)
+    # 2. Mapping giữa Tiền tố File - Model - Resource (kèm Priority & Group)
     IMPORT_MAP = {
-        'DANH_SACH_NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1},
-        'NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1},
-        'DANH_SACH_KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True},
-        'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True},
-        'SO_CHI_TIET_BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3},
-        'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3},
-        'SO_CHI_TIET_MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3},
-        'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3},
-        'TONG_HOP_TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3},
-        'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3},
-        'TONG_HOP_CONG_NO_PHAI_TRA_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3},
-        'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3},
-        'TONG_HOP_CONG_NO_PHAI_THU_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3},
-        'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3},
-        'SO_CHI_TIET_CAC_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
-        'SO_CHI_TIET_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
-        'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3},
-        'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
-        'SO_DU_NGAN_HANG': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
-        'BANG_KE_SO_DU_NGAN_HANG': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3},
+        'DANH_SACH_NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1, 'group': 'NHAN_VIEN'},
+        'NHAN_VIEN': {'model': Employee, 'resource': EmployeeResource(), 'skip_delete': True, 'priority': 1, 'group': 'NHAN_VIEN'},
+        'DANH_SACH_KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True, 'group': 'KHACH_HANG'},
+        'KHACH_HANG': {'model': Customer, 'resource': CustomerResource(), 'skip_delete': True, 'priority': 2, 'use_custom_importer': True, 'group': 'KHACH_HANG'},
+        'SO_CHI_TIET_BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3, 'group': 'BAN_HANG'},
+        'BAN_HANG': {'model': SalesTransaction, 'resource': SalesTransactionResource(), 'priority': 3, 'group': 'BAN_HANG'},
+        'SO_CHI_TIET_MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3, 'group': 'MUA_HANG'},
+        'MUA_HANG': {'model': PurchaseDetail, 'resource': PurchaseDetailResource(), 'priority': 3, 'group': 'MUA_HANG'},
+        'TONG_HOP_TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3, 'group': 'TON_KHO'},
+        'TON_KHO': {'model': InventorySummary, 'resource': InventorySummaryResource(), 'priority': 3, 'group': 'TON_KHO'},
+        'TONG_HOP_CONG_NO_PHAI_TRA_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3, 'group': 'CONG_NO_NCC'},
+        'CONG_NO_NCC': {'model': SupplierDebt, 'resource': SupplierDebtResource(), 'priority': 3, 'group': 'CONG_NO_NCC'},
+        'TONG_HOP_CONG_NO_PHAI_THU_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3, 'group': 'TUOI_NO_KH'},
+        'TUOI_NO_KH': {'model': ReceivablesAgeing, 'resource': ReceivablesAgeingResource(), 'priority': 3, 'group': 'TUOI_NO_KH'},
+        'SO_CHI_TIET_CAC_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3, 'group': 'TAI_KHOAN_CT'},
+        'SO_CHI_TIET_TAI_KHOAN': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3, 'group': 'TAI_KHOAN_CT'},
+        'TAI_KHOAN_CT': {'model': AccountDetail, 'resource': AccountDetailResource(), 'priority': 3, 'group': 'TAI_KHOAN_CT'},
+        'SO_DU_NH': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3, 'group': 'SO_DU_NH'},
+        'SO_DU_NGAN_HANG': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3, 'group': 'SO_DU_NH'},
+        'BANG_KE_SO_DU_NGAN_HANG': {'model': BankBalance, 'resource': BankBalanceResource(), 'priority': 3, 'group': 'SO_DU_NH'},
+    }
+
+    # 9 nhóm báo cáo chuẩn bắt buộc phải có trong thư mục auto_imports
+    REQUIRED_REPORT_GROUPS = {
+        'NHAN_VIEN': 'DANH_SACH_NHAN_VIEN (Danh sách nhân viên)',
+        'KHACH_HANG': 'DANH_SACH_KHACH_HANG (Danh sách khách hàng)',
+        'BAN_HANG': 'BAN_HANG (Sổ chi tiết bán hàng)',
+        'MUA_HANG': 'MUA_HANG (Sổ chi tiết mua hàng)',
+        'TON_KHO': 'TON_KHO (Tổng hợp tồn kho)',
+        'CONG_NO_NCC': 'CONG_NO_NCC (Công nợ phải trả NCC)',
+        'TUOI_NO_KH': 'TUOI_NO_KH (Tuổi nợ phải thu KH)',
+        'TAI_KHOAN_CT': 'TAI_KHOAN_CT (Sổ chi tiết tài khoản)',
+        'SO_DU_NH': 'SO_DU_NH (Bảng kê số dư ngân hàng)',
     }
 
     # Nếu specific_file được chỉ định → chỉ xử lý đúng 1 file đó (bỏ qua quét thư mục)
@@ -214,7 +227,6 @@ def auto_import_excel_from_folder(specific_file=None):
 
     report = []
     imported_periods = set()
-    msgFileNotFound = []
 
     # Sắp xếp thứ tự nạp ưu tiên: Priority 1 (Nhân viên) -> Priority 2 (Khách hàng) -> Priority 3 (Báo cáo)
     sorted_prefix_items = sorted(
@@ -224,7 +236,6 @@ def auto_import_excel_from_folder(specific_file=None):
 
     for prefix, files in sorted_prefix_items:
         if not files:
-            msgFileNotFound.append(prefix)
             continue
 
         config = IMPORT_MAP[prefix]
@@ -284,9 +295,10 @@ def auto_import_excel_from_folder(specific_file=None):
             try:
                 with transaction.atomic():
                     deleted_count = 0
+                    is_snapshot = config.get('model') in [InventorySummary, SupplierDebt, ReceivablesAgeing, BankBalance]
+                    
                     # BƯỚC A: XÓA SẠCH DỮ LIỆU CŨ THEO PHÂN ĐOẠN (nếu không có skip_delete)
                     if not config.get('skip_delete', False):
-                        is_snapshot = config['model'] in [InventorySummary, SupplierDebt, ReceivablesAgeing, BankBalance]
                         if is_snapshot:
                             if config['model'] == BankBalance:
                                 # Xóa theo tháng báo cáo cho số dư ngân hàng
@@ -403,17 +415,25 @@ def auto_import_excel_from_folder(specific_file=None):
                     end_time=timezone.now()
                 )
 
-    if not specific_file and len(msgFileNotFound) > 0:
-        files_list = '\n'.join([f'- {prefix}' for prefix in msgFileNotFound])
-        schedule_desc = getattr(settings, 'IMPORT_SCHEDULE_DESC', 'N/A')
-        msg = f"Đã thực hiện import theo chu kỳ: {schedule_desc}\nKhông tìm thấy file:\n{files_list}"
-        ImportLog.objects.create(
-            file_name="N/A",
-            status='NOTFOUND',
-            message=msg,
-            start_time=timezone.now(),
-            end_time=timezone.now()
-        )
+    # Kiểm tra các nhóm báo cáo thực sự còn thiếu (tránh false-alarm do alias)
+    if not specific_file:
+        found_groups = set()
+        for prefix, files in prefix_to_files.items():
+            if files:
+                found_groups.add(IMPORT_MAP[prefix].get('group', prefix))
+
+        missing_groups = [desc for grp, desc in REQUIRED_REPORT_GROUPS.items() if grp not in found_groups]
+        if len(missing_groups) > 0:
+            files_list = '\n'.join([f'- {desc}' for desc in missing_groups])
+            schedule_desc = getattr(settings, 'IMPORT_SCHEDULE_DESC', 'N/A')
+            msg = f"Đã thực hiện import theo chu kỳ: {schedule_desc}\nKhông tìm thấy file:\n{files_list}"
+            ImportLog.objects.create(
+                file_name="N/A",
+                status='NOTFOUND',
+                message=msg,
+                start_time=timezone.now(),
+                end_time=timezone.now()
+            )
 
     # BƯỚC D: SAU KHI IMPORT XONG, TÍNH TOÁN LẠI KPI CHO TOÀN BỘ BU & TOÀN CÔNG TY
     if not imported_periods:
