@@ -3,6 +3,28 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-27 16:55:00] Task: Update BU Manager Debt Email Terminology ("Khối [bu_name]" -> "BU [bu_code]") — [DONE]
+- **Objective**:
+  1. Chuẩn hóa thuật ngữ trong Email Báo cáo Tổng hợp Công nợ gửi Trưởng BU (`debt_summary_manager.html` và `debt_mailer.py`):
+     - Chuyển toàn bộ danh xưng "Khối" thành "BU".
+     - Chuyển tên đầy đủ của BU thành Mã BU đồng thời loại bỏ tiền tố `BU_` (Ví dụ: `Thiết bị điện phổ thông` (`BU_IBIZ VALUE`) -> `BU IBIZ VALUE`, `BU_ELEVATOR` -> `BU ELEVATOR`).
+  2. Cập nhật hàm `format_bu_code_display(bu_code)` tự động bóc tách `BU_` / `BU `.
+  3. Cập nhật Subject Email: `[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ BU {bu_display_code} — {period_display} — Kính gửi {manager_name}`.
+  4. Cập nhật Badge, Header Banner, Lời chào, KPI cards, Bảng phân bổ Sales và Top khách hàng nợ quá hạn.
+  5. Cập nhật script test `test_debt_email_automation.py` và chạy kiểm thử 100% PASS (4/4 test suites).
+  6. Chạy `python manage.py test accounting` đạt **50/50 tests PASS 100%**.
+  7. Đồng bộ tài liệu `DocumentAPI_Report2026.md` và `HANDOVER_LOG.md`.
+- **Files Modified**:
+  - `accounting/services/debt_mailer.py`
+  - `templates/emails/debt_summary_manager.html`
+  - `scripts/test_debt_email_automation.py`
+  - `DocumentAPI_Report2026.md`
+  - `HANDOVER_LOG.md`
+- **Test Results**:
+  - `python scripts/test_debt_email_automation.py` ➡️ **4/4 Test Suites PASS (100%)**.
+  - `python manage.py test accounting` ➡️ **50/50 Django Tests PASS (100%)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-26 16:10:00] Task: Fix Previous Working Day Logic & Duplicate Month in Executive Dashboard Email — [DONE]
 - **Objective**:
   1. Tự động xác định ngày chốt số liệu `report_date` là ngày làm việc hôm trước (Previous Working Day T-1) khi không truyền tham số:

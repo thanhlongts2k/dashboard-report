@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Báo Cáo Tổng Hợp Công Nợ Khối</title>
+    <title>Báo Cáo Tổng Hợp Công Nợ BU</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; color: #1e293b; -webkit-font-smoothing: antialiased;">
     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 0;">
@@ -18,7 +18,7 @@
                                 HẠO PHƯƠNG EXECUTIVE REPORT
                             </div>
                             <div style="font-size: 22px; font-weight: 800; margin: 0 0 12px 0; color: #ffffff; line-height: 1.3;">
-                                BÁO CÁO TỔNG HỢP CÔNG NỢ KHỐI KINH DOANH
+                                BÁO CÁO TỔNG HỢP CÔNG NỢ BU {{ bu.bu_display_code|default:bu.bu_code }}
                             </div>
                             <table border="0" cellspacing="0" cellpadding="0">
                                 <tr>
@@ -27,7 +27,7 @@
                                     </td>
                                     <td style="padding-left: 8px;">
                                         <div style="background-color: #2563eb; color: #ffffff; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 800;">
-                                            🏢 {{ bu.bu_name }} ({{ bu.bu_code }})
+                                            🏢 BU {{ bu.bu_display_code|default:bu.bu_code }}
                                         </div>
                                     </td>
                                     {% if dry_run %}
@@ -47,15 +47,15 @@
                         <td style="padding: 32px; background-color: #ffffff;">
                             <!-- GREETING -->
                             <div style="font-size: 15px; line-height: 1.6; margin-bottom: 24px; color: #1e293b;">
-                                Kính gửi <strong style="color: #0f172a; font-size: 16px;">{{ bu.manager_name }}</strong> — Trưởng Khối <strong style="color: #1e40af; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe;">{{ bu.bu_name }}</strong>,<br>
-                                Hệ thống Báo cáo Quản trị kính gửi báo cáo tổng hợp tình hình công nợ phải thu thương mại (TK 1311) của toàn Khối tính đến kỳ <strong>{{ period_display }}</strong>:
+                                Kính gửi <strong style="color: #0f172a; font-size: 16px;">{{ bu.manager_name }}</strong> — Trưởng BU <strong style="color: #1e40af; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe;">{{ bu.bu_display_code|default:bu.bu_code }}</strong>,<br>
+                                Hệ thống Báo cáo Quản trị kính gửi báo cáo tổng hợp tình hình công nợ phải thu thương mại (TK 1311) của toàn BU tính đến kỳ <strong>{{ period_display }}</strong>:
                             </div>
 
                             <!-- KPI CARDS GRID -->
                             <table width="100%" border="0" cellspacing="8" cellpadding="0" style="margin-bottom: 28px;">
                                 <tr>
                                     <td width="25%" bgcolor="#eff6ff" style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-top: 4px solid #1e40af; border-radius: 8px; padding: 14px 12px; vertical-align: top;">
-                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1e40af; margin-bottom: 4px;">Tổng Nợ Khối</div>
+                                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1e40af; margin-bottom: 4px;">Tổng Nợ BU</div>
                                         <div style="font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.2;">{{ bu.total_debt|floatformat:0|intcomma }} đ</div>
                                         <div style="font-size: 12px; font-weight: 600; color: #3b82f6; margin-top: 4px;">{{ bu.customer_count }} khách hàng</div>
                                     </td>
@@ -79,7 +79,7 @@
 
                             <!-- TABLE 1: PHÂN BỔ THEO NHÂN VIÊN TRONG BU -->
                             <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 28px 0 12px 0;">
-                                👥 1. Bảng Phân Bổ Công Nợ Theo Nhân Viên ({{ bu.sales_count }} Nhân Sự)
+                                👥 1. Bảng Phân Bổ Công Nợ Theo Nhân Viên Trong BU ({{ bu.sales_count }} Nhân Sự)
                             </div>
 
                             <table width="100%" border="0" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1; margin-bottom: 28px;">
@@ -116,7 +116,7 @@
                                     {% endfor %}
                                     <!-- TOTAL ROW -->
                                     <tr bgcolor="#e2e8f0" style="background-color: #e2e8f0; font-weight: 800; color: #0f172a; border-top: 2px solid #0f172a;">
-                                        <td colspan="3" align="center" style="border: 1px solid #cbd5e1; font-weight: 800; font-size: 13px;">TỔNG TOÀN KHỐI</td>
+                                        <td colspan="3" align="center" style="border: 1px solid #cbd5e1; font-weight: 800; font-size: 13px;">TỔNG TOÀN BU</td>
                                         <td align="center" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800;">{{ bu.customer_count }}</td>
                                         <td align="right" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800; font-size: 14px; color: #0f172a;">{{ bu.total_debt|floatformat:0|intcomma }}</td>
                                         <td align="right" style="border: 1px solid #cbd5e1; font-family: ui-monospace, Consolas, monospace; font-weight: 800; color: #b91c1c;">{{ bu.overdue_total|floatformat:0|intcomma }}</td>
@@ -127,7 +127,7 @@
 
                             <!-- TABLE 2: TOP KHÁCH HÀNG QUÁ HẠN LỚN NHẤT -->
                             <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 28px 0 12px 0;">
-                                ⚠️ 2. Top Khách Hàng Nợ Quá Hạn Lớn Nhất Trong Khối
+                                ⚠️ 2. Top Khách Hàng Nợ Quá Hạn Lớn Nhất Trong BU
                             </div>
 
                             <table width="100%" border="0" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1; margin-bottom: 24px;">
@@ -171,7 +171,7 @@
                                             <tr>
                                                 <td align="center" bgcolor="#312e81" style="background-color: #312e81; border-radius: 8px; padding: 14px 28px; box-shadow: 0 4px 12px rgba(49, 46, 129, 0.3);">
                                                     <a href="{{ dashboard_url }}" target="_blank" style="font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ffffff !important; font-weight: 800; text-decoration: none; display: inline-block;">
-                                                        📊 Xem Drilldown Chi Tiết Toàn Khối Trên Dashboard →
+                                                        📊 Xem Drilldown Chi Tiết Toàn BU Trên Dashboard →
                                                     </a>
                                                 </td>
                                             </tr>
@@ -183,7 +183,7 @@
                             <!-- NOTICE BOX -->
                             <div style="background-color: #eff6ff; border-left: 5px solid #2563eb; padding: 14px 18px; border-radius: 4px; color: #1e3a8a; font-size: 13px; line-height: 1.5; margin-top: 24px;">
                                 <strong style="color: #1e40af; font-size: 14px;">📌 Khuyến nghị điều hành:</strong><br>
-                                Trưởng Khối vui lòng theo dõi sát các nhân sự có tỷ lệ nợ quá hạn cao và nhóm khách hàng trọng điểm trên bảng để chỉ đạo công tác thu hồi, đảm bảo chỉ tiêu KPI dòng tiền và hạn chế rủi ro nợ khó đòi.
+                                Trưởng BU vui lòng theo dõi sát các nhân sự có tỷ lệ nợ quá hạn cao và nhóm khách hàng trọng điểm trên bảng để chỉ đạo công tác thu hồi, đảm bảo chỉ tiêu KPI dòng tiền và hạn chế rủi ro nợ khó đòi.
                             </div>
                         </td>
                     </tr>

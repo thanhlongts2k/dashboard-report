@@ -238,6 +238,21 @@ def collect_sales_debt_data(period=None, bu_code=None):
     return results
 
 
+def format_bu_code_display(bu_code: str) -> str:
+    """
+    Loại bỏ tiền tố BU_ hoặc BU để hiển thị mã BU gọn gàng và chuẩn mực.
+    Ví dụ: 'BU_IBIZ VALUE' -> 'IBIZ VALUE', 'BU_ELEVATOR' -> 'ELEVATOR'.
+    """
+    if not bu_code:
+        return ""
+    code_str = str(bu_code).strip()
+    if code_str.upper().startswith("BU_"):
+        return code_str[3:].strip()
+    if code_str.upper().startswith("BU "):
+        return code_str[3:].strip()
+    return code_str
+
+
 def collect_bu_manager_debt_data(period=None, bu_code=None):
     """
     Gom dữ liệu công nợ tổng hợp cấp BU gửi cho Trưởng BU (Cấp 2).
@@ -370,9 +385,12 @@ def collect_bu_manager_debt_data(period=None, bu_code=None):
         all_active_customers.sort(key=lambda x: (x['overdue_total'], x['total_debt']), reverse=True)
         top_overdue_customers = all_active_customers[:10]  # Top 10 khách hàng
 
+        bu_display_code = format_bu_code_display(bu.code)
+
         results.append({
             'bu_id': bu.id,
             'bu_code': bu.code,
+            'bu_display_code': bu_display_code,
             'bu_name': bu.name,
             'manager_name': mgr_info['name'],
             'manager_email': mgr_info['email'],
@@ -397,15 +415,6 @@ def get_frontend_base_url():
     url = getattr(settings, 'FRONTEND_URL', None) or 'https://report.haophuong.com'
     return str(url).rstrip('/')
 
-
-def send_sales_debt_email(sales_data, period, dry_run=False, test_email=None, cc_emails=None):
-    """
-    Render và gửi email nhắc nợ chi tiết cho Nhân viên Sales
-    """
-    recipient_email = test_email if (dry_run and test_email) else sales_data.get('email')
-    if not recipient_email or '@' not in recipient_email:
-        logger.warning(f"⚠️ Không thể gửi mail cho Sales {sales_data.get('full_name')}: Thiếu email hợp lệ.")
-        return False, "Thiếu email hợp lệ"
 
 def send_sales_debt_email(sales_data, period, dry_run=False, test_email=None, override_email=None, cc_emails=None):
     """
@@ -484,10 +493,11 @@ def send_bu_manager_debt_email(bu_data, period, dry_run=False, test_email=None, 
     period_display = format_period_display(period)
     frontend_base = get_frontend_base_url()
     dashboard_url = f"{frontend_base}/aging?period={period}&bu={bu_data.get('bu_code')}"
+    bu_display_code = bu_data.get('bu_display_code') or format_bu_code_display(bu_data.get('bu_code'))
 
-    base_subject = f"[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ Khối {bu_data.get('bu_name')} — {period_display} — Kính gửi {bu_data.get('manager_name')}"
+    base_subject = f"[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ BU {bu_display_code} — {period_display} — Kính gửi {bu_data.get('manager_name')}"
     if override_email or test_email:
-        subject = f"[TEST - {bu_data.get('bu_name')}] {base_subject}"
+        subject = f"[TEST - {bu_display_code}] {base_subject}"
     elif dry_run:
         subject = f"[TEST DRY-RUN] {base_subject}"
     else:
@@ -507,11 +517,11 @@ def send_bu_manager_debt_email(bu_data, period, dry_run=False, test_email=None, 
     html_content = render_to_string('emails/debt_summary_manager.html', context)
 
     text_content = f"""
-    Kính gửi {bu_data.get('manager_name')} - Trưởng Khối {bu_data.get('bu_name')},
+    Kính gửi {bu_data.get('manager_name')} - Trưởng BU {bu_display_code},
 
-    Hệ thống Báo cáo Quản trị Hạo Phương xin gửi báo cáo tổng hợp tình hình công nợ của Khối kỳ {period_display}:
+    Hệ thống Báo cáo Quản trị Hạo Phương xin gửi báo cáo tổng hợp tình hình công nợ của BU kỳ {period_display}:
 
-    - Tổng nợ toàn Khối: {bu_data.get('total_debt', 0):,.0f} VNĐ
+    - Tổng nợ toàn BU: {bu_data.get('total_debt', 0):,.0f} VNĐ
     - Nợ trong hạn: {bu_data.get('due_total', 0):,.0f} VNĐ
     - Nợ quá hạn: {bu_data.get('overdue_total', 0):,.0f} VNĐ ({bu_data.get('overdue_rate', 0):.1f}%)
     - Số nhân viên quản lý nợ: {bu_data.get('sales_count', 0)} nhân viên

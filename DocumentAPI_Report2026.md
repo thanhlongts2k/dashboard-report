@@ -1046,6 +1046,11 @@ Script CLI có cảnh báo tương tác bảo vệ an toàn:
 python scripts/send_live_debt_reminders.py --period 2026-08 --live
 ```
 
+### 20.4. Chuẩn Hóa Định Dạng & Danh Xưng Email Gửi Trưởng BU (BU Manager Debt Email)
+* **Tiêu đề Email**: `[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ BU {bu_display_code} — {period_display} — Kính gửi {manager_name}` (Ví dụ: `[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ BU IBIZ VALUE — Tháng 08/2026 — Kính gửi NGUYỄN NGỌC HUY PHONG`).
+* **Quy tắc hiển thị Mã BU**: Sử dụng hàm `format_bu_code_display` trong `accounting/services/debt_mailer.py` tự động bóc tách tiền tố `BU_` hoặc `BU ` (Ví dụ: `BU_IBIZ VALUE` $\rightarrow$ `IBIZ VALUE`, `BU_ELEVATOR` $\rightarrow$ `ELEVATOR`) để hiển thị chuẩn mực `BU IBIZ VALUE`.
+* **Thuật ngữ thống nhất**: Chuyển 100% danh xưng từ *"Khối"* sang *"BU"* trong template `debt_summary_manager.html` và bản plain text (Trưởng BU, Tổng Nợ BU, Bảng Phân Bổ Theo Nhân Viên Trong BU, Top Khách Hàng Nợ Quá Hạn Lớn Nhất Trong BU, Nút CTA Xem Drilldown Chi Tiết Toàn BU Trên Dashboard).
+
 ---
 
 ## 21. Báo Cáo Điều Hành Ban Lãnh Đạo Tự Động (Executive Dashboard Email & Celery Beat Scheduler)
