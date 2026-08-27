@@ -1330,6 +1330,56 @@ class EmployeeUserProvisioningTests(TestCase):
         res = auto_import_excel_from_folder(specific_file="non_existent_DANH_SACH_NHAN_VIEN_20260826.xlsx")
         self.assertIsInstance(res, str)
 
+    def test_send_executive_dashboard_celery_task(self):
+        """
+        Kiểm tra Celery Shared Task send_executive_dashboard_task chạy thành công ở chế độ dry_run=True.
+        """
+        from accounting.tasks import send_executive_dashboard_task
+
+        res = send_executive_dashboard_task.apply(kwargs={
+            'to_email': 'bod_test@haophuong.com',
+            'cc_emails': ['sep_test@haophuong.com'],
+            'report_date': '2026-08-24',
+            'dry_run': True,
+        }).get()
+
+        self.assertIsInstance(res, dict)
+        self.assertTrue(res.get('success'))
+        self.assertEqual(res.get('message'), 'Gửi email thành công')
+
+    def test_get_executive_dashboard_schedule_utility(self):
+        """
+        Kiểm tra hàm get_executive_dashboard_schedule phân tích các dạng lịch biểu từ env.
+        """
+        from report2026.schedule_utils import get_executive_dashboard_schedule
+
+        # Mock env daily
+        def mock_env_daily(key, default=None):
+            cfg = {
+                'EXECUTIVE_DASHBOARD_SCHEDULE_TYPE': 'daily',
+                'EXECUTIVE_DASHBOARD_SCHEDULE_HOUR': '8',
+                'EXECUTIVE_DASHBOARD_SCHEDULE_MINUTE': '30',
+                'EXECUTIVE_DASHBOARD_SCHEDULE_DAY_OF_WEEK': '1-6',
+            }
+            return cfg.get(key, default)
+
+        sched, desc = get_executive_dashboard_schedule(mock_env_daily)
+        self.assertIsNotNone(sched)
+        self.assertIn('08:30', desc)
+
+        # Mock env custom
+        def mock_env_custom(key, default=None):
+            cfg = {
+                'EXECUTIVE_DASHBOARD_SCHEDULE_TYPE': 'custom',
+                'EXECUTIVE_DASHBOARD_SCHEDULE_CRON': '15 9 * * 1-5',
+            }
+            return cfg.get(key, default)
+
+        sched_custom, desc_custom = get_executive_dashboard_schedule(mock_env_custom)
+        self.assertIsNotNone(sched_custom)
+        self.assertIn('09:15', desc_custom)
+
+
 
 
 

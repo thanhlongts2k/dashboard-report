@@ -171,7 +171,7 @@ STATIC_URL = 'static/'
 
 
 # Cấu hình Celery Beat Schedule động từ .env (Hỗ trợ chạy theo ngày, tuần, tháng hoặc custom)
-from report2026.schedule_utils import get_import_schedule, get_debt_reminder_schedule
+from report2026.schedule_utils import get_import_schedule, get_debt_reminder_schedule, get_executive_dashboard_schedule
 
 schedule_val, IMPORT_SCHEDULE_DESC = get_import_schedule(env)
 
@@ -224,6 +224,38 @@ if AUTO_SEND_DEBT_REMINDERS_ENABLED:
     }
 else:
     DEBT_REMINDER_SCHEDULE_DESC = "Đã tắt (Tạm ngưng tự động gửi mail nhắc nợ)"
+
+
+# -----------------------------------------------------------------------------
+# CẤU HÌNH TỰ ĐỘNG GỬI EMAIL BÁO CÁO ĐIỀU HÀNH (EXECUTIVE DASHBOARD)
+# -----------------------------------------------------------------------------
+# 1. AUTO_SEND_EXECUTIVE_DASHBOARD_ENABLED: Công tắc tổng Bật/Tắt tự động gửi Executive Dashboard (Mặc định: False)
+AUTO_SEND_EXECUTIVE_DASHBOARD_ENABLED = env.bool('AUTO_SEND_EXECUTIVE_DASHBOARD_ENABLED', default=False)
+
+# 2. EXECUTIVE_DASHBOARD_DRY_RUN: Chế độ thử nghiệm (Mặc định: False để gửi thật khi đã bật cấu hình)
+EXECUTIVE_DASHBOARD_DRY_RUN = env.bool('EXECUTIVE_DASHBOARD_DRY_RUN', default=False)
+
+# 3. EXECUTIVE_DASHBOARD_TO_EMAIL: Email người nhận chính (BOD / Ban Lãnh Đạo)
+EXECUTIVE_DASHBOARD_TO_EMAIL = env('EXECUTIVE_DASHBOARD_TO_EMAIL', default='long.nguyenthanh@haophuong.com')
+
+# 4. EXECUTIVE_DASHBOARD_CC_EMAILS: Danh sách email nhận CC (ngăn cách bằng dấu phẩy trong .env)
+EXECUTIVE_DASHBOARD_CC_EMAILS = env.list('EXECUTIVE_DASHBOARD_CC_EMAILS', default=[])
+
+if AUTO_SEND_EXECUTIVE_DASHBOARD_ENABLED:
+    exec_schedule_val, EXECUTIVE_DASHBOARD_SCHEDULE_DESC = get_executive_dashboard_schedule(env)
+    CELERY_BEAT_SCHEDULE['auto_send_executive_dashboard_periodic'] = {
+        'task': 'accounting.tasks.send_executive_dashboard_task',
+        'schedule': exec_schedule_val,
+        'kwargs': {
+            'to_email': EXECUTIVE_DASHBOARD_TO_EMAIL,
+            'cc_emails': EXECUTIVE_DASHBOARD_CC_EMAILS,
+            'report_date': None,  # Mặc định lấy ngày hôm nay
+            'period': None,       # Mặc định lấy tháng hiện tại
+            'dry_run': EXECUTIVE_DASHBOARD_DRY_RUN,
+        },
+    }
+else:
+    EXECUTIVE_DASHBOARD_SCHEDULE_DESC = "Đã tắt (Tạm ngưng tự động gửi mail Executive Dashboard)"
 
 
 # Đường dẫn khởi chạy Redis Server tự động

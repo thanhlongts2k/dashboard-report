@@ -261,6 +261,15 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
         *   `--date <YYYY-MM-DD>`: Ngày chốt số liệu (mặc định: hôm qua T-1).
         *   `--period <YYYY-MM>`: Kỳ báo cáo (ví dụ: `2026-08`).
         *   `--dry-run`: Chạy thử nghiệm thống kê số liệu và render không gửi mail.
+    *   **Celery Beat Tự Động Định Kỳ (Executive Dashboard Schedule)**:
+        *   Task: `accounting.tasks.send_executive_dashboard_task`
+        *   Cấu hình `.env`:
+            - `AUTO_SEND_EXECUTIVE_DASHBOARD_ENABLED=True` (Bật/Tắt)
+            - `EXECUTIVE_DASHBOARD_TO_EMAIL='bod@haophuong.com'` (Email nhận chính)
+            - `EXECUTIVE_DASHBOARD_CC_EMAILS='sep1@haophuong.com,sep2@haophuong.com'` (Danh sách CC)
+            - `EXECUTIVE_DASHBOARD_SCHEDULE_TYPE='daily'` (`daily`, `weekly`, `monthly`, `custom`)
+            - `EXECUTIVE_DASHBOARD_SCHEDULE_HOUR=08`, `EXECUTIVE_DASHBOARD_SCHEDULE_MINUTE=30`
+            - `EXECUTIVE_DASHBOARD_SCHEDULE_DAY_OF_WEEK='1-6'` (Thứ 2 đến Thứ 7)
 
 #### 6. Kích hoạt tính toán lại dữ liệu (Manual Trigger)
 *   `POST /api/update-performance/`: Cho phép trigger tính toán và cập nhật lại chỉ số hiệu suất bất đồng bộ qua Celery ngầm.
@@ -1036,6 +1045,43 @@ Script CLI có cảnh báo tương tác bảo vệ an toàn:
 ```bash
 python scripts/send_live_debt_reminders.py --period 2026-08 --live
 ```
+
+---
+
+## 21. Báo Cáo Điều Hành Ban Lãnh Đạo Tự Động (Executive Dashboard Email & Celery Beat Scheduler)
+
+Hệ thống cung cấp cơ chế tự động gửi Báo cáo Tổng quan Kết quả Kinh doanh hàng ngày/định kỳ cho Ban Lãnh Đạo (BOD) khớp 100% giao diện và số liệu trên Web Dashboard.
+
+### 21.1. Cấu trúc Email Điều Hành 3 Khối
+1. **Khối 1: 4 Top KPI Cards**: Doanh thu theo kỳ (kèm kế hoạch & % đạt), Thu tiền theo kỳ, Tồn kho (so với ngưỡng an toàn), Nợ ngân hàng (so với hạn mức).
+2. **Khối 2: 4 Oversea Cards**: Doanh thu Oversea MTD/YTD và Tỷ trọng % so với Doanh thu toàn công ty.
+3. **Khối 3: Bảng 8 BU Thương mại (`is_main=True`)**: Xếp hạng theo doanh thu thực tế giảm dần, chi tiết Doanh thu Thực tế/Kế hoạch, Thu tiền Thực tế/Kế hoạch, Dư nợ 1311 và Nợ quá hạn (% quá hạn).
+
+### 21.2. Logic Tự Động Xác Định Ngày Chốt Số Liệu (Previous Working Day T-1)
+Khi không truyền tham số `--date` / `report_date`, hệ thống tự động lùi về ngày làm việc hôm trước:
+* Nếu hôm nay là **Thứ Hai**: Tự động lùi 2 ngày về **Thứ Bảy** (chu kỳ làm việc T2 - T7).
+* Nếu hôm nay là **Chủ Nhật**: Tự động lùi 1 ngày về **Thứ Bảy**.
+* Các ngày **Thứ Ba đến Thứ Bảy**: Lùi 1 ngày về hôm qua.
+
+### 21.3. Cấu hình Tự Động Hóa Celery Beat trong `.env`
+* `AUTO_SEND_EXECUTIVE_DASHBOARD_ENABLED`: `True` / `False` (Mặc định `False`).
+* `EXECUTIVE_DASHBOARD_SCHEDULE_TYPE`: `'daily'` (Mặc định 08:30 từ T2-T7), `'weekly'`, `'monthly'`, `'custom'`.
+* `EXECUTIVE_DASHBOARD_SCHEDULE_HOUR`: `08`
+* `EXECUTIVE_DASHBOARD_SCHEDULE_MINUTE`: `30`
+* `EXECUTIVE_DASHBOARD_SCHEDULE_DAY_OF_WEEK`: `'1-6'` (Thứ Hai đến Thứ Bảy).
+* `EXECUTIVE_DASHBOARD_TO_EMAIL`: Email người nhận chính (VD: `bod@haophuong.com`).
+* `EXECUTIVE_DASHBOARD_CC_EMAILS`: Danh sách email CC (phân cách bằng dấu phẩy).
+* `EXECUTIVE_DASHBOARD_DRY_RUN`: `True` / `False`.
+
+### 21.4. Thực thi qua Django Management Command
+```bash
+# 1. Chạy Dry-run kiểm tra số liệu:
+python manage.py send_executive_dashboard --to-email bod@haophuong.com --dry-run
+
+# 2. Gửi thật kèm CC và chỉ định ngày chốt số liệu:
+python manage.py send_executive_dashboard --to-email bod@haophuong.com --cc sep1@haophuong.com,sep2@haophuong.com --date 2026-08-26
+```
+
 
 
 

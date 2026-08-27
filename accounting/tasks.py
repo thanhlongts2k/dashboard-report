@@ -534,4 +534,31 @@ def send_debt_reminders_task(self, period=None, dry_run=True, test_email=None, b
         recipient_type=recipient_type
     )
     return result
+
+
+@shared_task(bind=True)
+def send_executive_dashboard_task(self, to_email=None, cc_emails=None, report_date=None, period=None, dry_run=False):
+    """
+    Celery Task tự động hóa gửi email Báo Cáo Điều Hành (Executive Dashboard) cho Ban Lãnh Đạo (BOD).
+    - to_email: Email người nhận chính
+    - cc_emails: Danh sách email nhận CC
+    - report_date: YYYY-MM-DD (Mặc định: ngày hiện tại)
+    - period: YYYY-MM (Mặc định: tháng hiện tại)
+    - dry_run: bool (Mặc định: False để gửi thật khi đã cấu hình)
+    """
+    from accounting.services.debt_mailer import send_executive_dashboard_email
+    logger.info(f"👉 [Celery Task] Kích hoạt send_executive_dashboard_task (to_email={to_email}, cc_emails={cc_emails}, report_date={report_date}, period={period}, dry_run={dry_run})")
+    
+    success, msg = send_executive_dashboard_email(
+        to_email=to_email,
+        cc_emails=cc_emails,
+        report_date=report_date,
+        period=period,
+        dry_run=dry_run
+    )
+    return {
+        'success': success,
+        'message': msg
+    }
+
 

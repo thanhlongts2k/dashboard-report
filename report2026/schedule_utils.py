@@ -227,3 +227,78 @@ def get_debt_reminder_schedule(env):
         desc = "Hàng tuần (Thứ Hai) lúc 08:00 (Mặc định)"
 
     return schedule_val, desc
+
+
+def get_executive_dashboard_schedule(env):
+    """
+    Cấu hình lịch biểu tự động gửi email Báo Cáo Điều Hành (Executive Dashboard) từ .env
+    Hỗ trợ:
+    - 'daily': Hàng ngày (Mặc định: 08:30 sáng từ Thứ 2 đến Thứ 7 hoặc mỗi ngày)
+    - 'weekly': Hàng tuần vào các ngày chỉ định
+    - 'monthly': Hàng tháng vào các ngày chỉ định
+    - 'custom': Chuỗi cron biểu thức 5 trường
+    """
+    from celery.schedules import crontab
+    
+    SCHEDULE_TYPE = env('EXECUTIVE_DASHBOARD_SCHEDULE_TYPE', default='weekly').lower()
+    hour_str = env('EXECUTIVE_DASHBOARD_SCHEDULE_HOUR', default='8')
+    minute_str = env('EXECUTIVE_DASHBOARD_SCHEDULE_MINUTE', default='30')
+
+    try:
+        formatted_time = f"{int(hour_str):02d}:{int(minute_str):02d}"
+    except (ValueError, TypeError):
+        formatted_time = f"{hour_str.zfill(2)}:{minute_str.zfill(2)}"
+
+    if SCHEDULE_TYPE == 'daily':
+        day_of_week = env('EXECUTIVE_DASHBOARD_SCHEDULE_DAY_OF_WEEK', default='1-6')
+        if day_of_week and day_of_week.strip() != '*':
+            schedule_val = crontab(
+                hour=hour_str,
+                minute=minute_str,
+                day_of_week=day_of_week
+            )
+            dow_desc = parse_days_of_week_desc(day_of_week)
+            desc = f"Hàng ngày ({dow_desc}) lúc {formatted_time}"
+        else:
+            schedule_val = crontab(
+                hour=hour_str,
+                minute=minute_str
+            )
+            desc = f"Hàng ngày lúc {formatted_time}"
+    elif SCHEDULE_TYPE == 'weekly':
+        day_of_week = env('EXECUTIVE_DASHBOARD_SCHEDULE_DAY_OF_WEEK', default='1')
+        schedule_val = crontab(
+            hour=hour_str,
+            minute=minute_str,
+            day_of_week=day_of_week
+        )
+        dow_desc = parse_days_of_week_desc(day_of_week)
+        desc = f"Hàng tuần ({dow_desc}) lúc {formatted_time}"
+    elif SCHEDULE_TYPE == 'monthly':
+        day_of_month = env('EXECUTIVE_DASHBOARD_SCHEDULE_DAY_OF_MONTH', default='1')
+        schedule_val = crontab(
+            hour=hour_str,
+            minute=minute_str,
+            day_of_month=day_of_month
+        )
+        dom_desc = parse_days_of_month_desc(day_of_month)
+        desc = f"Hàng tháng ({dom_desc}) lúc {formatted_time}"
+    elif SCHEDULE_TYPE == 'custom':
+        cron_str = env('EXECUTIVE_DASHBOARD_SCHEDULE_CRON', default='30 8 * * 1-6')
+        parts = cron_str.split()
+        if len(parts) == 5:
+            schedule_val = crontab(
+                minute=parts[0],
+                hour=parts[1],
+                day_of_month=parts[2],
+                month_of_year=parts[3],
+                day_of_week=parts[4]
+            )
+        else:
+            schedule_val = crontab(hour=8, minute=30, day_of_week='1-6')
+        desc = parse_cron_desc(cron_str)
+    else:
+        schedule_val = crontab(hour=8, minute=30, day_of_week='1-6')
+        desc = "Hàng ngày (từ Thứ Hai đến Thứ Bảy) lúc 08:30 (Mặc định)"
+
+    return schedule_val, desc

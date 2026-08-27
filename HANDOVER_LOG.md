@@ -3,6 +3,62 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-26 16:10:00] Task: Fix Previous Working Day Logic & Duplicate Month in Executive Dashboard Email — [DONE]
+- **Objective**:
+  1. Tự động xác định ngày chốt số liệu `report_date` là ngày làm việc hôm trước (Previous Working Day T-1) khi không truyền tham số:
+     - Nếu hôm nay là Thứ Hai: Lùi 2 ngày về Thứ Bảy (chu kỳ làm việc T2-T7).
+     - Nếu hôm nay là Chủ Nhật: Lùi 1 ngày về Thứ Bảy.
+     - Các ngày Thứ Ba - Thứ Bảy: Lùi 1 ngày về hôm qua.
+  2. Sửa lỗi lặp từ "tháng Tháng 08/2026" trong `templates/emails/executive_dashboard_summary.html` thành `Báo cáo Tổng quan Kết quả Kinh doanh <strong>{{ period_display|default:period }}</strong>`.
+  3. Cập nhật `accounting/services/debt_mailer.py` và `templates/emails/executive_dashboard_summary.html`.
+  4. Chạy kiểm thử tự động `python manage.py test accounting` 50/50 tests PASS 100%.
+- **Files Modified**:
+  - `accounting/services/debt_mailer.py`
+  - `accounting/management/commands/send_executive_dashboard.py`
+  - `templates/emails/executive_dashboard_summary.html`
+  - `HANDOVER_LOG.md`
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **50/50 tests PASS 100% (9.749s)**.
+  - Gửi mail thực tế thành công chốt ngày 25/08/2026.
+- **Current Status**: **[DONE]**
+
+## [2026-08-26 15:42:00] Task: Implement Celery Beat Scheduling for Executive Dashboard Email — [DONE]
+- **Objective**:
+  1. Tích hợp Celery Beat định kỳ tự động gửi Email Báo cáo Điều hành (Executive Dashboard) cho Ban Lãnh Đạo.
+  2. Bổ sung `get_executive_dashboard_schedule(env)` trong `report2026/schedule_utils.py` hỗ trợ cấu hình linh hoạt từ `.env` (`daily`, `weekly`, `monthly`, `custom`).
+  3. Cấu hình biến môi trường và đăng ký `CELERY_BEAT_SCHEDULE['auto_send_executive_dashboard_periodic']` trong `report2026/settings.py`.
+  4. Tạo shared task `send_executive_dashboard_task` trong `accounting/tasks.py`.
+  5. Cập nhật `.env.example` và `DocumentAPI_Report2026.md`.
+  6. Viết unit test trong `accounting/tests.py` và chạy full test suite 100% PASS.
+- **Files Modified**:
+  - `report2026/schedule_utils.py`
+  - `report2026/settings.py`
+  - `accounting/tasks.py`
+  - `.env.example`
+  - `accounting/tests.py`
+  - `DocumentAPI_Report2026.md`
+  - `HANDOVER_LOG.md`
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **50/50 tests PASS 100% (10.059s)**.
+- **Current Status**: **[DONE]**
+
+## [2026-08-26 14:55:00] Task: Refine Greeting & Footer Content in Executive Dashboard Email — [DONE]
+- **Objective**:
+  1. Chỉnh sửa nội dung Lời chào đầu thư (Greeting) trong `templates/emails/executive_dashboard_summary.html`:
+     `Kính gửi Ban Lãnh Đạo,`
+     `Hệ thống Báo cáo Quản trị HPC kính gửi Báo cáo Tổng quan Kết quả Kinh doanh tháng {{ period_display|default:period }}, cập nhật số liệu đến hết ngày {{ report_date }}:`
+  2. Chỉnh sửa nội dung Footer cuối email:
+     `Email này được gửi tự động từ Hệ thống Báo cáo Điều hành – Công ty Cổ phần Hạo Phương.`
+     `Trường hợp cần kiểm tra, đối chiếu hoặc làm rõ số liệu, vui lòng liên hệ Tech Center / Phòng Kế toán để được hỗ trợ.`
+     `Lưu ý: Đây là email tự động, vui lòng không phản hồi trực tiếp email này.`
+- **Files Modified**:
+  - `templates/emails/executive_dashboard_summary.html`
+  - `HANDOVER_LOG.md`
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **48/48 tests PASS 100% (9.748s)**.
+  - Dry-run test command ➡️ **SUCCESS**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-26 08:15:00] Task: Fix UnboundLocalError 'is_snapshot' & Eliminate False-Alarm NOTFOUND in Auto Import — [DONE]
 - **Objective**:
   1. Khắc phục lỗi `UnboundLocalError: cannot access local variable 'is_snapshot' where it is not associated with a value` khi nạp file có `skip_delete=True` (như `DANH_SACH_NHAN_VIEN_...`).

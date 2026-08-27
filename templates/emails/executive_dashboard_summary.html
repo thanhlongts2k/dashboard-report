@@ -49,8 +49,8 @@
                             
                             <!-- GREETING -->
                             <div style="font-size: 15px; line-height: 1.6; margin-bottom: 24px; color: #1e293b;">
-                                Kính gửi <strong style="color: #0f172a; font-size: 16px;">Ban Lãnh Đạo (BOD) & Quý Trưởng Khối Kinh Doanh</strong>,<br>
-                                Hệ thống Báo cáo Quản trị kính gửi số liệu tổng quan kết quả kinh doanh, thu tiền và trạng thái công nợ toàn công ty tính đến kỳ <strong>{{ period_display|default:period }}</strong> (Chốt ngày {{ report_date }}):
+                                Kính gửi <strong style="color: #0f172a; font-size: 16px;">Ban Lãnh Đạo</strong>,<br>
+                                Hệ thống Báo cáo Quản trị HPC kính gửi Báo cáo Tổng quan Kết quả Kinh doanh <strong>{{ period_display|default:period }}</strong>, cập nhật số liệu đến hết ngày <strong>{{ report_date }}</strong>:
                             </div>
 
                             <!-- ========================================================= -->
@@ -242,10 +242,13 @@
 
                     <!-- 3. FOOTER -->
                     <tr>
-                        <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; font-size: 12px; color: #64748b; line-height: 1.5; text-align: center;">
-                            Email này được gửi tự động từ <strong>Hệ Thống Báo Cáo Điều Hành — Công Ty Cổ Phần Hạo Phương</strong>.<br>
-                            Mọi thắc mắc về số liệu vui lòng liên hệ Ban Quản Trị Hệ Thống (Phòng IT / Kế toán).<br>
-                            <span style="font-size: 11px; color: #94a3b8;">Thời gian xuất báo cáo: {{ generation_time }}</span>
+                        <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 32px; font-size: 12.5px; color: #475569; line-height: 1.6; text-align: center;">
+                            <div>Email này được gửi tự động từ <strong>Hệ thống Báo cáo Điều hành – Công ty Cổ phần Hạo Phương</strong>.</div>
+                            <div style="margin-top: 4px; color: #64748b;">Trường hợp cần kiểm tra, đối chiếu hoặc làm rõ số liệu, vui lòng liên hệ <strong>Tech Center / Phòng Kế toán</strong> để được hỗ trợ.</div>
+                            <div style="margin-top: 6px; font-size: 11.5px; color: #94a3b8; font-style: italic;">Lưu ý: Đây là email tự động, vui lòng không phản hồi trực tiếp email này.</div>
+                            {% if generation_time %}
+                            <div style="margin-top: 8px; font-size: 11px; color: #94a3b8;">Thời gian xuất báo cáo: {{ generation_time }}</div>
+                            {% endif %}
                         </td>
                     </tr>
                 </table>

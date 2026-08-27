@@ -68,9 +68,10 @@ class Command(BaseCommand):
         is_dry_run = options.get('dry_run', False)
 
         if not report_date_str and not period:
-            # Mặc định lấy ngày hôm qua T-1
-            yesterday = date.today() - timedelta(days=1)
-            report_date_str = yesterday.strftime('%Y-%m-%d')
+            # Mặc định lấy ngày làm việc hôm trước (T-1)
+            from accounting.services.debt_mailer import get_previous_working_day
+            prev_work_day = get_previous_working_day()
+            report_date_str = prev_work_day.strftime('%Y-%m-%d')
 
         self.stdout.write("=" * 95)
         mode_str = "🧪 CHẾ ĐỘ THỬ NGHIỆM (DRY-RUN)" if is_dry_run else "🚨 GỬI EMAIL THỰC TẾ"

@@ -2,7 +2,7 @@ import logging
 import calendar
 from decimal import Decimal
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -800,6 +800,23 @@ def format_vnd_short(val):
     return f"{v:,.0f} đ"
 
 
+def get_previous_working_day(ref_date=None):
+    """
+    Tính ngày làm việc trước đó (T-1):
+    - Nếu hôm nay là Thứ Hai (weekday == 0): Lùi 2 ngày về Thứ Bảy (chu kỳ làm việc T2-T7).
+    - Nếu hôm nay là Chủ Nhật (weekday == 6): Lùi 1 ngày về Thứ Bảy.
+    - Các ngày Thứ Ba đến Thứ Bảy: Lùi 1 ngày về hôm qua.
+    """
+    if ref_date is None:
+        ref_date = date.today()
+    if ref_date.weekday() == 0:
+        return ref_date - timedelta(days=2)
+    elif ref_date.weekday() == 6:
+        return ref_date - timedelta(days=1)
+    else:
+        return ref_date - timedelta(days=1)
+
+
 def collect_executive_dashboard_data(report_date=None, period=None):
     """
     Thu thập số liệu báo cáo điều hành Executive Dashboard chuẩn 100% theo Web Dashboard (~/dashboard):
@@ -815,14 +832,19 @@ def collect_executive_dashboard_data(report_date=None, period=None):
         period = t_date.strftime('%Y-%m')
         year, month = t_date.year, t_date.month
     else:
-        period = get_target_period(period)
-        year, month = map(int, period.split('-'))
         today = date.today()
-        if year == today.year and month == today.month:
-            t_date = today
+        prev_work_day = get_previous_working_day(today)
+        if period:
+            year, month = map(int, period.split('-'))
+            if year == today.year and month == today.month:
+                t_date = prev_work_day
+            else:
+                last_day = calendar.monthrange(year, month)[1]
+                t_date = date(year, month, last_day)
         else:
-            last_day = calendar.monthrange(year, month)[1]
-            t_date = date(year, month, last_day)
+            t_date = prev_work_day
+            period = t_date.strftime('%Y-%m')
+            year, month = t_date.year, t_date.month
 
     # 1. Lấy record TỔNG TOÀN CÔNG TY (business_unit__isnull=True) từ BUPerformance
     root_perf = BUPerformance.objects.filter(business_unit__isnull=True, month=month, year=year).first()
