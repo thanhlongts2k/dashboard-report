@@ -66,6 +66,7 @@ def get_bu_manager_info(bu):
             'BU_IBIZ VALUE': 'NGUYỄN NGỌC HUY PHONG',
             'BU_MANUFACTURING': 'HỒ XUÂN QUANG',
             'BU_AGRITECH': 'TRẦN DUY HIẾU',
+            'BU_SAB': 'TRẦN HỒNG QUÂN',
             'BU_ECO': 'TRẦN DUY HIẾU',
             'BU_Agritech - Eco': 'TRẦN DUY HIẾU',
             'Oversea': 'NGÔ ĐÌNH TRUNG TÂN',
@@ -114,7 +115,7 @@ def collect_sales_debt_data(period=None, bu_code=None):
     period = get_target_period(period)
     target_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])
     raw_core_bus = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
-        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE', 'ĐTCT'
+        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_SAB', 'BU_IBIZ VALUE', 'ĐTCT'
     ])
     exclude_bu_codes = getattr(settings, 'DEBT_REMINDER_EXCLUDE_BU_CODES', ['ĐTCT', 'BU_DTCT'])
     core_bus = [b for b in raw_core_bus if not is_bu_code_excluded(b, exclude_bu_codes)]
@@ -262,7 +263,7 @@ def collect_bu_manager_debt_data(period=None, bu_code=None):
     """
     period = get_target_period(period)
     core_bus = getattr(settings, 'CORE_COMMERCIAL_BU_CODES', [
-        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_IBIZ VALUE', 'ĐTCT'
+        'BU_ELEVATOR', 'BU_IBIZ PREMIUM', 'BU_ECO', 'BU_MANUFACTURING', 'BU_AGRITECH', 'BU_SAB', 'BU_IBIZ VALUE', 'ĐTCT'
     ])
     exclude_bu_codes = getattr(settings, 'DEBT_REMINDER_EXCLUDE_BU_CODES', ['ĐTCT', 'BU_DTCT'])
     target_accounts = getattr(settings, 'TARGET_RECEIVABLE_ACCOUNTS', ['1311'])

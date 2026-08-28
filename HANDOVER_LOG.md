@@ -3,6 +3,42 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-28 16:10:00] Task: Split SAB (Smart Aqua Breeding) from AgriTech as an Independent Business Unit (BU_SAB) — [DONE]
+- **Objective**:
+  1. Khởi tạo `BusinessUnit` mới `BU_SAB` ("Thủy sản thông minh (SAB)", `is_main = True`, `manager = 'TRẦN HỒNG QUÂN'`).
+  2. Bổ sung `BU_SAB` vào `BU_DEFINITIONS` trong `accounting/services/user_provisioner.py`, thiết lập quyền `BU_HEAD` cho user `quan.tranhong@haophuong.com` quản lý `BU_SAB` (keys: `['agritech', 'eco', 'sab']`).
+  3. Cập nhật logic import và tự động định tuyến (Auto-routing rule): Mọi giao dịch bán hàng (`SalesTransactionResource`), thu tiền (`AccountDetailResource`), công nợ và khách hàng (`CustomerResource`, `ReceivablesAgeing`) phát sinh dưới chi nhánh `BU_AGRITECH` có nhân viên là anh **TRẦN HỒNG QUÂN (Mã: 2000477)** sẽ tự động chuyển sang `BU_SAB`, còn lại giữ nguyên `BU_AGRITECH`.
+  4. Cập nhật `accounting/services/debt_mailer.py` & `accounting/views/debt_api.py`: Bổ sung `BU_SAB` vào `CORE_COMMERCIAL_BU_CODES` và gán Trưởng BU `BU_SAB` là anh **TRẦN HỒNG QUÂN**, tách riêng 2 email nhắc nợ cho `BU_AGRITECH` (Mr. Hiếu) và `BU_SAB` (Mr. Quân).
+  5. Cập nhật Frontend Dashboard (`project-dashboard`): Đăng ký key `sab` / `BU_SAB` trong `AuthContext.jsx`, `dashboardMapper.js`, `detailMapper.js`, `receivableMapper.js`, `inventoryMapper.js`, `agingMockData.js`, `DashboardContext.jsx`.
+  6. Tạo management command `python manage.py split_sab_data --year 2026` chuyển 5 khách hàng, 5 giao dịch bán hàng, 10 chứng từ chi tiết sang `BU_SAB` và tính toán lại toàn bộ KPI 12 tháng năm 2026.
+  7. Viết 3 unit tests mới trong `accounting/tests.py` kiểm thử toàn diện logic bóc tách KPI, email đôn đốc và RBAC `BU_HEAD`.
+  8. Chạy toàn bộ test suite `python manage.py test accounting` đạt **56/56 tests PASS (100% - 11.06s)**. Build frontend `npm run build` đạt **0 lỗi**.
+  9. Đồng bộ tài liệu `DocumentAPI_Report2026.md` (Mục 22) và `HANDOVER_LOG.md`.
+- **Files Modified/Created**:
+  - `accounting/services/user_provisioner.py`
+  - `accounting/services/debt_mailer.py`
+  - `accounting/views/debt_api.py`
+  - `accounting/resources/sales.py`
+  - `accounting/resources/finance.py`
+  - `report2026/settings.py`
+  - `accounting/management/commands/split_sab_data.py` (NEW)
+  - `accounting/tests.py`
+  - `project-dashboard/src/context/AuthContext.jsx`
+  - `project-dashboard/src/utils/dashboardMapper.js`
+  - `project-dashboard/src/utils/detailMapper.js`
+  - `project-dashboard/src/utils/receivableMapper.js`
+  - `project-dashboard/src/utils/inventoryMapper.js`
+  - `project-dashboard/src/utils/agingMockData.js`
+  - `project-dashboard/src/context/DashboardContext.jsx`
+  - `DocumentAPI_Report2026.md`
+  - `HANDOVER_LOG.md`
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **56/56 tests PASS (100% - 11.06s)**.
+  - `npm run build` (project-dashboard) ➡️ **BUILD SUCCESS (0 errors)**.
+  - Đối soát Tháng 07/2026: AgriTech DT = 1.20 tỷ, SAB DT = 343.2 triệu.
+  - Đối soát Tháng 08/2026: AgriTech nợ = 806.6 triệu (Quá hạn 56M), SAB nợ = 91.875 triệu (Quá hạn 91.875M - KH Nguyễn Xuân Ánh), Tổng = 898.475 triệu (Khớp 100% với DB gốc).
+- **Current Status**: **[DONE]**
+
 ## [2026-08-28 10:45:00] Task: Implement Personal Google Account Mapping & Authentication (Solution 2) — [DONE]
 - **Objective**:
   1. Thêm trường `google_sso_email` vào model `Employee` (`accounting/models/employee.py`) để lưu trữ các địa chỉ Gmail cá nhân được phép đăng nhập.

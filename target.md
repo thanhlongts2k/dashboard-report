@@ -704,6 +704,20 @@ Hệ thống giải quyết triệt để bài toán nhân sự kiêm nhiệm đ
   * `scripts/generate_dev_token.py` và `scripts/swap_dev_email.py` bị chặn cứng trên Production (`if not settings.DEBUG: sys.exit(1)`).
   * Knox dev tokens được giới hạn thời gian sống tối đa 2 giờ.
 
+---
+
+## 16. Bóc Tách Bộ Phận Thủy Sản Thông Minh (BU_SAB) Ra Khỏi BU_AGRITECH
+
+### 16.1. Mục Tiêu & Bản Chất Kỹ Thuật
+* Khởi tạo `BusinessUnit` độc lập: `code = 'BU_SAB'`, `name = 'Thủy sản thông minh (SAB)'`, `is_main = True`, `manager = 'TRẦN HỒNG QUÂN'`.
+* Tự động định tuyến (Auto-routing Engine):
+  * Mọi chứng từ bán hàng (`SalesTransaction`), thu chi (`AccountDetail`), khách hàng (`Customer`) và tuổi nợ (`ReceivablesAgeing`) phát sinh dưới chi nhánh `BU_AGRITECH` có nhân viên là anh **TRẦN HỒNG QUÂN (Mã NV: 2000477)** sẽ được tự động gán về `BU_SAB`.
+  * Các chứng từ khác thuộc AgriTech do anh **TRẦN DUY HIẾU (`hieu.tran@haophuong.com`)** hoặc nhân viên khác phụ trách vẫn giữ nguyên là `BU_AGRITECH`.
+* **Phân quyền & Thông báo**:
+  * Cấp quyền `BU_HEAD` cho anh Trần Hồng Quân quản lý riêng `BU_SAB`.
+  * Tách riêng 2 luồng email nhắc nợ định kỳ cho Mr. Duy Hiếu (`BU_AGRITECH`) và Mr. Hồng Quân (`BU_SAB`).
+
+
 
 
 

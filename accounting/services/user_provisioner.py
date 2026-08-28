@@ -96,6 +96,13 @@ BU_DEFINITIONS = {
         'is_commercial': True,
         'keywords': ['agritech', 'bu_agritech']
     },
+    'BU_SAB': {
+        'code': 'BU_SAB',
+        'name': 'Thủy sản thông minh (SAB)',
+        'frontend_key': 'sab',
+        'is_commercial': True,
+        'keywords': ['sab', 'thủy sản', 'bu_sab', 'tôm', 'nuôi tôm']
+    },
     'BU_ECO': {
         'code': 'BU_ECO',
         'name': 'ECO (Solar)',
@@ -140,6 +147,8 @@ DEPARTMENT_BU_REGISTRY = {
     'BU_AGRITECH_ECO': ['BU_AGRITECH', 'BU_ECO'],
     'BU_AGRITECH - ECO': ['BU_AGRITECH', 'BU_ECO'],
     'BU_AGRITECH': ['BU_AGRITECH'],
+    'BU_SAB': ['BU_SAB'],
+    'SAB': ['BU_SAB'],
     'BU_ECO': ['BU_ECO'],
     'DA_KD2': ['BU_MANUFACTURING'],
     'DA_QLDA&SX': ['BU_MANUFACTURING'],

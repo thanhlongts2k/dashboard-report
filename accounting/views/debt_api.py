@@ -35,6 +35,7 @@ def get_bu_manager_name(bu):
         'BU_IBIZ VALUE': 'NGUYỄN NGỌC HUY PHONG',
         'BU_MANUFACTURING': 'HỒ XUÂN QUANG',
         'BU_AGRITECH': 'TRẦN DUY HIẾU',
+        'BU_SAB': 'TRẦN HỒNG QUÂN',
         'BU_ECO': 'TRẦN DUY HIẾU',
         'BU_Agritech - Eco': 'TRẦN DUY HIẾU',
     }

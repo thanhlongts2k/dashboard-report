@@ -73,10 +73,22 @@ class AccountDetailResource(BulkCreateResource):
         cust_name = str(row.get('Tên đối tượng') or '').strip()
 
         if cust_code and cust_code not in ['', 'None', 'nan']:
-            Customer.objects.get_or_create(
-                code=cust_code,
-                defaults={'name': cust_name if cust_name else 'N/A'}
-            )
+            cust_obj = Customer.objects.filter(code=cust_code).select_related('assigned_employee', 'business_unit').first()
+            if cust_obj:
+                if cust_obj.business_unit and cust_obj.business_unit.code == 'BU_SAB':
+                    bu_code = 'BU_SAB'
+                    row['Mã thống kê'] = 'BU_SAB'
+                elif cust_obj.assigned_employee and (
+                    cust_obj.assigned_employee.employee_code == '2000477' or 
+                    'HỒNG QUÂN' in (cust_obj.assigned_employee.full_name or '').upper()
+                ):
+                    bu_code = 'BU_SAB'
+                    row['Mã thống kê'] = 'BU_SAB'
+            else:
+                Customer.objects.get_or_create(
+                    code=cust_code,
+                    defaults={'name': cust_name if cust_name else 'N/A'}
+                )
             row['Mã đối tượng'] = cust_code
         else:
             row['Mã đối tượng'] = None
@@ -87,7 +99,7 @@ class AccountDetailResource(BulkCreateResource):
         if bu_code and bu_code not in ['None', '', 'nan']:
             BusinessUnit.objects.get_or_create(
                 code=bu_code, 
-                defaults={'name': str(row.get('Tên thống kê') or 'N/A')}
+                defaults={'name': 'Thủy sản thông minh (SAB)' if bu_code == 'BU_SAB' else str(row.get('Tên thống kê') or 'N/A')}
             )
             row['Mã thống kê'] = bu_code
         else:

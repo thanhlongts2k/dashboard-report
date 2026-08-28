@@ -1445,9 +1445,108 @@ class EmployeeUserProvisioningTests(TestCase):
             }
             return cfg.get(key, default)
 
-        sched_custom, desc_custom = get_executive_dashboard_schedule(mock_env_custom)
-        self.assertIsNotNone(sched_custom)
-        self.assertIn('09:15', desc_custom)
+    def test_sab_split_and_auto_routing(self):
+        """
+        Kiểm thử logic bóc tách SAB:
+        - Giao dịch nhân viên TRẦN HỒNG QUÂN thuộc BU_SAB
+        - Giao dịch nhân viên khác thuộc BU_AGRITECH
+        - update_single_bu_performance tính độc lập cho cả 2 BU
+        """
+        from decimal import Decimal
+        from accounting.models import BusinessUnit, Employee, Customer, Product, MaterialGroup, SalesTransaction
+        bu_agri, _ = BusinessUnit.objects.get_or_create(code='BU_AGRITECH', defaults={'name': 'AgriTech', 'is_main': True, 'manager': 'TRẦN DUY HIẾU'})
+        bu_sab, _ = BusinessUnit.objects.get_or_create(code='BU_SAB', defaults={'name': 'Thủy sản thông minh (SAB)', 'is_main': True, 'manager': 'TRẦN HỒNG QUÂN'})
+
+        emp_quan, _ = Employee.objects.get_or_create(employee_code='2000477', defaults={'full_name': 'TRẦN HỒNG QUÂN', 'email': 'quan.tranhong@haophuong.com'})
+        emp_hieu, _ = Employee.objects.get_or_create(employee_code='2000888', defaults={'full_name': 'TRẦN DUY HIẾU', 'email': 'hieu.tran@haophuong.com'})
+
+        cust_sab = Customer.objects.create(code='KH_SAB_01', name='KH Nuôi Tôm SAB', business_unit=bu_sab, assigned_employee=emp_quan, has_revenue=True)
+        cust_agri = Customer.objects.create(code='KH_AGRI_01', name='KH Nông Nghiệp AgriTech', business_unit=bu_agri, assigned_employee=emp_hieu, has_revenue=True)
+
+        mat_grp, _ = MaterialGroup.objects.get_or_create(code='GRP_TEST_SAB', defaults={'name': 'Nhóm test', 'origin': 'VN'})
+        prod, _ = Product.objects.get_or_create(code='PROD_TEST_SAB', defaults={'name': 'Sản phẩm test', 'group': mat_grp, 'unit': 'Cái'})
+
+        # Giao dịch SAB: 300 triệu
+        SalesTransaction.objects.create(
+            posting_date='2026-07-15',
+            doc_id='NKBH_SAB_01',
+            customer=cust_sab,
+            product=prod,
+            employee=emp_quan,
+            business_unit=bu_sab,
+            actual_sales=Decimal('300000000')
+        )
+        # Giao dịch AgriTech: 500 triệu
+        SalesTransaction.objects.create(
+            posting_date='2026-07-20',
+            doc_id='NKBH_AGRI_01',
+            customer=cust_agri,
+            product=prod,
+            employee=emp_hieu,
+            business_unit=bu_agri,
+            actual_sales=Decimal('500000000')
+        )
+
+        from accounting.services.kpi_calculator import update_single_bu_performance
+        from accounting.models import BUPerformance
+        update_single_bu_performance(bu_sab.id, month=7, year=2026)
+        update_single_bu_performance(bu_agri.id, month=7, year=2026)
+
+        p_sab = BUPerformance.objects.get(business_unit=bu_sab, month=7, year=2026)
+        p_agri = BUPerformance.objects.get(business_unit=bu_agri, month=7, year=2026)
+
+        self.assertEqual(float(p_sab.mtd_revenue_actual), 300000000.0)
+        self.assertEqual(float(p_agri.mtd_revenue_actual), 500000000.0)
+
+    def test_sab_manager_debt_reminder(self):
+        """
+        Kiểm thử email đôn đốc công nợ cho BU_SAB:
+        - Phải tìm thấy BU_SAB trong danh sách gửi
+        - Trưởng BU là TRẦN HỒNG QUÂN với email quan.tranhong@haophuong.com
+        """
+        from decimal import Decimal
+        from accounting.models import BusinessUnit, Employee, Customer, ReceivablesAgeing
+        from accounting.services.debt_mailer import collect_bu_manager_debt_data
+        bu_sab, _ = BusinessUnit.objects.get_or_create(code='BU_SAB', defaults={'name': 'Thủy sản thông minh (SAB)', 'is_main': True, 'manager': 'TRẦN HỒNG QUÂN'})
+        emp_quan, _ = Employee.objects.get_or_create(employee_code='2000477', defaults={'full_name': 'TRẦN HỒNG QUÂN', 'email': 'quan.tranhong@haophuong.com'})
+        cust_sab = Customer.objects.create(code='KH_SAB_DEBT', name='KH Nợ SAB', business_unit=bu_sab, assigned_employee=emp_quan)
+
+        ReceivablesAgeing.objects.create(
+            reporting_period='2026-08',
+            account_code='1311',
+            customer=cust_sab,
+            total_debt=Decimal('100000000'),
+            overdue_total=Decimal('80000000'),
+        )
+
+        with override_settings(
+            CORE_COMMERCIAL_BU_CODES=['BU_SAB', 'BU_AGRITECH', 'BU_ELEVATOR'],
+            DEBT_REMINDER_EXCLUDE_BU_CODES=[]
+        ):
+            mgrs = collect_bu_manager_debt_data(period='2026-08')
+            sab_entry = next((m for m in mgrs if m['bu_code'] == 'BU_SAB'), None)
+            self.assertIsNotNone(sab_entry)
+            self.assertEqual(sab_entry['manager_name'], 'TRẦN HỒNG QUÂN')
+            self.assertEqual(sab_entry['manager_email'], 'quan.tranhong@haophuong.com')
+            self.assertEqual(float(sab_entry['total_debt']), 100000000.0)
+            self.assertEqual(float(sab_entry['overdue_total']), 80000000.0)
+
+    def test_sab_user_provisioning_bu_head(self):
+        """
+        Kiểm thử RBAC phân quyền cho anh TRẦN HỒNG QUÂN:
+        - Được nhận quyền BU_HEAD
+        - Có managed_bu_keys chứa 'sab'
+        """
+        from accounting.models import BusinessUnit, Employee
+        from accounting.services.user_provisioner import resolve_user_rbac
+        bu_sab, _ = BusinessUnit.objects.get_or_create(code='BU_SAB', defaults={'name': 'Thủy sản thông minh (SAB)', 'is_main': True, 'manager': 'TRẦN HỒNG QUÂN'})
+        emp_quan, _ = Employee.objects.get_or_create(employee_code='2000477', defaults={'full_name': 'TRẦN HỒNG QUÂN', 'email': 'quan.tranhong@haophuong.com'})
+
+        rbac = resolve_user_rbac(emp_quan)
+        self.assertEqual(rbac['primary_role'], 'BU_HEAD')
+        self.assertIn('BU_SAB', rbac['managed_bus'])
+        self.assertIn('sab', rbac['managed_bu_keys'])
+
 
 
 

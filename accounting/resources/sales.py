@@ -145,13 +145,21 @@ class SalesTransactionResource(BulkCreateResource):
             }
         )
 
-        emp_code = row.get('Mã nhân viên bán hàng')
+        emp_code = str(row.get('Mã nhân viên bán hàng') or '').strip()
+        emp_name = str(row.get('Tên nhân viên bán hàng') or '').strip().upper()
+        bu_code = str(row.get('Mã thống kê') or '').strip()
+
+        # AUTO-ROUTING SAB: Giao dịch có nhân viên là TRẦN HỒNG QUÂN (2000477) -> auto chuyển sang BU_SAB
+        if emp_code == '2000477' or 'HỒNG QUÂN' in emp_name or 'HONG QUAN' in emp_name:
+            bu_code = 'BU_SAB'
+            row['Mã thống kê'] = 'BU_SAB'
+            row['Tên thống kê'] = 'Thủy sản thông minh (SAB)'
+
         if emp_code:
             Employee.objects.get_or_create(employee_code=emp_code, defaults={'full_name': row.get('Tên nhân viên bán hàng') or 'N/A'})
 
-        bu_code = row.get('Mã thống kê')
         if bu_code:
-            BusinessUnit.objects.get_or_create(code=bu_code, defaults={'name': row.get('Tên thống kê') or 'N/A'})
+            BusinessUnit.objects.get_or_create(code=bu_code, defaults={'name': row.get('Tên thống kê') or bu_code})
 
         if row.get('Chi nhánh'):
             Branch.objects.get_or_create(name=row.get('Chi nhánh'))
@@ -221,8 +229,16 @@ class CustomerResource(BulkCreateResource):
                 defaults={'name': g_name if g_name else g_code}
             )
 
+        emp_code = str(row.get('Mã nhân viên phụ trách') or '').strip()
         bu_code = str(row.get('Mã thống kê') or '').strip()
         bu_name = str(row.get('Tên thống kê') or '').strip()
+
+        # AUTO-ROUTING SAB: Nếu khách hàng do anh TRẦN HỒNG QUÂN (2000477) phụ trách -> auto gán BU_SAB
+        if emp_code == '2000477':
+            bu_code = 'BU_SAB'
+            bu_name = 'Thủy sản thông minh (SAB)'
+            row['Mã thống kê'] = 'BU_SAB'
+
         if bu_code and bu_code != 'None' and bu_code != '':
             BusinessUnit.objects.get_or_create(
                 code=bu_code,

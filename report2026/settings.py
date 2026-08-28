@@ -323,6 +323,7 @@ CORE_COMMERCIAL_BU_CODES = env.list('CORE_COMMERCIAL_BU_CODES', default=[
     'BU_ECO',            # ECO Solar (Mr Duy Hiếu)
     'BU_MANUFACTURING',  # Sản xuất - Nhà máy (Mr Xuân Quang)
     'BU_AGRITECH',       # Nông nghiệp công nghệ cao (Mr Duy Hiếu)
+    'BU_SAB',            # Thủy sản thông minh SAB (Mr Hồng Quân)
     'BU_IBIZ VALUE',     # Thiết bị điện phổ thông (Mr Huy Phong)
     'ĐTCT'               # Đầu tư cho thuê (Mảng cho thuê thiết bị)
 ])

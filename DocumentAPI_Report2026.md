@@ -1098,9 +1098,34 @@ Khi không truyền tham số `--date` / `report_date`, hệ thống tự độn
 # 1. Chạy Dry-run kiểm tra số liệu:
 python manage.py send_executive_dashboard --to-email bod@haophuong.com --dry-run
 
-# 2. Gửi thật kèm CC và chỉ định ngày chốt số liệu:
-python manage.py send_executive_dashboard --to-email bod@haophuong.com --cc sep1@haophuong.com,sep2@haophuong.com --date 2026-08-26
+---
+
+## 22. Tách Bộ Phận Thủy Sản Thông Minh (BU_SAB) Độc Lập Khỏi BU_AGRITECH
+
+### 22.1. Bối Cảnh Nghiệp Vụ
+Trước đây, trên phần mềm kế toán MISA chưa có mã chi nhánh độc lập cho mảng Thủy sản thông minh (Smart Aqua Breeding - SAB / Nuôi tôm công nghệ cao), toàn bộ chứng từ phát sinh được hạch toán dưới Chi nhánh `BU_AGRITECH` (Nông nghiệp công nghệ cao). Theo yêu cầu quản trị tài chính và đôn đốc công nợ độc lập, hệ thống tách riêng **`BU_SAB`** thành một Đơn vị Kinh doanh (BU) độc lập.
+
+### 22.2. Quy Tắc Tự Động Định Tuyến (Auto-Routing Rule)
+* **Tiêu chí định danh**: Bất kỳ giao dịch bán hàng (`SalesTransaction`), sổ chi tiết thu/chi (`AccountDetail`), khách hàng (`Customer`) hoặc công nợ (`ReceivablesAgeing`) thuộc chi nhánh `BU_AGRITECH` có nhân viên phụ trách là anh **TRẦN HỒNG QUÂN (Mã NV: `2000477`, Email: `quan.tranhong@haophuong.com`)** sẽ **TỰ ĐỘNG GÁN VỀ `BU_SAB`**.
+* **Phần còn lại**: Các chứng từ nông nghiệp do anh **TRẦN DUY HIẾU (`hieu.tran@haophuong.com`)** hoặc nhân viên khác phụ trách sẽ **GIỮ NGUYÊN LÀ `BU_AGRITECH`**.
+
+### 22.3. Danh Mục 9 BU Thương Mại (`CORE_COMMERCIAL_BU_CODES`)
+1. `BU_ELEVATOR`: Thang máy (Mr. Đào Tiến Dũng)
+2. `BU_IBIZ PREMIUM`: Thiết bị điện cao cấp (Mr. Hồ Tôn Nhật Minh)
+3. `BU_ECO`: ECO Solar (Mr. Trần Duy Hiếu)
+4. `BU_MANUFACTURING`: Sản xuất - Nhà máy (Mr. Hồ Xuân Quang)
+5. `BU_AGRITECH`: Nông nghiệp công nghệ cao (Mr. Trần Duy Hiếu)
+6. `BU_SAB`: Thủy sản thông minh SAB (Mr. Trần Hồng Quân)
+7. `BU_IBIZ VALUE`: Thiết bị điện phổ thông (Mr. Nguyễn Ngọc Huy Phong)
+8. `ĐTCT`: Đầu tư cho thuê thiết bị
+9. `Oversea`: Thị trường quốc tế (Mr. Ngô Đình Trung Tân)
+
+### 22.4. Lệnh Quản Trị Phân Tách & Tái Tính Toán Dữ Liệu
+```bash
+# Phân tách dữ liệu và tính toán lại KPI 12 tháng năm 2026:
+python manage.py split_sab_data --year 2026
 ```
+
 
 
 
