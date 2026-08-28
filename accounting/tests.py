@@ -1028,6 +1028,76 @@ class EmployeeUserProvisioningTests(TestCase):
             self.assertNotIn('debt_collection', res.data['user']['allowed_tabs'])
             self.assertNotIn('dashboard', res.data['user']['allowed_tabs'])
 
+    def test_google_login_with_mapped_personal_gmail(self):
+        from unittest.mock import patch
+        from rest_framework.test import APIClient
+
+        # Gán Gmail cá nhân cho Trưởng BU Elevator (self.emp_head)
+        self.emp_head.google_sso_email = 'dungdt.personal@gmail.com, test.other@gmail.com'
+        self.emp_head.save(update_fields=['google_sso_email'])
+
+        client = APIClient()
+        with patch('google.oauth2.id_token.verify_oauth2_token') as mock_verify:
+            mock_verify.return_value = {
+                'email': 'dungdt.personal@gmail.com',
+                'name': 'Đào Tiến Dũng',
+                'given_name': 'Dũng',
+                'family_name': 'Đào Tiến',
+                'picture': 'https://lh3.googleusercontent.com/a/personal_avatar.jpg',
+            }
+            res = client.post('/api/google-login/', {'id_token': 'fake_token'}, format='json')
+            self.assertEqual(res.status_code, 200)
+            self.assertIn('token', res.data)
+            self.assertIn('user', res.data)
+            # Khớp đúng vai trò BU_HEAD của BU Elevator
+            self.assertEqual(res.data['user']['primary_role'], 'BU_HEAD')
+            self.assertEqual(res.data['user']['employee_code'], 'NV_HEAD_01')
+            self.assertEqual(res.data['user']['bu_code'], 'BU_ELEVATOR')
+            self.assertIn('elevator', res.data['user']['managed_bu_keys'])
+            self.assertIn('bu_detail', res.data['user']['allowed_tabs'])
+
+    def test_google_login_unmapped_gmail_jit_flow(self):
+        from unittest.mock import patch
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        with patch('google.oauth2.id_token.verify_oauth2_token') as mock_verify:
+            mock_verify.return_value = {
+                'email': 'stranger.unknown@gmail.com',
+                'name': 'Stranger Unknown',
+                'given_name': 'Unknown',
+                'family_name': 'Stranger',
+            }
+            res = client.post('/api/google-login/', {'id_token': 'fake_token'}, format='json')
+            self.assertEqual(res.status_code, 400)
+            self.assertIn('kích hoạt Mức 2', res.data['error'])
+
+    def test_map_google_account_management_command(self):
+        from django.core.management import call_command
+        import io
+
+        out = io.StringIO()
+        # 1. Liên kết Gmail qua command
+        call_command('map_google_account', code='NV_HEAD_01', gmail='dungdt_new@gmail.com', stdout=out)
+        output = out.getvalue()
+        self.assertIn('LIÊN KẾT GMAIL THÀNH CÔNG', output)
+
+        self.emp_head.refresh_from_db()
+        self.assertIn('dungdt_new@gmail.com', self.emp_head.google_sso_email)
+
+        # 2. Liệt kê danh sách
+        out_list = io.StringIO()
+        call_command('map_google_account', list=True, stdout=out_list)
+        self.assertIn('NV_HEAD_01', out_list.getvalue())
+        self.assertIn('dungdt_new@gmail.com', out_list.getvalue())
+
+        # 3. Gỡ bỏ Gmail
+        out_remove = io.StringIO()
+        call_command('map_google_account', code='NV_HEAD_01', remove=True, stdout=out_remove)
+        self.assertIn('Đã gỡ bỏ toàn bộ Gmail cá nhân', out_remove.getvalue())
+        self.emp_head.refresh_from_db()
+        self.assertIsNone(self.emp_head.google_sso_email)
+
     def test_current_user_api_endpoint(self):
         from rest_framework.test import APIClient
         from knox.models import AuthToken

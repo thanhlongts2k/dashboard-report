@@ -17,7 +17,8 @@ from .user_provisioner import (
     split_vietnamese_name,
     determine_employee_role,
     provision_user_for_employee,
-    get_user_role_info
+    get_user_role_info,
+    find_employee_by_login_email
 )
 
 __all__ = [
@@ -41,5 +42,6 @@ __all__ = [
     'determine_employee_role',
     'provision_user_for_employee',
     'get_user_role_info',
+    'find_employee_by_login_email',
 ]
 

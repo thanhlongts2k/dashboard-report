@@ -3,6 +3,39 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-28 10:45:00] Task: Implement Personal Google Account Mapping & Authentication (Solution 2) — [DONE]
+- **Objective**:
+  1. Thêm trường `google_sso_email` vào model `Employee` (`accounting/models/employee.py`) để lưu trữ các địa chỉ Gmail cá nhân được phép đăng nhập.
+  2. Tạo migration `0048_employee_google_sso_email` và migrate cơ sở dữ liệu `accounting`.
+  3. Cập nhật `accounting/admin.py` hiển thị ô `google_sso_email` trong `EmployeeAdmin` (list_display, search_fields, fieldsets) để Admin dễ dàng gán Gmail cá nhân.
+  4. Cập nhật `GoogleLoginAPI` (`accounting/views/misa_api.py`) và `accounting/services/user_provisioner.py`:
+     - Tra cứu nhân viên theo `email` công ty HOẶC `google_sso_email` cá nhân (hỗ trợ nhiều email phân tách bởi dấu phẩy/chấm phẩy).
+     - Cấu hình `ALLOWED_SSO_DOMAINS` cho phép mặc định cả `['haophuong.com', 'gmail.com']`.
+     - Cho phép Gmail cá nhân đăng nhập nếu đã được mapping vào `google_sso_email` của một nhân viên đang hoạt động (`is_active = True`).
+     - Nếu là Gmail mới chưa có trong hệ thống: Tự động kích hoạt luồng JIT đăng ký Mức 2 gửi thông báo đến Admin.
+  5. Tạo management command `map_google_account.py` hỗ trợ gán nhanh qua CLI: `python manage.py map_google_account --code 3003 --gmail user@gmail.com`.
+  6. Cập nhật `scripts/generate_dev_token.py` để hỗ trợ sinh token thử nghiệm theo Gmail cá nhân (`--gmail`).
+  7. Viết 3 unit tests mới trong `accounting/tests.py` kiểm thử toàn diện kịch bản đăng nhập bằng Gmail cá nhân đã mapping, luồng JIT Gmail mới và CLI command.
+  8. Chạy toàn bộ test suite `python manage.py test accounting` đạt **53/53 tests PASS (100%)**.
+  9. Đồng bộ tài liệu `DocumentAPI_Report2026.md` và `HANDOVER_LOG.md`.
+- **Files Modified/Created**:
+  - `accounting/models/employee.py`
+  - `accounting/migrations/0048_employee_google_sso_email.py` (NEW)
+  - `accounting/admin.py`
+  - `accounting/views/misa_api.py`
+  - `accounting/services/user_provisioner.py`
+  - `accounting/services/__init__.py`
+  - `accounting/management/commands/map_google_account.py` (NEW)
+  - `scripts/generate_dev_token.py`
+  - `report2026/settings.py`
+  - `accounting/tests.py`
+  - `DocumentAPI_Report2026.md`
+  - `HANDOVER_LOG.md`
+- **Test Results**:
+  - `python manage.py test accounting` ➡️ **53/53 tests PASS (100% - 9.76s)**.
+  - Test CLI `map_google_account` & `generate_dev_token --gmail dungdt88@gmail.com` thành công 100%.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-27 16:55:00] Task: Update BU Manager Debt Email Terminology ("Khối [bu_name]" -> "BU [bu_code]") — [DONE]
 - **Objective**:
   1. Chuẩn hóa thuật ngữ trong Email Báo cáo Tổng hợp Công nợ gửi Trưởng BU (`debt_summary_manager.html` và `debt_mailer.py`):

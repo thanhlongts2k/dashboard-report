@@ -19,7 +19,8 @@ from accounting.serializers import (
 from accounting.services import (
     generate_activation_token, verify_activation_token,
     send_sso_registration_admin_notification, send_user_activation_success_email,
-    provision_user_for_employee, get_user_role_info, split_vietnamese_name
+    provision_user_for_employee, get_user_role_info, split_vietnamese_name,
+    find_employee_by_login_email
 )
 
 class LoginAPI(KnoxLoginView):
@@ -64,25 +65,27 @@ class GoogleLoginAPI(KnoxLoginView):
             if not email:
                 return Response({'error': 'Google ID token không chứa email hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 1. KIỂM TRA TÊN MIỀN HỢP LỆ (ALLOWED SSO DOMAINS)
+            # 1. TRA CỨU NHÂN VIÊN TRONG BẢNG EMPLOYEE (Email công ty hoặc Email cá nhân đã mapping)
+            employee = find_employee_by_login_email(email)
+
+            # 2. KIỂM TRA TÊN MIỀN HỢP LỆ (ALLOWED SSO DOMAINS)
             allowed_domains = getattr(settings, 'ALLOWED_SSO_DOMAINS', ['haophuong.com'])
             domain = email.split('@')[-1] if '@' in email else ''
-            if domain not in allowed_domains:
+
+            if domain not in allowed_domains and not employee:
                 return Response(
                     {
                         'error': (
                             f"Truy cập bị từ chối: Địa chỉ email '{email}' không thuộc danh sách tên miền "
-                            f"được phép (@{', @'.join(allowed_domains)}). Vui lòng sử dụng tài khoản Google công ty."
+                            f"được phép (@{', @'.join(allowed_domains)}) và chưa được liên kết với nhân sự nào trong hệ thống. "
+                            f"Vui lòng sử dụng tài khoản Google công ty hoặc liên hệ Quản trị viên để đăng ký tài khoản cá nhân này."
                         )
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # 2. TRA CỨU NHÂN VIÊN TRONG BẢNG EMPLOYEE (JUST-IN-TIME PROVISIONING)
-            employee = Employee.objects.filter(email__iexact=email, is_active=True).first()
-
             if employee:
-                # Nhân viên nội bộ: Tự động kích hoạt/đồng bộ tài khoản và phân quyền
+                # Nhân viên nội bộ hoặc Gmail cá nhân đã liên kết: Tự động kích hoạt/đồng bộ tài khoản và phân quyền
                 provision_res = provision_user_for_employee(employee, dry_run=False)
                 user = employee.user or User.objects.filter(username=email).first()
             else:

@@ -97,6 +97,13 @@ class Employee(models.Model):
         blank=True, 
         verbose_name="Email"
     )
+    google_sso_email = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Email Google cá nhân (Gmail) dùng để đăng nhập SSO (có thể nhập nhiều email cách nhau bởi dấu phẩy)",
+        verbose_name="Email Google cá nhân liên kết"
+    )
     user = models.OneToOneField(
         User,
         on_delete=models.SET_NULL,

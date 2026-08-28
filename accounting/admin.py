@@ -145,11 +145,21 @@ class EmployeeAssignmentInline(admin.TabularInline):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('employee_code', 'full_name', 'email', 'user_account', 'user_role', 'phone_number', 'is_active')
-    search_fields = ('employee_code', 'full_name', 'identity_number', 'email', 'phone_number', 'user__username')
+    list_display = ('employee_code', 'full_name', 'email', 'google_sso_email', 'user_account', 'user_role', 'phone_number', 'is_active')
+    search_fields = ('employee_code', 'full_name', 'identity_number', 'email', 'google_sso_email', 'phone_number', 'user__username')
     list_filter = ('is_active', 'gender', 'user__groups')
     raw_id_fields = ('user',)
     inlines = [EmployeeAssignmentInline]
+
+    fieldsets = (
+        ('Thông tin cơ bản', {
+            'fields': ('employee_code', 'full_name', 'gender', 'date_of_birth', 'identity_number', 'phone_number')
+        }),
+        ('Tài khoản & Định danh Google SSO', {
+            'fields': ('email', 'google_sso_email', 'user', 'is_active'),
+            'description': '💡 <b>Email Google cá nhân liên kết:</b> Nhập Gmail cá nhân của nhân sự (ví dụ: <code>user@gmail.com</code>). Có thể nhập nhiều email cách nhau bởi dấu phẩy.'
+        }),
+    )
 
     @admin.display(description="Tài khoản User")
     def user_account(self, obj):

@@ -802,7 +802,7 @@ python manage.py sync_employee_users --bu BU_ELEVATOR
 python manage.py sync_employee_users --email long.nguyen@haophuong.com
 ```
 
-### 17.3. REST API Đăng Nhập Google SSO (`POST /api/google-login/`)
+### 17.3. REST API Đăng Nhập Google SSO (`POST /api/google-login/`) & Liên Kết Gmail Cá Nhân
 * **Đường dẫn**: `POST /api/google-login/`
 * **Xác thực**: `AllowAny`
 * **Request Body (JSON)**:
@@ -811,14 +811,29 @@ python manage.py sync_employee_users --email long.nguyen@haophuong.com
     "id_token": "<GOOGLE_OAUTH2_ID_TOKEN>"
   }
   ```
-* **Luồng xử lý Just-In-Time (JIT) Provisioning**:
-  1. Xác thực Google ID Token và kiểm tra tên miền: Chỉ cho phép các domain trong `ALLOWED_SSO_DOMAINS` (mặc định: `['haophuong.com']`). Nếu ngoài domain -> trả về `403 Forbidden`.
-  2. Tra cứu trong bảng `Employee` theo email và kích hoạt **Động cơ phân quyền 4 tầng (4-Layer RBAC Engine)**:
+* **Luồng xử lý Just-In-Time (JIT) Provisioning & Mapping Gmail cá nhân**:
+  1. **Tra cứu nhân sự (`find_employee_by_login_email`)**:
+     - Tra cứu theo **Email công ty** (`Employee.email`).
+     - HOẶC tra cứu theo **Email Google cá nhân liên kết** (`Employee.google_sso_email` - hỗ trợ danh sách nhiều Gmail phân tách bởi dấu phẩy).
+  2. **Kiểm tra tên miền & Cấp quyền truy cập**:
+     - Cho phép đăng nhập nếu: Email thuộc domain trong `ALLOWED_SSO_DOMAINS` (mặc định: `['haophuong.com']`) **HOẶC** là Gmail cá nhân đã được Quản trị viên liên kết trước trong hồ sơ `Employee`.
+     - Nếu là Gmail lạ chưa được mapping và ngoài tên miền cho phép $\rightarrow$ Trả về `403 Forbidden` kèm thông báo hướng dẫn liên hệ Admin.
+  3. **Kích hoạt Động cơ phân quyền 4 tầng (4-Layer RBAC Engine)**:
      - **Tầng 1 (HR Assignments):** Ánh xạ từ `EmployeeAssignment` qua `DEPARTMENT_BU_REGISTRY`.
      - **Tầng 2 (BU Ownership):** Khớp người quản lý từ bảng `BusinessUnit.manager` -> gán `BU_HEAD`.
      - **Tầng 3 (Customer Portfolio):** Quét khách hàng được gán (`Customer.assigned_employee`) -> gán `SALES` tại BU tương ứng.
      - **Tầng 4 (Sales Operations):** Quét doanh số phát sinh (`SalesTransaction.employee`) -> gán `SALES` tại BU tương ứng.
-  3. **Nếu chưa có `Employee` trong CSDL**: Tạo `User` ở trạng thái `is_active=False` và gửi email cho Quản trị viên kích hoạt Mức 2.
+  4. **Lệnh CLI Quản trị Mapping Gmail Cá Nhân**:
+     ```powershell
+     # 1. Liên kết Gmail cá nhân cho Trưởng BU (Mã 3003)
+     python manage.py map_google_account --code 3003 --gmail dungdt88@gmail.com
+
+     # 2. Liệt kê danh sách tất cả nhân sự đã liên kết Gmail
+     python manage.py map_google_account --list
+
+     # 3. Gỡ bỏ Gmail cá nhân khỏi hồ sơ
+     python manage.py map_google_account --code 3003 --remove
+     ```
 * **Response Body (200 OK)**:
   ```json
   {

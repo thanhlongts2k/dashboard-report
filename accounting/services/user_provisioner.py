@@ -528,11 +528,45 @@ def determine_employee_role(employee: Employee):
     return info['primary_role'], info['primary_title'] or 'Nhân viên'
 
 
+def find_employee_by_login_email(email: str):
+    """
+    Tra cứu nhân viên theo Email công ty (email) hoặc Email Google cá nhân liên kết (google_sso_email).
+    Hỗ trợ google_sso_email chứa nhiều email phân tách bởi dấu phẩy hoặc chấm phẩy.
+    """
+    clean_email = (email or '').strip().lower()
+    if not clean_email:
+        return None
+
+    # 1. Tra cứu trực tiếp theo email công ty
+    emp = Employee.objects.filter(email__iexact=clean_email, is_active=True).first()
+    if emp:
+        return emp
+
+    # 2. Tra cứu theo google_sso_email cá nhân liên kết
+    candidates = Employee.objects.filter(google_sso_email__icontains=clean_email, is_active=True)
+    for candidate in candidates:
+        if candidate.google_sso_email:
+            linked_emails = [
+                e.strip().lower()
+                for e in candidate.google_sso_email.replace(';', ',').split(',')
+                if e.strip()
+            ]
+            if clean_email in linked_emails:
+                return candidate
+
+    return None
+
+
 def provision_user_for_employee(employee: Employee, dry_run: bool = False):
     """
     Đồng bộ hoặc tạo mới User cho 1 nhân viên cụ thể.
     """
     email = (employee.email or '').strip().lower()
+    if not email and employee.google_sso_email:
+        linked = [e.strip().lower() for e in employee.google_sso_email.replace(';', ',').split(',') if e.strip()]
+        if linked:
+            email = linked[0]
+
     if not email:
         return {
             'success': False,

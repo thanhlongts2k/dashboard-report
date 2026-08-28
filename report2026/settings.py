@@ -359,7 +359,7 @@ ADMIN_NOTIFICATION_EMAILS = env.list('ADMIN_NOTIFICATION_EMAILS', default=[])
 
 # Cấu hình Google OAuth2 Login & App URLs
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
-ALLOWED_SSO_DOMAINS = env.list('ALLOWED_SSO_DOMAINS', default=['haophuong.com','gmail.com'])
+ALLOWED_SSO_DOMAINS = env.list('ALLOWED_SSO_DOMAINS', default=['haophuong.com', 'gmail.com'])
 FRONTEND_URL = env('FRONTEND_URL', default=None)
 BACKEND_URL = env('BACKEND_URL', default=None)
 
