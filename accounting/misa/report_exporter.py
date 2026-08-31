@@ -538,235 +538,117 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         await close_misa_popups(page)
         await asyncio.sleep(1)
         
-        if not skip_parameters:
-            # Step 2: Click "Chọn tham số" button
-            param_btn_selectors = [
-                "button:has-text('Chọn tham số')",
-                ".btn:has-text('Chọn tham số')",
-                "div.ms-button:has-text('Chọn tham số')",
-                "span:has-text('Chọn tham số')",
-                ".dx-button-content:has-text('Chọn tham số')"
-            ]
-            param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
-            if not param_btn:
-                for f in page.frames:
-                    try:
-                        locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
-                        if await locator.is_visible(timeout=1000):
-                            param_btn = locator
-                            frame = f
-                            break
-                    except Exception:
-                        continue
-                        
-            os.makedirs(os.path.join(settings.BASE_DIR, 'scratch', 'screenshots'), exist_ok=True)
-            ss_dir = os.path.join(settings.BASE_DIR, 'scratch', 'screenshots')
+        is_saved_report = (report_url is None)
 
-            if param_btn:
-                logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
-                await param_btn.click(force=True)
-                await asyncio.sleep(1.5)
-                try:
-                    await page.screenshot(path=os.path.join(ss_dir, "01_opened_parameter_modal.png"))
-                except Exception:
-                    pass
-            else:
-                logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
-            
-            # Step 3: Check "Bao gồm số liệu chi nhánh phụ thuộc" checkbox (Fail-Fast)
-            logger.info("Clicking 'Bao gom so lieu chi nhanh phu thuoc' checkbox...")
-            branch_checked_success = False
-            try:
-                target_frame_for_checkbox = frame if frame else page
-                checkbox_label = target_frame_for_checkbox.locator("label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')").first
-                if await checkbox_label.count() == 0:
-                    checkbox_label = target_frame_for_checkbox.locator("label:has-text('chi nhánh phụ thuộc')").first
+        if is_saved_report:
+            if period_option:
+                logger.info(f"[{prefix}] Saved Report Mode: Opening 'Chọn tham số' to set period to '{period_option}'...")
+                # Step 2: Click "Chọn tham số" button
+                param_btn_selectors = [
+                    "button:has-text('Chọn tham số')",
+                    ".btn:has-text('Chọn tham số')",
+                    "div.ms-button:has-text('Chọn tham số')",
+                    "span:has-text('Chọn tham số')",
+                    ".dx-button-content:has-text('Chọn tham số')",
+                    "[title*='Chọn tham số']",
+                    "[aria-label*='Chọn tham số']",
+                    ".mi-param",
+                    ".icon-feature-param"
+                ]
+                param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
+                if not param_btn:
+                    for f in page.frames:
+                        try:
+                            locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
+                            if await locator.is_visible(timeout=1000):
+                                param_btn = locator
+                                frame = f
+                                break
+                        except Exception:
+                            continue
 
-                if await checkbox_label.count() > 0:
-                    checkbox_span = checkbox_label.locator("span.ms-checkbox").first
-                    is_already_checked = False
-                    if await checkbox_span.count() > 0:
-                        span_class = await checkbox_span.get_attribute("class") or ""
-                        is_already_checked = "checked-true" in span_class
-                        logger.info(f"Checkbox span class: '{span_class}', is_already_checked={is_already_checked}")
-                    else:
-                        checkbox_input = checkbox_label.locator("input[type='checkbox']").first
-                        if await checkbox_input.count() > 0:
-                            is_already_checked = await checkbox_input.is_checked()
+                if param_btn:
+                    logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
+                    await param_btn.click(force=True)
+                    await asyncio.sleep(1.5)
+                else:
+                    logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
 
-                    if not is_already_checked:
-                        logger.info("Checkbox not checked yet. Clicking label to toggle ON...")
-                        await checkbox_label.click(force=True)
-                        await asyncio.sleep(1.0)
-                        if await checkbox_span.count() > 0:
-                            span_class_after = await checkbox_span.get_attribute("class") or ""
-                            logger.info(f"Checkbox span class after click: '{span_class_after}'")
-                            is_already_checked = "checked-true" in span_class_after
-
-                        if not is_already_checked:
-                            for retry_sel in ["label:has-text('chi nhánh phụ thuộc')", ".ms-checkbox-label:has-text('chi nhánh phụ thuộc')"]:
-                                cb_retry = target_frame_for_checkbox.locator(retry_sel).first
-                                if await cb_retry.count() > 0:
-                                    await cb_retry.click(force=True)
-                                    await asyncio.sleep(1.0)
-                                    span_class_after2 = await checkbox_span.get_attribute("class") or ""
-                                    if "checked-true" in span_class_after2:
-                                        branch_checked_success = True
-                    else:
-                        logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
-                        branch_checked_success = True
-                try:
-                    await page.screenshot(path=os.path.join(ss_dir, "02_checked_branch_option.png"))
-                except Exception:
-                    pass
-            except Exception as chk_err:
-                logger.error(f"CRITICAL: Lỗi khi xử lý checkbox 'Bao gồm chi nhánh phụ thuộc': {chk_err}")
-                raise RuntimeError("CRITICAL: Không thể click chọn 'Bao gồm chi nhánh phụ thuộc'. Dừng tải file để tránh thiếu dữ liệu BU con.") from chk_err
-
-            if not branch_checked_success:
-                raise RuntimeError("CRITICAL: Không thể click chọn 'Bao gồm chi nhánh phụ thuộc'. Dừng tải file để tránh thiếu dữ liệu BU con.")
-
-            await asyncio.sleep(2.0)
-
-            # Step 3.1: Remove branch tags containing '_Nhật'
-            try:
-                await remove_nhat_branches(page)
-                try:
-                    await page.screenshot(path=os.path.join(ss_dir, "03_removed_nhat_tags.png"))
-                except Exception:
-                    pass
-            except Exception as e:
-                logger.error(f"Error removing '_Nhật' branches: {str(e)}")
-
-            if prefix == 'TAI_KHOAN_CT':
-                try:
-                    accounts_to_select = getattr(settings, 'MISA_SO_CHI_TIET_ACCOUNTS', ['111', '112', '341', '641', '642'])
-                    await select_accounts_for_so_chi_tiet(page, accounts_to_select)
-                    try:
-                        await page.screenshot(path=os.path.join(ss_dir, "06_account_level_and_5_accs.png"))
-                    except Exception:
-                        pass
-                except Exception as e:
-                    logger.error(f"Error selecting accounts for TAI_KHOAN_CT: {str(e)}")
-
-            if prefix == 'TUOI_NO_KH' and target_account:
-                try:
-                    await select_account_for_tuoi_no_kh(page, target_account)
-                except Exception as e:
-                    logger.error(f"Error selecting account '{target_account}' for TUOI_NO_KH: {str(e)}")
-
-            # Step 4: Choose Period ("Tháng này", "Tháng 6", etc.) — Fail-Fast
-            skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
-            target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
-            logger.info(f"Setting report period to: '{target_period}'...")
-            
-            if skip_ky_bao_cao:
-                logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as per commit 57a0e59 logic.")
-            else:
+                # Step 3: ONLY Choose Period ("Tháng trước", "Tháng 7", etc.)
+                target_period = period_option
+                logger.info(f"Setting saved report period to: '{target_period}'...")
                 ky_baocao_selectors = [
                     "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
                     "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
                     "xpath=//label[contains(text(), 'Kỳ')]/following::div[contains(@class,'ms-combo')][1]//input",
                     ".ms-combo input[placeholder*='Kỳ']"
                 ]
-                ky_input, frame = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
+                ky_input, _ = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
                 if not ky_input:
-                    raise RuntimeError("CRITICAL: Không tìm thấy combobox 'Kỳ báo cáo'. Dừng tiến trình để tránh tải sai thời gian.")
+                    logger.warning("Combobox 'Kỳ báo cáo' not found. Proceeding with current date parameters.")
+                else:
+                    await ky_input.click(force=True)
+                    await asyncio.sleep(0.5)
 
-                await ky_input.click(force=True)
-                await asyncio.sleep(0.5)
+                    target_period_vars = [target_period]
+                    if "Tháng " in target_period:
+                        num_part = target_period.replace("Tháng ", "").strip()
+                        if num_part.isdigit():
+                            num_val = int(num_part)
+                            target_period_vars.append(f"Tháng {num_val}")
+                            target_period_vars.append(f"Tháng {num_val:02d}")
 
-                # Support variations of period strings (e.g. 'Tháng 6' vs 'Tháng 06')
-                target_period_vars = [target_period]
-                if "Tháng " in target_period:
-                    num_part = target_period.replace("Tháng ", "").strip()
-                    if num_part.isdigit():
-                        num_val = int(num_part)
-                        target_period_vars.append(f"Tháng {num_val}")
-                        target_period_vars.append(f"Tháng {num_val:02d}")
+                    period_el = None
+                    selected_var = None
+                    for p_var in dict.fromkeys(target_period_vars):
+                        exact_period_selectors = [
+                            f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
+                            f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
+                            f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][contains(text(),'{p_var}')]",
+                            f"text='{p_var}'"
+                        ]
+                        period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=1500, close_blockers=False)
+                        if period_el:
+                            selected_var = p_var
+                            logger.info(f"Found period element matching '{p_var}' in dropdown.")
+                            break
 
-                period_el = None
-                selected_var = None
-                for p_var in dict.fromkeys(target_period_vars):
-                    exact_period_selectors = [
-                        f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
-                        f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
-                        f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][contains(text(),'{p_var}')]",
-                        f"text='{p_var}'"
-                    ]
-                    period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=1500, close_blockers=False)
                     if period_el:
-                        selected_var = p_var
-                        logger.info(f"Found period element matching '{p_var}' in dropdown.")
-                        break
+                        try:
+                            await period_el.click(force=True)
+                            logger.info(f"Selected period '{selected_var}' successfully via UI dropdown click.")
+                        except Exception as pe:
+                            logger.warning(f"Clicking period element '{selected_var}' failed: {pe}. Trying keyboard input...")
+                            period_el = None
 
-                if period_el:
-                    try:
-                        await period_el.click(force=True)
-                        logger.info(f"Selected period '{selected_var}' successfully via UI dropdown click.")
-                    except Exception as pe:
-                        logger.warning(f"Clicking period element '{selected_var}' failed: {pe}. Trying keyboard input...")
-                        period_el = None
+                    if not period_el:
+                        logger.info(f"Dropdown click failed/not found for '{target_period}'. Trying keyboard type into combobox...")
+                        try:
+                            await ky_input.click(force=True, click_count=3)
+                            await asyncio.sleep(0.3)
+                            await ky_input.type(target_period)
+                            await asyncio.sleep(0.5)
+                            await page.keyboard.press("Enter")
+                            await asyncio.sleep(0.5)
+                            period_el = True
+                            logger.info(f"Typed '{target_period}' and pressed Enter successfully into period combobox.")
+                        except Exception as e:
+                            logger.error(f"Failed to type '{target_period}' into period combobox: {str(e)}")
 
-                if not period_el:
-                    logger.info(f"Dropdown click failed/not found for '{target_period}'. Trying keyboard type into combobox...")
-                    try:
-                        await ky_input.click(force=True, click_count=3)
-                        await asyncio.sleep(0.3)
-                        await ky_input.type(target_period)
-                        await asyncio.sleep(0.5)
-                        await page.keyboard.press("Enter")
-                        await asyncio.sleep(0.5)
-                        period_el = True
-                        logger.info(f"Typed '{target_period}' and pressed Enter successfully into period combobox.")
-                    except Exception as e:
-                        logger.error(f"Failed to type '{target_period}' into period combobox: {str(e)}")
-                        period_el = None
+                # Step 4: Click "Đồng ý" / "Xem báo cáo" button
+                view_btn_selectors = [
+                    "button:has-text('Đồng ý')",
+                    "button:has-text('Xem báo cáo')",
+                    "div.ms-button:has-text('Đồng ý')",
+                    "div.ms-button:has-text('Xem báo cáo')"
+                ]
+                view_btn, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=5000)
+                if view_btn:
+                    logger.info("Clicking 'Dong y' / 'Xem bao cao' button...")
+                    await view_btn.click(force=True)
+                    await asyncio.sleep(1.5)
 
-                if not period_el:
-                    raise RuntimeError(f"CRITICAL: Không tìm thấy và không thể chọn Kỳ báo cáo '{target_period}' (đã thử các biến thể {target_period_vars}). Dừng tiến trình.")
-
-            try:
-                await page.screenshot(path=os.path.join(ss_dir, "04_selected_period.png"))
-            except Exception:
-                pass
-
-            # Step 5: Check ALL "Chọn tất cả" checkboxes and ensure items selected (skip for TAI_KHOAN_CT as per commit 57a0e59)
-            if prefix != 'TAI_KHOAN_CT':
-                await ensure_all_items_selected(frame if frame else page)
-                await check_all_select_all_checkboxes(page)
-                try:
-                    await page.screenshot(path=os.path.join(ss_dir, "05_checked_select_all.png"))
-                except Exception:
-                    pass
-
-            # Step 6: Click "Đồng ý" / "Xem báo cáo" button
-            view_btn_selectors = [
-                "button:has-text('Đồng ý')",
-                "button:has-text('Xem báo cáo')",
-                "div.ms-button:has-text('Đồng ý')",
-                "div.ms-button:has-text('Xem báo cáo')"
-            ]
-            view_btn, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=5000)
-            if view_btn:
-                logger.info("Clicking 'Dong y' / 'Xem bao cao' button...")
-                await view_btn.click(force=True)
-                await asyncio.sleep(1.5)
-
-                # Check if MISA warning popup appears ("Chưa chọn vật tư...", "Bạn chưa chọn...")
-                if await dismiss_misa_warning_if_any(page):
-                    logger.info("Re-checking all item checkboxes and re-clicking 'Đồng ý'...")
-                    await ensure_all_items_selected(page)
-                    await check_all_select_all_checkboxes(page)
-                    view_btn_retry, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=3000)
-                    if view_btn_retry:
-                        await view_btn_retry.click(force=True)
-                        await asyncio.sleep(1.5)
-
-                logger.info("Waiting 20s for report data to load...")
-                await asyncio.sleep(20)
-        else:
-            # Saved Report mode or Master Data: Quản lý trạng thái chờ bảng dữ liệu load hoàn tất
+            # Step 5: Wait for report grid data and loading overlays to finish
             if not is_master_data:
                 logger.info(f"[{prefix}] Saved Report mode: Waiting for report grid data and loading overlays to finish...")
                 for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading", ".dx-loadindicator", ".loading-spinner"]:
@@ -786,54 +668,296 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                         pass
                 await asyncio.sleep(3.0)
                 await close_misa_popups(page)
+        else:
+            # Direct URL Mode (Option 1): Full parameter configuration
+            if not skip_parameters:
+                # Step 2: Click "Chọn tham số" button
+                param_btn_selectors = [
+                    "button:has-text('Chọn tham số')",
+                    ".btn:has-text('Chọn tham số')",
+                    "div.ms-button:has-text('Chọn tham số')",
+                    "span:has-text('Chọn tham số')",
+                    ".dx-button-content:has-text('Chọn tham số')",
+                    "[title*='Chọn tham số']",
+                    "[aria-label*='Chọn tham số']",
+                    ".mi-param",
+                    ".icon-feature-param"
+                ]
+                param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
+                if not param_btn:
+                    for f in page.frames:
+                        try:
+                            locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
+                            if await locator.is_visible(timeout=1000):
+                                param_btn = locator
+                                frame = f
+                                break
+                        except Exception:
+                            continue
+                            
+                os.makedirs(os.path.join(settings.BASE_DIR, 'scratch', 'screenshots'), exist_ok=True)
+                ss_dir = os.path.join(settings.BASE_DIR, 'scratch', 'screenshots')
 
-        # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) for BAN_HANG only (Fail-Fast)
-        if prefix == 'BAN_HANG' and not skip_parameters:
-            logger.info("[BAN_HANG] Selecting 'Mẫu chuẩn.' template via gear settings button...")
-            gear_selectors = [
-                ".mi-setting__list-bold",  # Nút bánh răng cài đặt của lưới báo cáo MISA
-                "div.mi-setting__list-bold",
-                "xpath=//div[contains(@class, 'mi-setting__list-bold')]",
-                "xpath=//div[contains(@class, 'mi-setting') and not(contains(@class, 'header-icon')) and not(contains(@class, 'mi-setting-2__nav'))]"
-            ]
-            for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading"]:
+                if param_btn:
+                    logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
+                    await param_btn.click(force=True)
+                    await asyncio.sleep(1.5)
+                    try:
+                        await page.screenshot(path=os.path.join(ss_dir, "01_opened_parameter_modal.png"))
+                    except Exception:
+                        pass
+                else:
+                    logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
+                
+                # Step 3: Check "Bao gồm số liệu chi nhánh phụ thuộc" checkbox (Fail-Fast for direct URL)
+                logger.info("Checking 'Bao gom so lieu chi nhanh phu thuoc' checkbox status...")
+                branch_checked_success = False
                 try:
-                    await page.locator(loading_sel).first.wait_for(state="hidden", timeout=10000)
+                    target_frame_for_checkbox = frame if frame else page
+                    checkbox_label = target_frame_for_checkbox.locator("label:has-text('Bao gồm số liệu chi nhánh phụ thuộc')").first
+                    if await checkbox_label.count() == 0:
+                        checkbox_label = target_frame_for_checkbox.locator("label:has-text('chi nhánh phụ thuộc')").first
+
+                    if await checkbox_label.count() > 0:
+                        checkbox_span = checkbox_label.locator("span.ms-checkbox").first
+                        is_already_checked = False
+                        if await checkbox_span.count() > 0:
+                            span_class = await checkbox_span.get_attribute("class") or ""
+                            is_already_checked = "checked-true" in span_class
+                            logger.info(f"Checkbox span class: '{span_class}', is_already_checked={is_already_checked}")
+                        else:
+                            checkbox_input = checkbox_label.locator("input[type='checkbox']").first
+                            if await checkbox_input.count() > 0:
+                                is_already_checked = await checkbox_input.is_checked()
+
+                        if not is_already_checked:
+                            logger.info("Checkbox not checked yet. Clicking label to toggle ON...")
+                            await checkbox_label.click(force=True)
+                            await asyncio.sleep(1.0)
+                            if await checkbox_span.count() > 0:
+                                span_class_after = await checkbox_span.get_attribute("class") or ""
+                                logger.info(f"Checkbox span class after click: '{span_class_after}'")
+                                is_already_checked = "checked-true" in span_class_after
+
+                            if not is_already_checked:
+                                for retry_sel in ["label:has-text('chi nhánh phụ thuộc')", ".ms-checkbox-label:has-text('chi nhánh phụ thuộc')"]:
+                                    cb_retry = target_frame_for_checkbox.locator(retry_sel).first
+                                    if await cb_retry.count() > 0:
+                                        await cb_retry.click(force=True)
+                                        await asyncio.sleep(1.0)
+                                        span_class_after2 = await checkbox_span.get_attribute("class") or ""
+                                        if "checked-true" in span_class_after2:
+                                            branch_checked_success = True
+                            else:
+                                branch_checked_success = True
+                        else:
+                            logger.info("'Bao gom so lieu chi nhanh phu thuoc' is already checked.")
+                            branch_checked_success = True
+                    try:
+                        await page.screenshot(path=os.path.join(ss_dir, "02_checked_branch_option.png"))
+                    except Exception:
+                        pass
+                except Exception as chk_err:
+                    logger.error(f"CRITICAL: Lỗi khi xử lý checkbox 'Bao gồm chi nhánh phụ thuộc': {chk_err}")
+                    raise RuntimeError("CRITICAL: Không thể click chọn 'Bao gồm chi nhánh phụ thuộc'. Dừng tải file để tránh thiếu dữ liệu BU con.") from chk_err
+
+                if not branch_checked_success:
+                    raise RuntimeError("CRITICAL: Không thể click chọn 'Bao gồm chi nhánh phụ thuộc'. Dừng tải file để tránh thiếu dữ liệu BU con.")
+
+                await asyncio.sleep(2.0)
+
+                # Step 3.1: Remove branch tags containing '_Nhật'
+                try:
+                    await remove_nhat_branches(page)
+                    try:
+                        await page.screenshot(path=os.path.join(ss_dir, "03_removed_nhat_tags.png"))
+                    except Exception:
+                        pass
+                except Exception as e:
+                    logger.error(f"Error removing '_Nhật' branches: {str(e)}")
+
+                if prefix == 'TAI_KHOAN_CT':
+                    try:
+                        accounts_to_select = getattr(settings, 'MISA_SO_CHI_TIET_ACCOUNTS', ['111', '112', '341', '641', '642'])
+                        await select_accounts_for_so_chi_tiet(page, accounts_to_select)
+                        try:
+                            await page.screenshot(path=os.path.join(ss_dir, "06_account_level_and_5_accs.png"))
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        logger.error(f"Error selecting accounts for TAI_KHOAN_CT: {str(e)}")
+
+                if prefix == 'TUOI_NO_KH' and target_account:
+                    try:
+                        await select_account_for_tuoi_no_kh(page, target_account)
+                    except Exception as e:
+                        logger.error(f"Error selecting account '{target_account}' for TUOI_NO_KH: {str(e)}")
+
+                # Step 4: Choose Period ("Tháng này", "Tháng 6", etc.) — Fail-Fast
+                skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
+                target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
+                logger.info(f"Setting report period to: '{target_period}'...")
+                
+                if skip_ky_bao_cao:
+                    logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as per commit 57a0e59 logic.")
+                else:
+                    ky_baocao_selectors = [
+                        "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+                        "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+                        "xpath=//label[contains(text(), 'Kỳ')]/following::div[contains(@class,'ms-combo')][1]//input",
+                        ".ms-combo input[placeholder*='Kỳ']"
+                    ]
+                    ky_input, frame = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
+                    if not ky_input:
+                        raise RuntimeError("CRITICAL: Không tìm thấy combobox 'Kỳ báo cáo'. Dừng tiến trình để tránh tải sai thời gian.")
+
+                    await ky_input.click(force=True)
+                    await asyncio.sleep(0.5)
+
+                    # Support variations of period strings (e.g. 'Tháng 6' vs 'Tháng 06')
+                    target_period_vars = [target_period]
+                    if "Tháng " in target_period:
+                        num_part = target_period.replace("Tháng ", "").strip()
+                        if num_part.isdigit():
+                            num_val = int(num_part)
+                            target_period_vars.append(f"Tháng {num_val}")
+                            target_period_vars.append(f"Tháng {num_val:02d}")
+
+                    period_el = None
+                    selected_var = None
+                    for p_var in dict.fromkeys(target_period_vars):
+                        exact_period_selectors = [
+                            f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
+                            f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
+                            f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][contains(text(),'{p_var}')]",
+                            f"text='{p_var}'"
+                        ]
+                        period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=1500, close_blockers=False)
+                        if period_el:
+                            selected_var = p_var
+                            logger.info(f"Found period element matching '{p_var}' in dropdown.")
+                            break
+
+                    if period_el:
+                        try:
+                            await period_el.click(force=True)
+                            logger.info(f"Selected period '{selected_var}' successfully via UI dropdown click.")
+                        except Exception as pe:
+                            logger.warning(f"Clicking period element '{selected_var}' failed: {pe}. Trying keyboard input...")
+                            period_el = None
+
+                    if not period_el:
+                        logger.info(f"Dropdown click failed/not found for '{target_period}'. Trying keyboard type into combobox...")
+                        try:
+                            await ky_input.click(force=True, click_count=3)
+                            await asyncio.sleep(0.3)
+                            await ky_input.type(target_period)
+                            await asyncio.sleep(0.5)
+                            await page.keyboard.press("Enter")
+                            await asyncio.sleep(0.5)
+                            period_el = True
+                            logger.info(f"Typed '{target_period}' and pressed Enter successfully into period combobox.")
+                        except Exception as e:
+                            logger.error(f"Failed to type '{target_period}' into period combobox: {str(e)}")
+                            period_el = None
+
+                    if not period_el:
+                        raise RuntimeError(f"CRITICAL: Không tìm thấy và không thể chọn Kỳ báo cáo '{target_period}' (đã thử các biến thể {target_period_vars}). Dừng tiến trình.")
+
+                try:
+                    await page.screenshot(path=os.path.join(ss_dir, "04_selected_period.png"))
                 except Exception:
                     pass
 
-            # Chờ nút bánh răng xuất hiện (timeout 30s)
-            gear_btn, _ = await find_locator_in_any_frame(page, gear_selectors, timeout=30000)
-            if not gear_btn:
-                raise RuntimeError("CRITICAL: Không thể chuyển sang 'Mẫu chuẩn.'. Không tìm thấy nút bánh răng cài đặt sau 30s. File tải về sẽ bị thiếu cột. Đã dừng tiến trình.")
+                # Step 5: Check ALL "Chọn tất cả" checkboxes and ensure items selected (skip for TAI_KHOAN_CT as per commit 57a0e59)
+                if prefix != 'TAI_KHOAN_CT':
+                    await ensure_all_items_selected(frame if frame else page)
+                    await check_all_select_all_checkboxes(page)
+                    try:
+                        await page.screenshot(path=os.path.join(ss_dir, "05_checked_select_all.png"))
+                    except Exception:
+                        pass
 
-            logger.info("Clicking gear settings button...")
-            await gear_btn.click(force=True)
-            await asyncio.sleep(1.5)
+                # Step 6: Click "Đồng ý" / "Xem báo cáo" button
+                view_btn_selectors = [
+                    "button:has-text('Đồng ý')",
+                    "button:has-text('Xem báo cáo')",
+                    "div.ms-button:has-text('Đồng ý')",
+                    "div.ms-button:has-text('Xem báo cáo')"
+                ]
+                view_btn, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=5000)
+                if view_btn:
+                    logger.info("Clicking 'Dong y' / 'Xem bao cao' button...")
+                    await view_btn.click(force=True)
+                    await asyncio.sleep(1.5)
 
-            mau_chuan_item = None
-            for sel in ["text=Mẫu chuẩn.", "xpath=//span[contains(text(), 'Mẫu chuẩn.')]"]:
-                loc = page.locator(sel).first
-                try:
-                    if await loc.is_visible(timeout=2000):
-                        mau_chuan_item = loc
-                        break
-                except Exception:
-                    continue
+                    # Check if MISA warning popup appears ("Chưa chọn vật tư...", "Bạn chưa chọn...")
+                    if await dismiss_misa_warning_if_any(page):
+                        logger.info("Re-checking all item checkboxes and re-clicking 'Đồng ý'...")
+                        await ensure_all_items_selected(page)
+                        await check_all_select_all_checkboxes(page)
+                        view_btn_retry, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=3000)
+                        if view_btn_retry:
+                            await view_btn_retry.click(force=True)
+                            await asyncio.sleep(1.5)
 
-            if not mau_chuan_item:
-                mau_chuan_item = page.locator("text=Mẫu chuẩn.").first
-                try:
-                    await mau_chuan_item.wait_for(state="visible", timeout=4000)
-                except Exception:
-                    mau_chuan_item = None
+                    logger.info("Waiting for report data to load...")
+                    for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading", ".dx-loadindicator", ".loading-spinner"]:
+                        for f in [page] + page.frames:
+                            try:
+                                loc = f.locator(loading_sel).first
+                                if await loc.is_visible(timeout=500):
+                                    await loc.wait_for(state="hidden", timeout=25000)
+                            except Exception:
+                                pass
+                    await asyncio.sleep(3.0)
 
-            if not mau_chuan_item:
-                raise RuntimeError("CRITICAL: Không tìm thấy tùy chọn 'Mẫu chuẩn.' trong menu cài đặt. Đã dừng tiến trình.")
+            # Step 6.5: Select template "Mẫu chuẩn." (gear icon settings) for BAN_HANG only (Fail-Fast for direct URL)
+            if prefix == 'BAN_HANG' and not skip_parameters:
+                logger.info("[BAN_HANG] Selecting 'Mẫu chuẩn.' template via gear settings button...")
+                gear_selectors = [
+                    ".mi-setting__list-bold",
+                    "div.mi-setting__list-bold",
+                    "xpath=//div[contains(@class, 'mi-setting__list-bold')]",
+                    "xpath=//div[contains(@class, 'mi-setting') and not(contains(@class, 'header-icon')) and not(contains(@class, 'mi-setting-2__nav'))]"
+                ]
+                for loading_sel in [".dx-loadpanel", ".loading", ".ms-loading"]:
+                    try:
+                        await page.locator(loading_sel).first.wait_for(state="hidden", timeout=10000)
+                    except Exception:
+                        pass
 
-            logger.info("Selecting 'Mẫu chuẩn.' template option...")
-            await mau_chuan_item.click(force=True)
-            await asyncio.sleep(5.0)
+                gear_btn, _ = await find_locator_in_any_frame(page, gear_selectors, timeout=30000)
+                if not gear_btn:
+                    raise RuntimeError("CRITICAL: Không thể chuyển sang 'Mẫu chuẩn.'. Không tìm thấy nút bánh răng cài đặt sau 30s. File tải về sẽ bị thiếu cột. Đã dừng tiến trình.")
+
+                logger.info("Clicking gear settings button...")
+                await gear_btn.click(force=True)
+                await asyncio.sleep(1.5)
+
+                mau_chuan_item = None
+                for sel in ["text=Mẫu chuẩn.", "xpath=//span[contains(text(), 'Mẫu chuẩn.')]"]:
+                    loc = page.locator(sel).first
+                    try:
+                        if await loc.is_visible(timeout=2000):
+                            mau_chuan_item = loc
+                            break
+                    except Exception:
+                        continue
+
+                if not mau_chuan_item:
+                    mau_chuan_item = page.locator("text=Mẫu chuẩn.").first
+                    try:
+                        await mau_chuan_item.wait_for(state="visible", timeout=4000)
+                    except Exception:
+                        mau_chuan_item = None
+
+                if not mau_chuan_item:
+                    raise RuntimeError("CRITICAL: Không tìm thấy tùy chọn 'Mẫu chuẩn.' trong menu cài đặt. Đã dừng tiến trình.")
+
+                logger.info("Selecting 'Mẫu chuẩn.' template option...")
+                await mau_chuan_item.click(force=True)
+                await asyncio.sleep(5.0)
 
         # Step 7: Open download manager to clear old history before exporting (100% Commit 57a0e59)
         logger.info("Opening download manager to clear old history...")

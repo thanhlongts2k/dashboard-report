@@ -1126,6 +1126,60 @@ Trước đây, trên phần mềm kế toán MISA chưa có mã chi nhánh đ�
 python manage.py split_sab_data --year 2026
 ```
 
+---
+
+## 23. MISA Automation: Tải Báo Cáo Đã Lưu Kết Hợp Tùy Chọn Đổi Kỳ (Tháng Trước / Tùy Chỉnh)
+
+### 23.1. Tổng Quan Kiến Trúc
+Hệ thống kết hợp ưu điểm của cả 2 chế độ xuất báo cáo:
+1. **Kế thừa 100% mẫu đã lưu (Option 2 — `USE_OPTION_EXPORT_REPORT_MISA=2`)**: Mở đúng các mẫu báo cáo chuẩn trên `ReportSavedList` (`01 - Sổ chi tiết bán hàng` đến `07 - Bảng kê số dư ngân hàng`), giữ nguyên cấu hình cột chi tiết, mã nhân viên, BU.
+2. **Đổi kỳ báo cáo linh hoạt**: Tự động mở modal **"Chọn tham số"** -> Đổi combobox **"Kỳ báo cáo"** sang kỳ được chỉ định (ví dụ: *"Tháng trước"*, *"Tháng 7"*, *"Quý trước"*...) -> Bấm **"Đồng ý"** -> Chờ dữ liệu load lại -> Bấm **"Xuất khẩu"** Excel.
+
+### 23.2. Bảng Mapping Mẫu Báo Cáo Đã Lưu & Quy Tắc Đổi Kỳ
+
+| Mã Prefix | Tên Mẫu Báo Cáo Đã Lưu trên MISA | Xử lý Tham số & Xuất khẩu |
+| :--- | :--- | :--- |
+| `BAN_HANG` | `01 - Sổ chi tiết bán hàng` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
+| `MUA_HANG` | `02 - Sổ chi tiết mua hàng` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
+| `TON_KHO` | `03 - Tổng hợp tồn kho` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
+| `CONG_NO_NCC` | `04 - Tổng hợp công nợ phải trả nhà cung cấp` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
+| `TAI_KHOAN_CT` | `05 - Sổ chi tiết các tài khoản` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
+| `TUOI_NO_KH` | `06 - Chi tiết công nợ phải thu theo tuổi nợ 131` & `06 - Chi tiết công nợ phải thu theo tuổi nợ 1311` | Mở từng mẫu lưu -> Đổi kỳ/ngày -> Xuất Excel -> Tự động Merge 2 file kèm cột `Tài khoản` (131 / 1311) |
+| `SO_DU_NH` | `07 - Bảng kê số dư ngân hàng` | Mở mẫu lưu -> Đổi ngày đến cuối tháng -> Xem báo cáo -> Xuất Excel |
+| `DANH_SACH_KHACH_HANG` | Danh mục Khách hàng (`DICustomer`) | Xuất nhanh trực tiếp Master Data qua icon `.mi-s1-file-export` |
+| `DANH_SACH_NHAN_VIEN` | Danh mục Nhân viên (`DIEmployee`) | Xuất nhanh trực tiếp Master Data qua icon `.mi-s1-file-export` |
+
+### 23.3. Hướng Dẫn Sử Dụng Dòng Lệnh (CLI Guide)
+
+```bash
+# -------------------------------------------------------------
+# 1. Script 1-Click tải trọn gói Báo cáo đã lưu cho THÁNG TRƯỚC:
+# -------------------------------------------------------------
+# Chỉ tải file Excel về media/auto_imports/:
+python scripts/download_last_month_saved_reports.py
+
+# Tải file Excel + Tự động Import DB + Tính toán lại KPI Tháng trước:
+python scripts/download_last_month_saved_reports.py --auto-import
+
+# Tải cho kỳ tùy chỉnh (ví dụ: 'Tháng 7', 'Tháng 07', 'Quý trước'...):
+python scripts/download_last_month_saved_reports.py --period "Tháng 7" --auto-import
+
+# -------------------------------------------------------------
+# 2. Sử dụng download_report.py theo từng báo cáo hoặc toàn bộ:
+# -------------------------------------------------------------
+# Tải toàn bộ báo cáo Tháng trước (dùng Mẫu đã lưu):
+python download_report.py ALL --period "Tháng trước"
+
+# Tải riêng từng báo cáo của Tháng trước:
+python download_report.py BAN_HANG --period "Tháng trước"
+python download_report.py TON_KHO --period "Tháng trước"
+python download_report.py TUOI_NO_KH --period "Tháng trước"
+
+# Tùy chọn ép dùng Mẫu đã lưu hoặc URL động:
+python download_report.py BAN_HANG --period "Tháng trước" --use-saved-reports
+python download_report.py BAN_HANG --period "Tháng trước" --no-saved-reports
+```
+
 
 
 

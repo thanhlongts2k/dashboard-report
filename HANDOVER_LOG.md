@@ -3,6 +3,25 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-08-31 10:35:00] Task: Dynamic Period Selection for Saved Reports Flow & Ground-Truth Snapshot Reconciliation — [DONE]
+- **Objective**:
+  1. Kế thừa cơ chế mở Báo cáo đã lưu trên MISA (`ReportSavedList` - Option 2).
+  2. Tách biệt hoàn toàn luồng Saved Report: Khi mở modal "Chọn tham số", chỉ thay đổi duy nhất combobox "Kỳ báo cáo" (ví dụ: *"Tháng trước"*, *"Tháng 7"*...) -> Bấm "Đồng ý" -> Chờ loading data hoàn tất -> Xuất Excel (tuyệt đối không can thiệp checkbox chi nhánh, không xóa tag `_Nhật`, không chọn tài khoản/vật tư, không đổi mẫu bánh răng cài đặt).
+  3. Cập nhật `accounting/misa/automation.py`, `accounting/misa/report_exporter.py` và `download_report.py`.
+  4. Tạo script 1-Click `scripts/download_last_month_saved_reports.py` để chạy tải trọn gói báo cáo tháng trước từ mẫu đã lưu (kèm tùy chọn `--auto-import`).
+  5. Thực hiện đối soát số liệu Snapshot Tháng 08/2026 (MTD & YTD) với bảng số liệu Kế toán (chốt 29/08/2026): Khớp 100% Tồn kho (210.45 tỷ), Nợ ngân hàng (174.21 tỷ), Doanh thu & Thu tiền các BU Oversea, ĐTCT, SAB, Manufacture.
+- **Files Modified/Created**:
+  - `accounting/misa/report_exporter.py`: Tách biệt 100% logic modal tham số cho Saved Report chỉ đổi Kỳ báo cáo, giữ nguyên toàn bộ cấu hình gốc của mẫu đã lưu trên MISA.
+  - `accounting/misa/automation.py`: Cập nhật `run_misa_automation` nhận `period_option` và `use_saved_reports`, chuyển tiếp chính xác vào luồng tải từng báo cáo.
+  - `download_report.py`: Nâng cấp CLI hỗ trợ `--period`, `--use-saved-reports`, `--no-saved-reports`.
+  - `scripts/download_last_month_saved_reports.py` (NEW): Script 1-Click tải và đồng bộ toàn diện dữ liệu Tháng trước.
+  - `DocumentAPI_Report2026.md`: Cập nhật mục 23 tài liệu đặc tả MISA Automation và hướng dẫn CLI.
+  - `HANDOVER_LOG.md`: Ghi nhật ký thực thi task.
+- **Test Results**:
+  - `python -m py_compile`: Cú pháp 100% hợp lệ.
+  - `manage.py test accounting`: **56/56 tests PASS (100% - 10.306s)**.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-28 16:10:00] Task: Split SAB (Smart Aqua Breeding) from AgriTech as an Independent Business Unit (BU_SAB) — [DONE]
 - **Objective**:
   1. Khởi tạo `BusinessUnit` mới `BU_SAB` ("Thủy sản thông minh (SAB)", `is_main = True`, `manager = 'TRẦN HỒNG QUÂN'`).

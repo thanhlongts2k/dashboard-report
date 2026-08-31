@@ -9,8 +9,13 @@ from .report_exporter import download_report_from_url, merge_tuoi_no_kh_excel_fi
 
 logger = logging.getLogger(__name__)
 
-async def run_misa_automation(period_option=None, prefix_filter=None):
-    """Chạy tự động tải báo cáo MISA. Nếu prefix_filter được truyền vào, chỉ tải đúng 1 loại báo cáo khớp tiền tố đó."""
+async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_reports=None):
+    """
+    Chạy tự động tải báo cáo MISA.
+    - period_option: Kỳ báo cáo tùy chọn (ví dụ: 'Tháng trước', 'Tháng này', 'Tháng 7', 'Năm nay'...).
+    - prefix_filter: Lọc chỉ tải đúng 1 loại báo cáo khớp prefix (ví dụ: 'BAN_HANG', 'TON_KHO'...).
+    - use_saved_reports: True để ép dùng mẫu đã lưu (Option 2), False để dùng URL động (Option 1), None để lấy theo settings.
+    """
     email = settings.MISA_EMAIL
     password = settings.MISA_PASSWORD
     headless = settings.MISA_HEADLESS
@@ -65,12 +70,22 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
             logger.warning(f"Could not inject init script: {e}")
 
         page = await context.new_page()
+
+        # Step 1: Open MISA and check login session
+        logger.info("Opening MISA web app...")
+        try:
+            await page.goto("https://actapp.misa.vn/", timeout=30000, wait_until="load")
+        except Exception as e:
+            logger.warning(f"Initial page navigation timed out or failed: {str(e)}")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+        except Exception:
+            pass
+            
+        await close_misa_popups(page)
+        await asyncio.sleep(2)
         
         try:
-            logger.info("Verifying session state by navigating to MISA home...")
-            await page.goto("https://actapp.misa.vn/", timeout=30000, wait_until="load")
-            await asyncio.sleep(3)
-            
             if "login" in page.url or "sso" in page.url or "id.misa.vn" in page.url or "amisapp.misa.vn/login" in page.url:
                 logger.info("Session expired. Logging in...")
                 await login_to_misa(page, context, email, password)
@@ -85,10 +100,13 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
         failed_count = 0
         failed_details = []
 
-        use_saved_reports_option = getattr(settings, 'USE_OPTION_EXPORT_REPORT_MISA', 2) == 2
+        if use_saved_reports is not None:
+            use_saved_reports_option = bool(use_saved_reports)
+        else:
+            use_saved_reports_option = getattr(settings, 'USE_OPTION_EXPORT_REPORT_MISA', 2) == 2
         
         if use_saved_reports_option:
-            logger.info("Using USE_OPTION_EXPORT_REPORT_MISA = 2 (Saved Reports Flow)")
+            logger.info(f"Using USE_OPTION_EXPORT_REPORT_MISA = 2 (Saved Reports Flow with period_option='{period_option}')")
             if prefix_filter:
                 logger.info(f"[prefix_filter] Only processing prefix: '{prefix_filter}'")
             
@@ -124,7 +142,7 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
                         continue
                     filename = f"{prefix}_{file_suffix}.xlsx"
                     output_path = os.path.join(auto_imports_dir, filename)
-                    logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix})")
+                    logger.info(f"Processing saved report: '{report_name}' (Prefix: {prefix}, Period: '{period_option}')")
                     
                     # Đảm bảo page đang ở ReportSavedList
                     try:
@@ -143,7 +161,11 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
                         continue
                         
                     try:
-                        success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, prefix=prefix, skip_parameters=True)
+                        skip_params_flag = False if period_option else True
+                        success = await download_report_from_url(
+                            target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, 
+                            prefix=prefix, skip_parameters=skip_params_flag, period_option=period_option
+                        )
                         if success:
                             downloaded_count += 1
                         else:
@@ -186,7 +208,7 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
 
                     for acc_code, report_name in tuoi_no_saved_reports:
                         temp_file = os.path.join(scratch_dir, f"temp_TUOI_NO_KH_{acc_code}.xlsx")
-                        logger.info(f"[TUOI_NO_KH] Downloading saved report '{report_name}' -> {temp_file}")
+                        logger.info(f"[TUOI_NO_KH] Downloading saved report '{report_name}' -> {temp_file} (Period: '{period_option}')")
                         
                         # Đảm bảo page đang ở ReportSavedList
                         try:
@@ -203,7 +225,11 @@ async def run_misa_automation(period_option=None, prefix_filter=None):
                             continue
 
                         try:
-                            success = await download_report_from_url(target_page, None, settings.MISA_EXPORT_SELECTOR, temp_file, prefix='TUOI_NO_KH', skip_parameters=True)
+                            skip_params_flag = False if period_option else True
+                            success = await download_report_from_url(
+                                target_page, None, settings.MISA_EXPORT_SELECTOR, temp_file, 
+                                prefix='TUOI_NO_KH', skip_parameters=skip_params_flag, period_option=period_option
+                            )
                             if success and os.path.exists(temp_file):
                                 acc_file_map[acc_code] = temp_file
                         except Exception as e:
