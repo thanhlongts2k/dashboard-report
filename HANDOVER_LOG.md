@@ -3,6 +3,64 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-09-03 09:25:00] Execution: Merge TUOI_NO_KH (131 + 1311) & Run sync_current_month --only-import — [DONE]
+- **Objective**:
+  1. Gộp 2 file `TUOI_NO_KH_131_20260903.xlsx` (TK 131) và `TUOI_NO_KH_1311_20260903.xlsx` (TK 1311) thành file `TUOI_NO_KH_20260903.xlsx` theo chuẩn MISA automation `merge_tuoi_no_kh_excel_files`.
+  2. Di chuyển các file thô vào `backup/` để tránh trùng lặp dữ liệu.
+  3. Thực thi lệnh: `python scripts/sync_current_month.py --only-import`.
+- **Results**:
+  - Gộp thành công 2 file tuổi nợ: Tạo file `media/auto_imports/TUOI_NO_KH_20260903.xlsx` (317 KB).
+  - Nạp CSDL thành công toàn bộ dữ liệu Tháng 09/2026:
+    * `BAN_HANG`: 3 dòng
+    * `TON_KHO`: 4,986 dòng
+    * `CONG_NO_NCC`: 129 dòng
+    * `TUOI_NO_KH`: 2,820 dòng
+    * `SO_DU_NH`: 10 dòng
+  - Tự động tính toán công nợ cho 190 nhân viên & quản lý kỳ 2026-09.
+  - Cập nhật chỉ số KPI Tháng 09/2026 cho Tổng công ty và 22 BU.
+  - Đồng bộ tồn kho kho hàng kỳ 2026-09 thành công.
+- **Current Status**: **[DONE]**
+
+## [2026-09-03 09:10:00] Task: Document 1-Click Current Month (Tháng Này) Sync & KPI Calculation in Run_Test_Scripts.md — [DONE]
+- **Objective**:
+  1. Nâng cấp script `scripts/sync_current_month.py` bổ sung các tham số CLI linh hoạt (`--only-kpi`, `--only-download`, `--only-import`, `--prefix`) để hỗ trợ người dùng có thể chạy 1-Click toàn bộ hoặc chạy riêng lẻ tải/tính toán KPI cho THÁNG NÀY.
+  2. Cập nhật tài liệu `Run_Test_Scripts.md`: Bổ sung Mục lục nhanh và Mục 6.18 chi tiết hướng dẫn đầy đủ các kịch bản chạy tải và tính KPI Tháng này (CLI scripts, Django management commands).
+  3. Cập nhật `HANDOVER_LOG.md` theo chuẩn quy trình SOP.
+- **Files Modified**:
+  - `scripts/sync_current_month.py`: Bổ sung `argparse` hỗ trợ `--only-kpi`, `--only-download`, `--only-import`, `--prefix`, kết nối với `run_misa_automation` (Saved Reports).
+  - `Run_Test_Scripts.md`: Cập nhật Quick TOC và bổ sung Mục 6.18.
+  - `HANDOVER_LOG.md`: Ghi nhận hoàn thành task.
+- **Verification**:
+  - `python -m py_compile scripts/sync_current_month.py`: PASS (0 lỗi).
+  - `python scripts/sync_current_month.py --help`: Hiển thị đầy đủ menu trợ giúp options.
+- **Current Status**: **[DONE]**
+
+## [2026-09-03 08:26:00] Task: Document 1-Click Last Month Saved Reports & Executive Dashboard in Run_Test_Scripts.md — [DONE]
+- **Objective**:
+  1. Cập nhật tài liệu `Run_Test_Scripts.md` bổ sung hướng dẫn chạy Script 1-Click `scripts/download_last_month_saved_reports.py` (tự động tải báo cáo đã lưu cho kỳ Tháng trước/kỳ tùy chỉnh, nạp DB và tính toán lại KPI Dashboard).
+  2. Bổ sung lệnh CLI `send_executive_dashboard` gửi Báo cáo điều hành BOD vào bảng tra cứu nhanh và mục công cụ tiện ích.
+  3. Cập nhật bảng mục lục nhanh (Quick Table of Contents) ở đầu tài liệu `Run_Test_Scripts.md`.
+- **Files Modified**:
+  - `Run_Test_Scripts.md`: Cập nhật Mục lục nhanh, thêm Mục 6.16 (Script 1-Click `download_last_month_saved_reports.py`) và Mục 6.17 (Lệnh `send_executive_dashboard`).
+  - `HANDOVER_LOG.md`: Ghi nhận trạng thái hoàn thành.
+- **Current Status**: **[DONE]**
+
+## [2026-09-03 08:05:00] Task: Fix Multi-Recipient Email Parsing for Executive Dashboard (BOD) — [DONE]
+- **Objective**:
+  1. Xử lý triệt để lỗi `Invalid address '...': must be a single address` khi gửi email Executive Dashboard đến nhiều người nhận chính (BOD) hoặc danh sách CC được phân cách bằng dấu phẩy/chấm phẩy trong `.env` hoặc tham số gọi hàm.
+  2. Bổ sung hàm tiện ích `parse_email_list(emails)` chuẩn hóa danh sách email từ kiểu `str` (phân cách bởi `,` hoặc `;`), `list`, `tuple`, `set`, tự động trim, lọc email hợp lệ và khử trùng lặp.
+  3. Cập nhật các hàm gửi email trong `accounting/services/debt_mailer.py` (`send_executive_dashboard_email`, `send_sales_debt_email`, `send_bu_manager_debt_email`) để hỗ trợ danh sách `valid_to` và `valid_cc`.
+  4. Bổ sung Unit Tests kiểm thử gửi email đến nhiều người nhận trong `accounting/tests.py`.
+- **Files Modified**:
+  - `accounting/services/debt_mailer.py`: Thêm `parse_email_list(emails)` và cập nhật `send_executive_dashboard_email`, `send_sales_debt_email`, `send_bu_manager_debt_email` sử dụng `valid_to` và `valid_cc` an toàn.
+  - `accounting/tests.py`: Thêm unit test `test_parse_email_list_utility` và cập nhật `test_send_executive_dashboard_celery_task` kiểm thử gửi đồng thời 3 email BOD và 3 email CC.
+  - `HANDOVER_LOG.md`: Ghi nhật ký thực thi task.
+- **Test Results**:
+  - `python -m py_compile accounting/services/debt_mailer.py`: 100% hợp lệ.
+  - `python manage.py test accounting`: **57/57 tests PASS (100% - 11.554s)**.
+  - Celery Task log mô phỏng: `✅ Đã gửi email Executive Dashboard đến: duong@haophuong.com, dinh.pham@haophuong.com, tan@haophuong.com (CC: ['hon.nguyen@haophuong.com', 'quan.dhm@haophuong.com', 'long.nguyenthanh@haophuong.com'])`.
+- **Current Status**: **[DONE]**
+
 ## [2026-08-31 10:35:00] Task: Dynamic Period Selection for Saved Reports Flow & Ground-Truth Snapshot Reconciliation — [DONE]
 - **Objective**:
   1. Kế thừa cơ chế mở Báo cáo đã lưu trên MISA (`ReportSavedList` - Option 2).

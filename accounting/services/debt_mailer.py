@@ -1,3 +1,4 @@
+import re
 import logging
 import calendar
 from decimal import Decimal
@@ -47,6 +48,33 @@ def format_period_display(period_str):
         return f"Tháng {parts[1]}/{parts[0]}"
     except Exception:
         return period_str
+
+
+def parse_email_list(emails):
+    """
+    Parse chuỗi hoặc danh sách email thành list các email hợp lệ (loại bỏ khoảng trắng, hỗ trợ phân tách bằng dấu phẩy hoặc chấm phẩy).
+    Hỗ trợ:
+    - str: "a@haophuong.com, b@haophuong.com; c@haophuong.com"
+    - list/tuple/set: ["a@haophuong.com", "b@haophuong.com, c@haophuong.com"]
+    """
+    if not emails:
+        return []
+    raw_list = []
+    if isinstance(emails, str):
+        raw_list = [e.strip() for e in re.split(r'[,;]+', emails) if e.strip()]
+    elif isinstance(emails, (list, tuple, set)):
+        for item in emails:
+            if isinstance(item, str):
+                raw_list.extend([e.strip() for e in re.split(r'[,;]+', item) if e.strip()])
+    valid = [e for e in raw_list if '@' in e and not e.startswith('@') and not e.endswith('@')]
+    # Loại bỏ trùng lặp mà vẫn giữ nguyên thứ tự
+    seen = set()
+    result = []
+    for e in valid:
+        if e.lower() not in seen:
+            seen.add(e.lower())
+            result.append(e)
+    return result
 
 
 def get_bu_manager_info(bu):
@@ -469,16 +497,22 @@ def send_sales_debt_email(sales_data, period, dry_run=False, test_email=None, ov
     Ban Quản Trị Hệ Thống Hạo Phương.
     """
 
-    valid_cc = [e.strip() for e in (cc_emails or []) if e and isinstance(e, str) and '@' in e]
-    msg = EmailMultiAlternatives(subject, text_content, from_email, [recipient_email], cc=valid_cc)
+    valid_to = parse_email_list(recipient_email)
+    if not valid_to:
+        logger.warning(f"⚠️ Không thể gửi mail cho Sales {sales_data.get('full_name')} ({sales_data.get('employee_code')}): Thiếu email hợp lệ.")
+        return False, "Thiếu email hợp lệ"
+
+    valid_cc = parse_email_list(cc_emails)
+    valid_cc = [c for c in valid_cc if c.lower() not in {t.lower() for t in valid_to}]
+    msg = EmailMultiAlternatives(subject, text_content, from_email, valid_to, cc=valid_cc)
     msg.attach_alternative(html_content, "text/html")
 
     try:
         msg.send(fail_silently=False)
-        logger.info(f"✅ Đã gửi email nhắc nợ cho Sales: {sales_data.get('full_name')} ({recipient_email}) [CC: {valid_cc}]")
+        logger.info(f"✅ Đã gửi email nhắc nợ cho Sales: {sales_data.get('full_name')} ({', '.join(valid_to)}) [CC: {valid_cc}]")
         return True, "Gửi thành công"
     except Exception as e:
-        logger.error(f"❌ Thất bại khi gửi email cho Sales {sales_data.get('full_name')} ({recipient_email}): {e}")
+        logger.error(f"❌ Thất bại khi gửi email cho Sales {sales_data.get('full_name')} ({', '.join(valid_to)}): {e}")
         return False, str(e)
 
 
@@ -533,16 +567,22 @@ def send_bu_manager_debt_email(bu_data, period, dry_run=False, test_email=None, 
     Ban Quản Trị Hệ Thống Hạo Phương.
     """
 
-    valid_cc = [e.strip() for e in (cc_emails or []) if e and isinstance(e, str) and '@' in e]
-    msg = EmailMultiAlternatives(subject, text_content, from_email, [recipient_email], cc=valid_cc)
+    valid_to = parse_email_list(recipient_email)
+    if not valid_to:
+        logger.warning(f"⚠️ Không thể gửi mail cho Trưởng BU {bu_data.get('manager_name')} ({bu_data.get('bu_name')}): Thiếu email hợp lệ.")
+        return False, "Thiếu email hợp lệ"
+
+    valid_cc = parse_email_list(cc_emails)
+    valid_cc = [c for c in valid_cc if c.lower() not in {t.lower() for t in valid_to}]
+    msg = EmailMultiAlternatives(subject, text_content, from_email, valid_to, cc=valid_cc)
     msg.attach_alternative(html_content, "text/html")
 
     try:
         msg.send(fail_silently=False)
-        logger.info(f"✅ Đã gửi email tổng hợp công nợ cho Trưởng BU: {bu_data.get('manager_name')} ({recipient_email}) [CC: {valid_cc}]")
+        logger.info(f"✅ Đã gửi email tổng hợp công nợ cho Trưởng BU: {bu_data.get('manager_name')} ({', '.join(valid_to)}) [CC: {valid_cc}]")
         return True, "Gửi thành công"
     except Exception as e:
-        logger.error(f"❌ Thất bại khi gửi email cho Trưởng BU {bu_data.get('manager_name')} ({recipient_email}): {e}")
+        logger.error(f"❌ Thất bại khi gửi email cho Trưởng BU {bu_data.get('manager_name')} ({', '.join(valid_to)}): {e}")
         return False, str(e)
 
 
@@ -1100,10 +1140,15 @@ def collect_executive_dashboard_data(report_date=None, period=None):
 
 def send_executive_dashboard_email(to_email, cc_emails=None, report_date=None, period=None, dry_run=False):
     """
-    Render và gửi email Báo Cáo Điều Hành Tổng Quan (Executive Dashboard) chuẩn Web Dashboard
+    Render và gửi email Báo Cáo Điều Hành Tổng Quan (Executive Dashboard) chuẩn Web Dashboard.
+    Hỗ trợ to_email và cc_emails dạng đơn lẻ, chuỗi phân cách dấu phẩy/chấm phẩy, hoặc danh sách list/tuple/set.
     """
-    if not to_email or '@' not in to_email:
+    valid_to = parse_email_list(to_email)
+    if not valid_to:
         return False, "Địa chỉ email người nhận không hợp lệ"
+
+    valid_cc = parse_email_list(cc_emails)
+    valid_cc = [c for c in valid_cc if c.lower() not in {t.lower() for t in valid_to}]
 
     context = collect_executive_dashboard_data(report_date=report_date, period=period)
     period_display = context['period_display']
@@ -1140,14 +1185,14 @@ def send_executive_dashboard_email(to_email, cc_emails=None, report_date=None, p
     Ban Quản Trị Hệ Thống Hạo Phương.
     """
 
-    valid_cc = [e.strip() for e in (cc_emails or []) if e and isinstance(e, str) and '@' in e]
-    msg = EmailMultiAlternatives(subject, text_content, from_email, [to_email.strip()], cc=valid_cc)
+    msg = EmailMultiAlternatives(subject, text_content, from_email, valid_to, cc=valid_cc)
     msg.attach_alternative(html_content, "text/html")
 
+    to_display = ", ".join(valid_to)
     try:
         msg.send(fail_silently=False)
-        logger.info(f"✅ Đã gửi email Executive Dashboard đến: {to_email} (CC: {valid_cc})")
+        logger.info(f"✅ Đã gửi email Executive Dashboard đến: {to_display} (CC: {valid_cc})")
         return True, "Gửi email thành công"
     except Exception as e:
-        logger.error(f"❌ Thất bại khi gửi email Executive Dashboard đến {to_email}: {e}")
+        logger.error(f"❌ Thất bại khi gửi email Executive Dashboard đến {to_display}: {e}")
         return False, str(e)

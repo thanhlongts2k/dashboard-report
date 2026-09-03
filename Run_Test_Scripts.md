@@ -25,6 +25,9 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Nạp Danh mục Khách hàng & Mapping Sales | `python scripts/import_customer_mapping.py` | [Mục 6.9](#69-nạp-danh-mục-khách-hàng--mapping-sales-phụ-trách-import_customer_mappingpy) |
 | Báo cáo Phân cấp Công nợ 3 tầng (BU -> Sales -> KH) | `python scripts/report_3tier_bu_drilldown.py` | [Mục 6.11](#611-báo-cáo-công-nợ-phân-cấp-3-tầng-drilldown-report_3tier_bu_drilldownpy) |
 | Gửi Thử Nghiệm / Live Email Nhắc Nợ | `python scripts/send_live_debt_reminders.py` | [Mục 6.15](#615-công-cụ-kích-hoạt-gửi-email-nhắc-nợ-cli--live-send_live_debt_reminderspy) |
+| **🚀 Tải Saved Reports Tháng trước & Tính KPI (1-Click)** | `python scripts/download_last_month_saved_reports.py --auto-import` | [Mục 6.16](#616-script-1-click-tải-báo-cáo-misa-đã-lưu-tháng-trước--tự-động-tính-kpi-download_last_month_saved_reportspy) |
+| **⚡ Tải Saved Reports Tháng này & Tính KPI (1-Click)** | `python scripts/sync_current_month.py` | [Mục 6.18](#618-script-1-click-tải-báo-cáo-misa-đã-lưu-tháng-này--tự-động-tính-kpi-sync_current_monthpy) |
+| **📊 Gửi Email Báo Cáo Điều Hành BOD (Executive Dashboard)** | `python manage.py send_executive_dashboard --to-email <email>` | [Mục 6.17](#617-lệnh-gửi-email-báo-cáo-điều-hành-ban-lãnh-đạo-send_executive_dashboard) |
 | Chạy Unit Test Suite kiểm thử hệ thống | `python manage.py test accounting` | [Mục 5.2](#52-chạy-toàn-bộ-test-suite-backend) |
 
 ---
@@ -417,3 +420,71 @@ python scripts/send_live_debt_reminders.py --period 2026-08 --live --recipient-t
 # 5. Chỉ gửi thực tế cho 1 BU cụ thể (Ví dụ BU Thang Máy):
 python scripts/send_live_debt_reminders.py --period 2026-08 --live --bu BU_ELEVATOR
 ```
+
+### 6.16. Script 1-Click: Tải Báo Cáo MISA Đã Lưu Tháng Trước & Tự Động Tính KPI (`download_last_month_saved_reports.py`)
+
+Script chuyên dụng kế thừa 100% mẫu báo cáo đã lưu (Saved Reports - Option 2) trên MISA Web. Bot tự động mở danh sách báo cáo đã lưu, thay đổi duy nhất combobox **Kỳ báo cáo** sang **"Tháng trước"** (hoặc kỳ tùy chọn như *"Tháng 7"*, *"Quý trước"*...), tải trọn gói các file Excel về `media/auto_imports/`, sau đó tự động nạp vào CSDL và tính toán lại toàn bộ KPI Dashboard cho tháng tương ứng.
+
+```powershell
+# 1. Chỉ tải toàn bộ file Excel báo cáo Tháng trước về thư mục media/auto_imports/:
+python scripts/download_last_month_saved_reports.py
+
+# 2. 🔥 LỆNH 1-CLICK TỔNG HỢP: Tải trọn gói + Tự động nạp CSDL + Tính lại toàn bộ KPI Tháng trước:
+python scripts/download_last_month_saved_reports.py --auto-import
+
+# 3. Tải và tính toán cho một kỳ cụ thể (Ví dụ: "Tháng 7" hoặc "Tháng 07"):
+python scripts/download_last_month_saved_reports.py --period "Tháng 7" --auto-import
+
+# 4. Chỉ tải riêng 1 loại báo cáo cụ thể (Ví dụ: BAN_HANG, TON_KHO...):
+python scripts/download_last_month_saved_reports.py --prefix BAN_HANG --auto-import
+```
+
+### 6.17. Lệnh Gửi Email Báo Cáo Điều Hành Ban Lãnh Đạo (`send_executive_dashboard`)
+
+Django Management Command trích xuất toàn bộ số liệu KPI, Doanh thu Oversea, và Bảng hiệu suất 8 BU cốt lõi vào mẫu HTML Email Executive Dashboard đồng bộ 100% với Web Dashboard (`~/dashboard`). Hỗ trợ gửi đồng thời nhiều người nhận chính (To) và danh sách CC.
+
+```powershell
+# 1. Chạy thử nghiệm Dry-run xem trước số liệu (không gửi email thật):
+python manage.py send_executive_dashboard --to-email bod@haophuong.com --period 2026-08 --dry-run
+
+# 2. Gửi email Báo cáo điều hành thực tế (LIVE) cho Ban Lãnh Đạo (hỗ trợ nhiều email To & CC):
+python manage.py send_executive_dashboard --to-email "duong@haophuong.com,dinh.pham@haophuong.com,tan@haophuong.com" --cc "hon.nguyen@haophuong.com,quan.dhm@haophuong.com,long.nguyenthanh@haophuong.com" --period 2026-08
+
+# 3. Gửi báo cáo chốt theo ngày làm việc hôm trước (T-1) mặc định:
+python manage.py send_executive_dashboard --to-email "duong@haophuong.com,dinh.pham@haophuong.com,tan@haophuong.com"
+```
+
+### 6.18. Script 1-Click: Tải Báo Cáo MISA Đã Lưu Tháng Này & Tự Động Tính KPI (`sync_current_month.py`)
+
+Script tiêu chuẩn vận hành hằng ngày cho **THÁNG HIỆN TẠI (Tháng này)**. Kế thừa 100% các mẫu báo cáo đã lưu (Saved Reports - Option 2) trên MISA Web. Bot tự động mở danh sách báo cáo đã lưu, chuyển kỳ báo cáo sang **"Tháng này"**, tải các file Excel về `media/auto_imports/`, tự động nạp thay thế dữ liệu riêng của tháng hiện tại (không làm ảnh hưởng các tháng cũ) và tính toán lại toàn bộ KPI Dashboard cho Tổng công ty và 22 Business Units.
+
+#### Các lệnh thực thi nhanh:
+
+```powershell
+# 1. 🔥 LỆNH 1-CLICK TRỌN GÓI TỐT NHẤT (Tải MISA + Nạp DB + Tính toàn bộ KPI Tháng này + Tồn kho):
+python scripts/sync_current_month.py
+
+# 2. 📊 CHỈ TÍNH TOÁN LẠI KPI THÁNG NÀY (Dùng khi đã có sẵn dữ liệu trong DB hoặc vừa import xong):
+python scripts/sync_current_month.py --only-kpi
+
+# 3. 🌐 CHỈ TẢI CÁC FILE EXCEL BÁO CÁO THÁNG NÀY VỀ media/auto_imports/ (Không import):
+python scripts/sync_current_month.py --only-download
+
+# 4. 📥 CHỈ NẠP DỮ LIỆU TỪ media/auto_imports/ VÀ TÍNH KPI THÁNG NÀY:
+python scripts/sync_current_month.py --only-import
+
+# 5. 🎯 CHỈ TẢI VÀ XỬ LÝ RIÊNG 1 LOẠI BÁO CÁO CỤ THỂ (Ví dụ: BAN_HANG, TON_KHO, SO_DU_NH...):
+python scripts/sync_current_month.py --prefix BAN_HANG
+
+# ── HOẶC DÙNG DJANGO MANAGEMENT COMMAND TIÊU CHUẨN ──────────────────────────
+# Chạy đồng bộ toàn bộ cho Tháng này:
+python manage.py sync_misa --action=all --period="Tháng này"
+
+# Tính lại KPI Tổng công ty cho tháng hiện tại:
+python manage.py calculate_global_performance
+
+# Tính lại KPI cho 1 BU cụ thể trong tháng hiện tại:
+python manage.py calculate_bu_performance --bu_id <bu_id>
+```
+
+

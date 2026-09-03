@@ -1149,35 +1149,44 @@ Hệ thống kết hợp ưu điểm của cả 2 chế độ xuất báo cáo:
 | `DANH_SACH_KHACH_HANG` | Danh mục Khách hàng (`DICustomer`) | Xuất nhanh trực tiếp Master Data qua icon `.mi-s1-file-export` |
 | `DANH_SACH_NHAN_VIEN` | Danh mục Nhân viên (`DIEmployee`) | Xuất nhanh trực tiếp Master Data qua icon `.mi-s1-file-export` |
 
-### 23.3. Hướng Dẫn Sử Dụng Dòng Lệnh (CLI Guide)
+### 23.4. Đồng Bộ Dữ Liệu & Tính Toán KPI Cho THÁNG NÀY (scripts/sync_current_month.py)
+
+Script 1-Click tự động hóa quy trình đồng bộ số liệu cho Tháng hiện tại (kỳ đang chạy, ví dụ: Tháng 09/2026):
 
 ```bash
-# -------------------------------------------------------------
-# 1. Script 1-Click tải trọn gói Báo cáo đã lưu cho THÁNG TRƯỚC:
-# -------------------------------------------------------------
-# Chỉ tải file Excel về media/auto_imports/:
-python scripts/download_last_month_saved_reports.py
+# 1. Chạy trọn gói (Tải MISA -> Import DB -> Tính KPI -> Đồng bộ tồn kho kho hàng):
+python scripts/sync_current_month.py
 
-# Tải file Excel + Tự động Import DB + Tính toán lại KPI Tháng trước:
-python scripts/download_last_month_saved_reports.py --auto-import
+# 2. Khi đã có sẵn file Excel trong media/auto_imports/ (Chỉ Import DB & Tính KPI):
+python scripts/sync_current_month.py --only-import
 
-# Tải cho kỳ tùy chỉnh (ví dụ: 'Tháng 7', 'Tháng 07', 'Quý trước'...):
-python scripts/download_last_month_saved_reports.py --period "Tháng 7" --auto-import
+# 3. Chỉ tải báo cáo MISA về media/auto_imports/ (không import DB):
+python scripts/sync_current_month.py --only-download
 
-# -------------------------------------------------------------
-# 2. Sử dụng download_report.py theo từng báo cáo hoặc toàn bộ:
-# -------------------------------------------------------------
-# Tải toàn bộ báo cáo Tháng trước (dùng Mẫu đã lưu):
-python download_report.py ALL --period "Tháng trước"
+# 4. Chỉ tính toán lại KPI Dashboard cho Tháng này (không tải, không import):
+python scripts/sync_current_month.py --only-kpi
+```
 
-# Tải riêng từng báo cáo của Tháng trước:
-python download_report.py BAN_HANG --period "Tháng trước"
-python download_report.py TON_KHO --period "Tháng trước"
-python download_report.py TUOI_NO_KH --period "Tháng trước"
+---
 
-# Tùy chọn ép dùng Mẫu đã lưu hoặc URL động:
-python download_report.py BAN_HANG --period "Tháng trước" --use-saved-reports
-python download_report.py BAN_HANG --period "Tháng trước" --no-saved-reports
+## 24. Hỗ Trợ Gửi Email Báo Cáo Điều Hành BOD & Nhắc Nợ Đa Người Nhận
+
+### 24.1. Tiện Ích Chuẩn Hóa Email Đa Người Nhận (`parse_email_list`)
+Hàm `parse_email_list` trong [`accounting/services/debt_mailer.py`](file:///d:/Sources/dashboard-report/accounting/services/debt_mailer.py) hỗ trợ tiếp nhận danh sách người nhận linh hoạt:
+- Hỗ trợ chuỗi đơn, chuỗi nhiều email phân cách bằng dấu phẩy `,` hoặc chấm phẩy `;`.
+- Hỗ trợ kiểu dữ liệu `list`, `tuple`, `set`.
+- Tự động loại bỏ khoảng trắng thừa, lọc các email không hợp lệ (thiếu `@`, ký tự rác) và khử trùng lặp không phân biệt hoa thường (Case-insensitive deduplication).
+- Tự động loại bỏ các email trong danh sách `cc_emails` nếu đã xuất hiện trong danh sách người nhận chính `to_email`.
+
+### 24.2. Gửi Báo Cáo Điều Hành Tổng Quan BOD (`send_executive_dashboard`)
+Hệ thống cho phép gửi Báo Cáo Điều Hành (`Executive Dashboard`) định dạng HTML cao cấp trực tiếp tới nhiều thành viên Ban Lãnh Đạo cùng lúc:
+
+```bash
+# Gửi cho nhiều sếp BOD cùng lúc qua dòng lệnh:
+python manage.py send_executive_dashboard \
+  --to "duong@haophuong.com, dinh.pham@haophuong.com, tan@haophuong.com" \
+  --cc "hon.nguyen@haophuong.com, quan.dhm@haophuong.com, long.nguyenthanh@haophuong.com" \
+  --period "2026-09"
 ```
 
 

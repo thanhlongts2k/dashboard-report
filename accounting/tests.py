@@ -1400,15 +1400,37 @@ class EmployeeUserProvisioningTests(TestCase):
         res = auto_import_excel_from_folder(specific_file="non_existent_DANH_SACH_NHAN_VIEN_20260826.xlsx")
         self.assertIsInstance(res, str)
 
+    def test_parse_email_list_utility(self):
+        """
+        Kiểm tra hàm parse_email_list xử lý đúng các trường hợp chuỗi đơn, chuỗi nhiều email, list/tuple,
+        loại bỏ khoảng trắng, khử trùng lặp và lọc email rác.
+        """
+        from accounting.services.debt_mailer import parse_email_list
+
+        # Chuỗi phân cách dấu phẩy và chấm phẩy kèm khoảng trắng
+        raw_str = " duong@haophuong.com, dinh.pham@haophuong.com; tan@haophuong.com , duong@haophuong.com, invalid-email "
+        parsed = parse_email_list(raw_str)
+        self.assertEqual(parsed, ['duong@haophuong.com', 'dinh.pham@haophuong.com', 'tan@haophuong.com'])
+
+        # Danh sách list/tuple
+        raw_list = ['duong@haophuong.com', 'dinh.pham@haophuong.com, tan@haophuong.com']
+        parsed_list = parse_email_list(raw_list)
+        self.assertEqual(parsed_list, ['duong@haophuong.com', 'dinh.pham@haophuong.com', 'tan@haophuong.com'])
+
+        # Rỗng hoặc None
+        self.assertEqual(parse_email_list(None), [])
+        self.assertEqual(parse_email_list(""), [])
+
     def test_send_executive_dashboard_celery_task(self):
         """
-        Kiểm tra Celery Shared Task send_executive_dashboard_task chạy thành công ở chế độ dry_run=True.
+        Kiểm tra Celery Shared Task send_executive_dashboard_task chạy thành công với nhiều người nhận To và CC.
         """
         from accounting.tasks import send_executive_dashboard_task
 
+        # Test gửi cho 3 sếp BOD cùng lúc dạng chuỗi phân cách dấu phẩy
         res = send_executive_dashboard_task.apply(kwargs={
-            'to_email': 'bod_test@haophuong.com',
-            'cc_emails': ['sep_test@haophuong.com'],
+            'to_email': 'duong@haophuong.com,dinh.pham@haophuong.com,tan@haophuong.com',
+            'cc_emails': ['hon.nguyen@haophuong.com', 'quan.dhm@haophuong.com', 'long.nguyenthanh@haophuong.com'],
             'report_date': '2026-08-24',
             'dry_run': True,
         }).get()

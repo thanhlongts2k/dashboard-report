@@ -717,6 +717,23 @@ Hệ thống giải quyết triệt để bài toán nhân sự kiêm nhiệm đ
   * Cấp quyền `BU_HEAD` cho anh Trần Hồng Quân quản lý riêng `BU_SAB`.
   * Tách riêng 2 luồng email nhắc nợ định kỳ cho Mr. Duy Hiếu (`BU_AGRITECH`) và Mr. Hồng Quân (`BU_SAB`).
 
+---
+
+## 17. Đồng Bộ Dữ Liệu Tháng Hiện Tại (Tháng Này) & Email Báo Cáo Điều Hành Đa Người Nhận
+
+### 17.1. Script Tự Động Hóa `sync_current_month.py`
+Hệ thống cung cấp công cụ dòng lệnh toàn diện tại [`scripts/sync_current_month.py`](file:///d:/Sources/dashboard-report/scripts/sync_current_month.py) với 4 bước tiêu chuẩn:
+1. **Bước 1:** Tải báo cáo MISA (Saved Reports) cho kỳ "Tháng này" về `media/auto_imports/`.
+2. **Bước 2:** Nạp tự động dữ liệu Excel vào Database (`auto_import_excel_from_folder`), tự động gộp các tài khoản con của Tuổi Nợ KH (`131` và `1311`) và cô lập các kỳ báo cáo cũ.
+3. **Bước 3:** Tự động tính toán lại KPI Dashboard (`update_all_bu_performances`) cho Tổng công ty và toàn bộ 22 BU trong tháng hiện tại.
+4. **Bước 4:** Đồng bộ hóa tồn kho vào mô hình `Warehouse` cho kỳ hiện tại.
+Hỗ trợ các tùy chọn CLI: `--only-import`, `--only-download`, `--only-kpi`, `--prefix`.
+
+### 17.2. Hỗ Trợ Đa Người Nhận Email Báo Cáo & Nhắc Nợ (`parse_email_list`)
+- Bổ sung hàm tiện ích `parse_email_list` trong `accounting/services/debt_mailer.py` tiếp nhận chuỗi phân cách dấu phẩy, dấu chấm phẩy hoặc danh sách `list`/`set`.
+- Cho phép gửi Báo cáo Điều hành Tổng quan (`Executive Dashboard`) và email tổng hợp công nợ cho nhiều người nhận To và CC cùng một lúc mà không bị trùng lặp.
+- Management command hỗ trợ: `python manage.py send_executive_dashboard --to "email1, email2" --cc "cc1, cc2"`.
+
 
 
 
