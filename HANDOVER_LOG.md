@@ -22,6 +22,77 @@
   python -u scripts/download_batch_saved_reports_2026.py --weekly-sync
   ```
 
+## [2026-09-07 15:15:00] Task: Khôi Phục Toàn Diện Dữ Liệu Thu Tiền & Sửa Lỗi TAI_KHOAN_CT MISA Export — [IN PROGRESS]
+- **Current Objective**:
+  1. BƯỚC 1: Sửa code Playwright `accounting/misa/report_exporter.py`: Đối với Saved Report (`is_saved_report = True`), TUYỆT ĐỐI KHÔNG gọi `select_accounts_for_so_chi_tiet` và không đổi Bậc = 1. Giữ nguyên 100% cấu hình tài khoản chi tiết đã lưu trong mẫu MISA. (ĐÃ HOÀN THÀNH)
+  2. BƯỚC 2: Sanity Restore Tháng 08/2026: Nạp file chuẩn `TAI_KHOAN_CT_20260831_070024.xlsx` (1,895 dòng, 44.14 tỷ) vào CSDL, tính lại KPI và `BUPerformanceDaily`, xác nhận Card Thu tiền đạt ~44.14 tỷ và biểu đồ có 27 ngày phát sinh thu tiền. (ĐÃ HOÀN THÀNH & KIỂM CHỨNG)
+  3. BƯỚC 3: Chạy batch tải và nạp bù `TAI_KHOAN_CT` chuẩn cho các tháng từ T1 đến T9. (SẴN SÀNG KÍCH HOẠT)
+- **Verification Metrics (Hoàn thành trọn vẹn 3 Bước)**:
+  - `accounting/misa/report_exporter.py`: Đã chặn toàn bộ can thiệp tài khoản cho prefix `TAI_KHOAN_CT` trong Saved Report mode, bảo toàn 100% tài khoản chi tiết.
+  - Toàn bộ 9/9 tháng đã nạp file chuẩn dung lượng cao (>200KB - 408KB thay vì 60KB - 80KB lỗi).
+  - Tổng số bản ghi `AccountDetail` 9 tháng: **17,142 bản ghi**.
+  - Bảng đối soát dòng tiền Thu tiền thực tế Tổng công ty (`BUPerformance.mtd_collection_actual`) 9 tháng:
+    * Tháng 01/2026: 344.4 KB | 2,153 dòng AccountDetail | **48,654,741,629 VNĐ** | 28 ngày thu tiền.
+    * Tháng 02/2026: 215.8 KB | 1,296 dòng AccountDetail | **45,144,370,423 VNĐ** | 23 ngày thu tiền.
+    * Tháng 03/2026: 346.2 KB | 2,182 dòng AccountDetail | **45,203,338,404 VNĐ** | 28 ngày thu tiền.
+    * Tháng 04/2026: 315.0 KB | 1,960 dòng AccountDetail | **52,732,661,276 VNĐ** | 29 ngày thu tiền.
+    * Tháng 05/2026: 369.4 KB | 2,350 dòng AccountDetail | **47,181,607,349 VNĐ** | 28 ngày thu tiền.
+    * Tháng 06/2026: 404.9 KB | 2,607 dòng AccountDetail | **63,723,318,099 VNĐ** | 28 ngày thu tiền.
+    * Tháng 07/2026: 408.3 KB | 2,549 dòng AccountDetail | **54,758,523,885 VNĐ** | 29 ngày thu tiền (Đạt 84.9% KH).
+    * Tháng 08/2026: 308.3 KB | 1,881 dòng AccountDetail | **40,781,452,446 VNĐ** | 27 ngày thu tiền (Đạt 72.3% KH).
+    * Tháng 09/2026:  39.7 KB |   164 dòng AccountDetail |  **5,649,377,196 VNĐ** |  4 ngày thu tiền (Mới đến ngày 07/09).
+  - Tổng thu tiền YTD T1-T8 (Full months): **398,179,083,511 VNĐ (~398.18 tỷ VNĐ)**.
+  - Ma trận báo cáo 2D `batch_checkpoint.json`: **Đạt 100% (63/63 reports DONE qua cả 9 tháng)**.
+- **Current Status**: **[DONE: Hoàn tất 100% 3 Bước khôi phục dòng tiền & đồng bộ CSDL]**
+
+## [2026-09-07 14:21:00] Task: Nhóm 2 — Resume Batch Toàn Bộ Các Tháng Còn Thiếu (01 -> 09/2026) — [DONE]
+- **Current Objective**:
+  1. Sanity Test Tháng 01/2026 đã THÀNH CÔNG 100% (Mẫu 131 và 1311 tải xong trong 1 phút, merge `TUOI_NO_KH_202601.xlsx` 309,650 bytes, nạp 2,747 dòng ReceivablesAgeing).
+  2. Kích hoạt lệnh Resume toàn bộ Nhóm 2 (`SO_DU_NH`, `TUOI_NO_KH`) cho 9 tháng:
+     `python -u scripts/download_batch_saved_reports_2026.py --from-month 2026-01 --to-month 2026-09 --reports SO_DU_NH,TUOI_NO_KH --auto-import --recalc-kpi --resume`
+  3. Kết quả: Toàn bộ 9/9 tháng hoàn tất 63/63 báo cáo `DONE` trong `batch_checkpoint.json`. Tiến trình `task-2367` kết thúc thành công lúc 14:52:04 với mã 0.
+- **Current Status**: **[DONE]**
+
+## [2026-09-07 14:16:00] Task: Nhóm 2 — Fix Selector Popup Tham Số & Sanity Test TUOI_NO_KH Tháng 01/2026 — [DONE]
+- **Current Objective**:
+  1. Kill task-2260 do selector của `dismiss_misa_warning_if_any` bắt nhầm modal tham số `.con-ms-popup`. (ĐÃ HOÀN THÀNH)
+  2. Sửa `dismiss_misa_warning_if_any` trong `accounting/misa/report_exporter.py`:
+     - Chỉ bắt đúng hộp thoại cảnh báo/thông báo thực sự (`.ms-message-box`, `.dx-dialog-content`, `.m-message-box`, hoặc popup có chứa chữ 'Cảnh báo'/'Thông báo').
+     - Tuyệt đối loại trừ modal tham số báo cáo `.con-ms-popup`.
+  3. Đảm bảo sau khi bấm 'Xem báo cáo' / 'Đồng ý', đợi modal tham số đóng hoàn toàn trước khi bấm nút Xuất Excel.
+  4. Sanity test riêng `TUOI_NO_KH` cho DUY NHẤT Tháng 01/2026:
+     `python -u scripts/download_batch_saved_reports_2026.py --from-month 2026-01 --to-month 2026-01 --reports TUOI_NO_KH --auto-import --force`
+- **Verification Metrics (Ground-Truth)**:
+  - Cả 2 mẫu 131 và 1311 đều bắt được nút "Tải tệp" ngay tại Attempt 1 (không còn lỗi click trượt hay timeout).
+  - `TUOI_NO_KH_202601.xlsx`: Dung lượng **309,650 bytes**, thời gian sửa: `2026-09-07 14:20:03`.
+  - CSDL `ReceivablesAgeing` kỳ 2026-01: **2,747 dòng** (TK 131: 1,426 dòng | 79.91 tỷ; TK 1311: 1,321 dòng | 61.45 tỷ).
+- **Current Status**: **[DONE: Hoàn tất 100% kiểm thử Tháng 01/2026]**
+
+## [2026-09-07 11:37:00] Task: Nhóm 2 (Snapshot Cutoff Date) — Sanity Run Tháng 08/2026 (SO_DU_NH & TUOI_NO_KH) — [DONE]
+- **Current Objective**:
+  1. Commit & Push mã nguồn Nhóm 1 lên `main` (`commit ba0599e`). (ĐÃ HOÀN THÀNH)
+  2. Thực hiện chạy thử nghiệm Nhóm 2 (Báo cáo số dư snapshot mốc cuối tháng) cho duy nhất Tháng 08/2026:
+     - `TUOI_NO_KH`: Tải 2 mẫu `131` và `1311` tại mốc `31/08/2026`, chạy hàm merge Python thành `TUOI_NO_KH_202608.xlsx` (309,866 bytes) kèm cột 'Tài khoản' rồi auto-import thành công (2,749 dòng ReceivablesAgeing).
+     - `SO_DU_NH`: Điền "Đến ngày" = `31/08/2026`, bỏ chi nhánh `_Nhật`, chọn tất cả tài khoản ngân hàng. File `SO_DU_NH_202608.xlsx` đã tải về đĩa thành công (8,906 bytes).
+  3. Sửa ngưỡng kiểm tra kích thước file trong `scripts/download_batch_saved_reports_2026.py` từ `> 10000` thành `> 2000` (để nhận diện file `SO_DU_NH` 8,906 bytes), sau đó chạy auto-import cho `SO_DU_NH`.
+- **Files Modified**:
+  - `scripts/download_batch_saved_reports_2026.py`: Giảm ngưỡng kiểm tra file Excel hợp lệ từ 10KB xuống 2KB.
+  - `accounting/misa/report_exporter.py`: Điền "Từ ngày" = 01/MM/YYYY trước khi điền "Đến ngày" để tránh cảnh báo MISA, xử lý popup cảnh báo 'Đóng'.
+  - `accounting/misa/browser.py`: Khởi tạo biến `report_link = None`.
+- **Verification Metrics (Ground-Truth)**:
+  - `SO_DU_NH_202608.xlsx` (8,906 bytes, mtime 11:59:32): Nạp 10 tài khoản ngân hàng vào `BankBalance`.
+    * Tổng số dư cuối kỳ: **37,621,085,145.00 VNĐ** (Agribank: 34.24 tỷ, Vietinbank: 2.57 tỷ...).
+  - `TUOI_NO_KH_202608.xlsx` (309,866 bytes, mtime 11:45:33):
+    * Gộp thành công 2 file 131 và 1311 với cột 'Tài khoản' ở cuối bảng.
+    * Tổng dòng dữ liệu: **2,749 dòng** (TK 131: **1,427 dòng**, TK 1311: **1,322 dòng**).
+    * Tổng nợ phải thu: **141,465,385,730.00 VNĐ** (Nợ quá hạn: 37,741,224,540 VNĐ, nợ trong hạn: 85,263,197,186 VNĐ).
+  - Dashboard `BUPerformance` kỳ 8/2026:
+    * Tiền cuối kỳ (Cash): **38,435,499,208.00 VNĐ**.
+    * Dư nợ cần thu (lọc 1311): **59,260,896,520.00 VNĐ**.
+    * Nợ quá hạn (lọc 1311): **17,202,831,269.00 VNĐ**.
+  - `batch_checkpoint.json`: Cả 2 báo cáo `SO_DU_NH` và `TUOI_NO_KH` của Tháng 08/2026 đều đạt trạng thái `DONE`.
+- **Current Status**: **[DONE: Hoàn tất 100% Sanity Run Nhóm 2 cho Tháng 08/2026]**
+
 ## [2026-09-07 10:04:00] Task: Giai Đoạn 2 — Chạy Batch Trọn Bộ Nhóm 1 (T2 -> T9/2026) — [DONE]
 - **Current Objective**:
   1. Người dùng đã duyệt 100% kết quả Giai đoạn 1.

@@ -150,13 +150,15 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
 11. Chờ 20 giây để hệ thống MISA kết xuất, mở khay download (dùng 3 indicator nhận diện chuẩn Commit `57a0e59`: `["Tải tệp Excel, tệp in,...", "Đang tạo đường dẫn tải tệp...", "Đường dẫn tải tệp sẽ hết hạn"]`) và click **"Tải tệp"** (ô mới nhất) để lưu về máy.
 
 ### 6.2. Quy trình đặc thù cho Sổ chi tiết các tài khoản (TAI_KHOAN_CT)
-Để thu thập đủ dữ liệu hạch toán Thu tiền (TK 111, 112), Nợ ngân hàng (TK 341) và Chi phí vận hành OPEX (TK 641, 642):
-* **Chọn Bậc = 1**: Chọn combobox Bậc/Cấp = 1 (với fallback dùng phím `ArrowDown` + `Enter`).
-* **Lọc từng tài khoản cụ thể**: Với từng mã tài khoản trong danh sách `settings.MISA_SO_CHI_TIET_ACCOUNTS` (`['111', '112', '341', '641', '642']`):
-  1. Gõ mã tài khoản vào ô tìm kiếm (`Nhập từ khóa tìm kiếm`).
-  2. Chờ 1.5 giây để lưới dữ liệu MISA lọc kết quả.
-  3. Chạy JS script để tìm dòng khớp chính xác mã tài khoản và tick chọn checkbox của dòng đó.
-* **Bỏ qua Bước 5 ("Chọn tất cả")**: Báo cáo `TAI_KHOAN_CT` **bắt buộc loại trừ khỏi bước "Chọn tất cả"** (`if prefix != 'TAI_KHOAN_CT':`) để tránh việc nút "Chọn tất cả" chạy đè làm hủy/thay đổi trạng thái tick của 5 tài khoản đã chọn ở bước trước.
+Để thu thập đủ dữ liệu hạch toán Thu tiền (TK 111, 112 - chi tiết đến từng tài khoản ngân hàng con), Nợ ngân hàng (TK 341) và Chi phí vận hành OPEX (TK 641, 642):
+* **Chế độ Báo cáo Đã lưu (Saved Report Mode - Khuyên dùng & Mặc định):**
+  - Mẫu lưu `05 - Sổ chi tiết các tài khoản` trên MISA Web đã được Kế toán cấu hình và lưu sẵn 100% cây tài khoản chi tiết (bao gồm toàn bộ tài khoản ngân hàng con cấp 2, 3 như 1121x).
+  - **NGHIÊM CẤM THAY ĐỔI BẬC / CẤP TÀI KHOẢN:** Tuyệt đối **KHÔNG** chọn `Bậc = 1` và **KHÔNG** can thiệp chọn lại tài khoản. Nếu đổi `Bậc = 1`, MISA sẽ tự động bỏ chọn toàn bộ các tài khoản con chi tiết, dẫn đến file Excel mất 99.9% giao diện phát sinh thu tiền qua ngân hàng (lỗi thu tiền 37.51Tr thay vì 44.14 tỷ).
+  - Thao tác duy nhất: Chọn combobox **Kỳ báo cáo** (ví dụ: `Tháng 8` hoặc `Tháng {m}`) $\rightarrow$ Bấm **"Đồng ý"** / **"Xem báo cáo"** $\rightarrow$ Xuất Excel dạng dữ liệu.
+* **Chế độ Khởi tạo mới từ đầu (Legacy Dynamic Viewer - `GLAccountLedger`):**
+  - Chỉ dùng khi tạo mẫu từ màn hình rỗng chưa lưu:
+  - Chọn combobox Bậc/Cấp phù hợp và chọn các tài khoản mẹ lẫn con trong danh sách `settings.MISA_SO_CHI_TIET_ACCOUNTS`.
+* **Bỏ qua Bước "Chọn tất cả"**: Báo cáo `TAI_KHOAN_CT` **bắt buộc loại trừ khỏi bước "Chọn tất cả"** (`if prefix != 'TAI_KHOAN_CT':`) để tránh việc nút "Chọn tất cả" chạy đè làm hủy/thay đổi trạng thái tick của các tài khoản đã lưu.
 
 ### 6.3. Danh sách từng bước chi tiết cho 7 Báo Cáo MISA Web (Chuẩn Mã Nguồn)
 
@@ -239,10 +241,9 @@ Hệ thống hỗ trợ tách biệt doanh thu bán hàng của nhóm khách hà
   2. Click nút **"Chọn tham số"**.
   3. Tích chọn **"Bao gồm số liệu chi nhánh phụ thuộc"**.
   4. Quét và xóa toàn bộ các tag chi nhánh chứa `_Nhật`.
-  5. ⭐ **BƯỚC ĐẶC BIỆT 1 - Chọn Bậc**: Click ô combobox **Bậc** $\rightarrow$ Chọn **`1`** (fallback bàn phím `Home` $\rightarrow$ `ArrowDown` $\rightarrow$ `Enter`).
-  6. ⭐ **BƯỚC ĐẶC BIỆT 2 - Lọc chọn 5 Tài khoản**: Gõ từng mã tài khoản vào ô *"Nhập từ khóa tìm kiếm"*, chờ 1.5s filter rồi tích chọn dòng khớp qua JS: `111` (Tiền mặt), `112` (Tiền gửi NH), `341` (Vay & nợ thuê tài chính), `641` (CP Bán hàng), `642` (CP QLDN).
-  7. ⭐ **BƯỚC BỎ QUA**: **BỎ QUA hoàn toàn ô "Chọn tất cả"** (không chọn tất cả tài khoản).
-  8. Chọn **Kỳ báo cáo**: `"Tháng này"` (hoặc `"Năm nay"`).
+  5. ⭐ **LƯU Ý CỐT LÕI (Mẫu lưu 05 - Saved Report)**: Đối với mẫu báo cáo đã lưu `05 - Sổ chi tiết các tài khoản` trong `ReportSavedList`, **TUYỆT ĐỐI KHÔNG CHỌN BẬC = 1 VÀ KHÔNG CHỌN LẠI TÀI KHOẢN**. Giữ nguyên 100% cấu hình tài khoản kế toán đã lưu (bao gồm các tài khoản ngân hàng chi tiết `1121x`).
+  6. ⭐ **BƯỚC BỎ QUA**: **BỎ QUA hoàn toàn ô "Chọn tất cả"** (không can thiệp danh sách tài khoản).
+  7. Chọn **Kỳ báo cáo**: Chọn combobox `Tháng {m}` (hoặc `"Tháng này"` / `"Năm nay"`).
   9. Click **"Đồng ý" / "Xem báo cáo"** (kèm auto-dismiss cảnh báo nếu có).
   10. Mở Panel Quản lý tải tệp $\rightarrow$ **Xóa hết lịch sử tải tệp** $\rightarrow$ Bấm **"Có"** $\rightarrow$ Đóng panel.
   11. Click icon **Excel** $\rightarrow$ Chọn **"Xuất Excel (dạng dữ liệu)"** $\rightarrow$ Bấm **"Đồng ý"** (nếu có).

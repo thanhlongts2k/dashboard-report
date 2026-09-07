@@ -370,6 +370,19 @@ async def click_saved_report_link(page, report_name):
     if "02" in report_name:
         variations.append("02 - Sổ chi tiết mua hàng")
         variations.append("Sổ chi tiết mua hàng")
+    if "07" in report_name:
+        variations.append("07 - Bảng kê số dư ngân hàng")
+        variations.append("Bảng kê số dư ngân hàng")
+        variations.append("Số dư ngân hàng")
+    if "06" in report_name:
+        if "1311" in report_name:
+            variations.append("06 - Chi tiết công nợ phải thu theo tuổi nợ 1311")
+            variations.append("Chi tiết công nợ phải thu theo tuổi nợ 1311")
+            variations.append("tuổi nợ 1311")
+        elif "131" in report_name:
+            variations.append("06 - Chi tiết công nợ phải thu theo tuổi nợ 131")
+            variations.append("Chi tiết công nợ phải thu theo tuổi nợ 131")
+            variations.append("tuổi nợ 131")
     target_frame = page
     report_link = None
     

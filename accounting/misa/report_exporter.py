@@ -16,25 +16,32 @@ async def ensure_all_items_selected(page_or_frame):
 
 async def dismiss_misa_warning_if_any(page):
     """
-    Tự động phát hiện và bấm 'Đóng'/'Đồng ý' nếu MISA hiện popup cảnh báo 'Chưa chọn vật tư hàng hóa'.
+    Tự động phát hiện và bấm 'Đóng'/'Đồng ý' nếu MISA hiện popup cảnh báo thực sự
+    ('.ms-message-box', '.dx-dialog-content', '.m-message-box', hoặc dialog có chữ 'Cảnh báo').
+    TUYỆT ĐỐI LOẠI TRỪ modal tham số báo cáo (.con-ms-popup / 'Chọn tham số').
     """
     try:
-        warning_modal = page.locator(".ms-message-box, .dx-dialog-content, [role='dialog']:has-text('vật tư'), [role='dialog']:has-text('chưa chọn'), div:has-text('Bạn chưa chọn')").first
-        if await warning_modal.is_visible(timeout=1500):
-            logger.warning("DETECTED MISA WARNING POPUP: 'Chưa chọn vật tư hàng hóa' / 'Bạn chưa chọn'!")
-            try:
-                ss_path = os.path.join(settings.BASE_DIR, 'scratch', 'screenshots', 'error_vattuhanghoa.png')
-                os.makedirs(os.path.dirname(ss_path), exist_ok=True)
-                await page.screenshot(path=ss_path)
-            except Exception:
-                pass
-            
-            close_btn = warning_modal.locator("button:has-text('Đồng ý'), button:has-text('Đóng'), .ms-button-primary, span:has-text('Đóng')").first
-            if await close_btn.is_visible(timeout=1500):
-                await close_btn.click(force=True)
-                await asyncio.sleep(1.0)
-                logger.info("Dismissed MISA warning popup. Retrying item selection...")
-                return True
+        for f in [page] + getattr(page, 'frames', []):
+            warning_modal = f.locator(".ms-message-box, .dx-dialog-content, .m-message-box, div.dx-dialog, .con-ms-message-box").first
+            if await warning_modal.is_visible(timeout=1000):
+                modal_text = ""
+                try:
+                    modal_text = (await warning_modal.inner_text()).lower()
+                except Exception:
+                    pass
+                if 'chọn tham số' in modal_text or 'chi nhánh' in modal_text:
+                    continue
+
+                logger.warning(f"DETECTED MISA WARNING POPUP! Attempting to dismiss...")
+                try:
+                    close_btn = warning_modal.locator("button:has-text('Đóng'), button:has-text('Đồng ý'), .ms-button:has-text('Đóng'), .dx-button:has-text('Đóng')").first
+                    if await close_btn.is_visible(timeout=1000):
+                        await close_btn.click(force=True)
+                        await asyncio.sleep(1.0)
+                        logger.info("Dismissed MISA warning popup successfully.")
+                        return True
+                except Exception as ce:
+                    logger.debug(f"Error clicking close button on warning popup: {ce}")
     except Exception as e:
         logger.debug(f"No warning popup detected: {e}")
     return False
@@ -392,9 +399,57 @@ def compute_cutoff_date(period_option=None, custom_period_suffix=None):
 async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
     """
     Xóa và gõ chính xác mốc ngày chốt cuối tháng (DD/MM/YYYY) vào ô 'Đến ngày' trong modal tham số.
-    Tuyệt đối không chọn dropdown 'Tháng' cho các báo cáo Snapshot (SO_DU_NH, TUOI_NO_KH).
+    Nếu có ô 'Từ ngày' (như báo cáo SO_DU_NH), tự động gõ mốc đầu tháng '01/MM/YYYY' vào 'Từ ngày' TRƯỚC
+    để không bao giờ bị vi phạm ràng buộc '<Từ ngày> phải nhỏ hơn hoặc bằng <Đến ngày>'.
     """
-    logger.info(f"[SNAPSHOT] Setting cutoff date to '{cutoff_date_str}' in 'Đến ngày' input field...")
+    logger.info(f"[SNAPSHOT] Setting cutoff date to '{cutoff_date_str}' (with from_date protection)...")
+
+    # Dismiss any warning dialog upfront
+    try:
+        await dismiss_misa_warning_if_any(page_or_frame)
+    except Exception:
+        pass
+
+    # Parse month and year to get from_date (01/MM/YYYY)
+    from_date_str = None
+    try:
+        parts = cutoff_date_str.split('/')
+        if len(parts) == 3:
+            from_date_str = f"01/{int(parts[1]):02d}/{int(parts[2]):04d}"
+    except Exception:
+        pass
+
+    # Step 1: Set "Từ ngày" if present
+    if from_date_str:
+        tu_ngay_selectors = [
+            "xpath=//label[contains(text(), 'Từ ngày')]/ancestor::div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox') or contains(@class, 'ms-datepicker')]//input",
+            "xpath=//label[contains(text(), 'Từ ngày')]/following::input[1]",
+            "xpath=//div[contains(text(), 'Từ ngày') and not(self::input)]/following::input[1]",
+            "xpath=//span[contains(text(), 'Từ ngày')]/following::input[1]",
+            "input[placeholder*='Từ ngày']",
+        ]
+        tu_input, _ = await find_locator_in_any_frame(page_or_frame, tu_ngay_selectors, timeout=1500)
+        if tu_input:
+            try:
+                await tu_input.click(force=True, click_count=3)
+                await asyncio.sleep(0.1)
+                await tu_input.press("Control+A")
+                await tu_input.press("Backspace")
+                await tu_input.evaluate("""el => {
+                    el.value = '';
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }""")
+                await asyncio.sleep(0.1)
+                await tu_input.type(from_date_str, delay=40)
+                await asyncio.sleep(0.2)
+                await tu_input.press("Enter")
+                logger.info(f"Successfully typed start date '{from_date_str}' into 'Từ ngày' input.")
+                await asyncio.sleep(0.3)
+            except Exception as e:
+                logger.warning(f"Note on typing start date '{from_date_str}': {e}")
+
+    # Step 2: Set "Đến ngày"
     date_selectors = [
         "xpath=//label[contains(text(), 'Đến ngày')]/ancestor::div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox') or contains(@class, 'ms-datepicker')]//input",
         "xpath=//label[contains(text(), 'Đến ngày')]/following::input[1]",
@@ -455,6 +510,9 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
             await date_input.press("Enter")
             await asyncio.sleep(0.5)
             logger.info(f"Successfully typed cutoff date '{cutoff_date_str}' into 'Đến ngày' input.")
+            
+            # Dismiss any popup warning if appeared
+            await dismiss_misa_warning_if_any(page_or_frame)
             return True
         except Exception as e:
             logger.error(f"Error typing cutoff date '{cutoff_date_str}': {e}")
@@ -779,34 +837,56 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
 
                     # Group 1 item selections:
                     if prefix == 'TAI_KHOAN_CT':
-                        accounts_to_select = getattr(settings, 'MISA_SO_CHI_TIET_ACCOUNTS', ['111', '112', '341', '641', '642'])
-                        logger.info(f"[TAI_KHOAN_CT] Automatically selecting 5 detail accounts: {accounts_to_select}")
-                        await select_accounts_for_so_chi_tiet(page, accounts_to_select)
+                        logger.info(f"[TAI_KHOAN_CT] Saved Report Mode: Preserving 100% pre-configured account hierarchy and details from MISA Cloud. Skipping account level & selection override.")
                     elif prefix in ['TON_KHO', 'CONG_NO_NCC', 'BAN_HANG', 'MUA_HANG']:
                         await ensure_all_items_selected(page)
                         await check_all_select_all_checkboxes(page)
 
                 # Step 4: Click "Đồng ý" / "Xem báo cáo" button
                 view_btn_selectors = [
-                    "button:has-text('Đồng ý')",
                     "button:has-text('Xem báo cáo')",
+                    "button:has-text('Đồng ý')",
+                    ".btn:has-text('Xem báo cáo')",
+                    ".btn:has-text('Đồng ý')",
+                    "div.ms-button:has-text('Xem báo cáo')",
                     "div.ms-button:has-text('Đồng ý')",
-                    "div.ms-button:has-text('Xem báo cáo')"
+                    ".ms-button-primary:has-text('Xem báo cáo')",
+                    ".ms-button-primary:has-text('Đồng ý')"
                 ]
-                view_btn, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=5000)
+                view_btn, v_frame = await find_locator_in_any_frame(page, view_btn_selectors, timeout=5000)
                 if view_btn:
                     logger.info("Clicking 'Đồng ý' / 'Xem báo cáo' button...")
                     await view_btn.click(force=True)
                     await asyncio.sleep(1.5)
 
                     if await dismiss_misa_warning_if_any(page):
-                        logger.info("Warning popup dismissed. Re-checking all items and clicking 'Đồng ý' again...")
+                        logger.info("Warning popup dismissed. Re-checking all items and clicking 'Xem báo cáo' again...")
                         await ensure_all_items_selected(page)
                         await check_all_select_all_checkboxes(page)
                         view_btn_retry, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=3000)
                         if view_btn_retry:
                             await view_btn_retry.click(force=True)
                             await asyncio.sleep(1.5)
+
+                    # Bắt buộc đợi modal tham số biến mất hoàn toàn
+                    for wait_attempt in range(5):
+                        param_modal_open = False
+                        for f in [page] + page.frames:
+                            try:
+                                pm = f.locator(".con-ms-popup.popup-is-show:has-text('Chọn tham số'), .ms-popup:has-text('Chọn tham số')").first
+                                if await pm.is_visible(timeout=500):
+                                    param_modal_open = True
+                                    logger.warning(f"Parameter modal still open (attempt {wait_attempt + 1}). Re-clicking 'Xem báo cáo'...")
+                                    re_btn = pm.locator("button:has-text('Xem báo cáo'), button:has-text('Đồng ý'), .ms-button-primary").first
+                                    if await re_btn.is_visible(timeout=1000):
+                                        await re_btn.click(force=True)
+                                        await asyncio.sleep(1.5)
+                                    break
+                            except Exception:
+                                pass
+                        if not param_modal_open:
+                            logger.info("Parameter modal closed successfully.")
+                            break
 
             # Step 5: Wait for report grid data and loading overlays to finish
             if not is_master_data:
@@ -1288,16 +1368,50 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
             logger.info(f"Clicking Excel icon button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
             await excel_btn.click(force=True)
             await asyncio.sleep(2.5)
+            try:
+                os.makedirs(os.path.join(settings.BASE_DIR, 'scratch', 'screenshots'), exist_ok=True)
+                await page.screenshot(path=os.path.join(settings.BASE_DIR, 'scratch', 'screenshots', f"after_excel_click_{prefix}.png"))
+            except Exception:
+                pass
+
+            # Đảm bảo modal tham số đã đóng hoàn toàn trước khi tìm nút Xuất Excel
+            for _ in range(3):
+                param_modal = None
+                for f in [page] + page.frames:
+                    try:
+                        pm = f.locator(".con-ms-popup.popup-is-show:has-text('Chọn tham số'), .ms-popup:has-text('Chọn tham số')").first
+                        if await pm.is_visible(timeout=500):
+                            param_modal = pm
+                            break
+                    except Exception:
+                        pass
+                if param_modal:
+                    logger.warning("Parameter modal is still covering screen! Submitting 'Xem báo cáo'...")
+                    sub_btn = param_modal.locator("button:has-text('Xem báo cáo'), button:has-text('Đồng ý'), .ms-button-primary").first
+                    if await sub_btn.is_visible(timeout=1000):
+                        await sub_btn.click(force=True)
+                        await asyncio.sleep(2.0)
+                else:
+                    break
 
             # Step 8: Click Excel export option (dạng báo cáo / dạng tổng hợp cho TUOI_NO_KH, dạng dữ liệu cho các báo cáo khác)
             if prefix == 'TUOI_NO_KH':
                 dropdown_selectors = [
+                    "xpath=//*[contains(text(), 'dạng dữ liệu')]",
+                    "text='Xuất Excel (dạng dữ liệu)'",
+                    "span:has-text('Xuất Excel (dạng dữ liệu)')",
+                    "div:has-text('Xuất Excel (dạng dữ liệu)')",
+                    ".dx-menu-item-text:has-text('Xuất Excel')",
                     "text='Xuất Excel (dạng báo cáo)'",
                     "span:has-text('Xuất Excel (dạng báo cáo)')",
                     "div:has-text('Xuất Excel (dạng báo cáo)')",
-                    ".dx-menu-item-text:has-text('Xuất Excel (dạng báo cáo)')",
                     "text='Mẫu tổng hợp'",
                     "span:has-text('Mẫu tổng hợp')",
+                    "xpath=//*[contains(text(), 'Xuất Excel')]",
+                    "xpath=//div[contains(@class,'dx-menu-item')]//*[contains(text(),'Excel')]",
+                    "xpath=//li[contains(@class,'dx-menu-item')]",
+                    ".dx-menu-item-text",
+                    ".ms-dropdown-item",
                     "text='Excel'",
                     "span:has-text('Excel')",
                     "div:has-text('Excel')"
@@ -1309,6 +1423,16 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     "div:has-text('Xuất Excel (dạng dữ liệu)')",
                     ".dx-menu-item-text:has-text('Xuất Excel (dạng dữ liệu)')",
                     "xpath=//*[contains(text(), 'dạng dữ liệu')]",
+                    "text='Xuất Excel (dạng báo cáo)'",
+                    "span:has-text('Xuất Excel (dạng báo cáo)')",
+                    "div:has-text('Xuất Excel (dạng báo cáo)')",
+                    ".dx-menu-item-text:has-text('Xuất Excel (dạng báo cáo)')",
+                    "xpath=//*[contains(text(), 'dạng báo cáo')]",
+                    "xpath=//*[contains(text(), 'Xuất Excel')]",
+                    "xpath=//div[contains(@class,'dx-menu-item')]//*[contains(text(),'Excel')]",
+                    "xpath=//li[contains(@class,'dx-menu-item')]",
+                    ".dx-menu-item-text",
+                    ".ms-dropdown-item",
                     "text='Excel'",
                     "span:has-text('Excel')",
                     "div:has-text('Excel')"
@@ -1333,6 +1457,30 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 logger.info(f"Clicking Excel export item '{item_text.strip()}' for prefix '{prefix}'...")
                 await dropdown_item.click(force=True)
                 await asyncio.sleep(2.0)
+            else:
+                logger.info(f"[{prefix}] Trying fallback DOM evaluation to find any visible Excel menu item...")
+                for f in [page] + page.frames:
+                    try:
+                        menu_info = await f.evaluate("""() => {
+                            const items = Array.from(document.querySelectorAll('.dx-submenu .dx-menu-item, .ms-dropdown-menu .ms-dropdown-item, .dx-overlay-content .dx-item, .dx-menu-items-container .dx-menu-item, .ms-dropdown-item'));
+                            for (const it of items) {
+                                if (it.offsetWidth > 0 && it.offsetHeight > 0) {
+                                    const t = (it.textContent || '').trim().toLowerCase();
+                                    if (!t.includes('nhập') && (t.includes('excel') || t.includes('dữ liệu') || t.includes('báo cáo')) && !t.includes('kế toán') && !t.includes('phân hệ') && !t.includes('hay dùng')) {
+                                        it.click();
+                                        return it.textContent.trim();
+                                    }
+                                }
+                            }
+                            return null;
+                        }""")
+                        if menu_info:
+                            logger.info(f"[{prefix}] Clicked fallback menu item via JS: '{menu_info}'")
+                            dropdown_item = True
+                            await asyncio.sleep(2.0)
+                            break
+                    except Exception as fe:
+                        logger.debug(f"Fallback menu click exception: {fe}")
 
             # Check for options dialog "Đồng ý" / "Xuất khẩu" button
             for _ in range(5):

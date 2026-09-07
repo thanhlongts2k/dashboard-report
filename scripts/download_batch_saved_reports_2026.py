@@ -210,7 +210,7 @@ def find_existing_file_for_month(prefix, year, month):
     ]
     for fname in candidate_names:
         fpath = os.path.join(AUTO_IMPORTS_DIR, fname)
-        if os.path.exists(fpath) and os.path.getsize(fpath) > 10000:
+        if os.path.exists(fpath) and os.path.getsize(fpath) > 2000:
             return fpath
     return None
 
@@ -303,7 +303,7 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
                     print(f"    -> Kết quả MISA ({prefix}): {res_msg}")
 
                     expected_file = os.path.join(AUTO_IMPORTS_DIR, f"{prefix}_{month_suffix}.xlsx")
-                    if os.path.exists(expected_file) and os.path.getsize(expected_file) > 10000:
+                    if os.path.exists(expected_file) and os.path.getsize(expected_file) > 2000:
                         target_file_path = expected_file
                         file_size = os.path.getsize(expected_file)
                         checkpoint.update_report(
@@ -440,7 +440,9 @@ def main():
         args.auto_import = True
         args.recalc_kpi = True
         args.resume = True
-        print(f"⏰ [WEEKLY SYNC MODE ACTIVATED] Đồng bộ tuần tự từ đầu năm {args.from_month} đến tháng hiện tại {args.to_month}...")
+        if args.reports == 'BAN_HANG':
+            args.reports = 'GROUP_1,GROUP_2'
+        print(f"⏰ [WEEKLY SYNC MODE ACTIVATED] Đồng bộ tuần tự từ đầu năm {args.from_month} đến tháng hiện tại {args.to_month} (Báo cáo: {args.reports})...")
 
     success = run_batch_pipeline(
         from_month=args.from_month,

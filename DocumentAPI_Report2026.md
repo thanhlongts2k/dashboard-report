@@ -1143,7 +1143,7 @@ Hệ thống kết hợp ưu điểm của cả 2 chế độ xuất báo cáo:
 | `MUA_HANG` | `02 - Sổ chi tiết mua hàng` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
 | `TON_KHO` | `03 - Tổng hợp tồn kho` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
 | `CONG_NO_NCC` | `04 - Tổng hợp công nợ phải trả nhà cung cấp` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
-| `TAI_KHOAN_CT` | `05 - Sổ chi tiết các tài khoản` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) |
+| `TAI_KHOAN_CT` | `05 - Sổ chi tiết các tài khoản` | Mở mẫu lưu -> Chọn tham số -> Đổi kỳ -> Đồng ý -> Xuất Excel (dạng dữ liệu) *(Giữ 100% tài khoản chi tiết đã lưu trong mẫu MISA, tuyệt đối không can thiệp đổi Bậc = 1 để không mất phát sinh thu tiền 1121)* |
 | `TUOI_NO_KH` | `06 - Chi tiết công nợ phải thu theo tuổi nợ 131` & `06 - Chi tiết công nợ phải thu theo tuổi nợ 1311` | Mở từng mẫu lưu -> Đổi kỳ/ngày -> Xuất Excel -> Tự động Merge 2 file kèm cột `Tài khoản` (131 / 1311) |
 | `SO_DU_NH` | `07 - Bảng kê số dư ngân hàng` | Mở mẫu lưu -> Đổi ngày đến cuối tháng -> Xem báo cáo -> Xuất Excel |
 | `DANH_SACH_KHACH_HANG` | Danh mục Khách hàng (`DICustomer`) | Xuất nhanh trực tiếp Master Data qua icon `.mi-s1-file-export` |
@@ -1327,14 +1327,30 @@ python scripts/seed_sales_targets_2026.py
   - Cần bám sát ($70\% - 99.9\%$): Nền `bg-amber-50`, chữ `text-amber-700`, progress bar `bg-amber-500`.
   - Chậm tiến độ ($< 70\%$): Nền `bg-rose-50`, chữ `text-rose-700`, progress bar `bg-rose-500`.
 - **Chuẩn hóa Mapping BU & Xử lý kỳ linh hoạt**:
-  - Hỗ trợ đầy đủ các slug URL: `ibiz-premium` $\rightarrow$ `BU_IBIZ PREMIUM`, `ibiz-value` $\rightarrow$ `BU_IBIZ VALUE`, `elevator` $\rightarrow$ `BU_ELEVATOR`.
   - Khi xem kỳ tháng 9/2026 trở đi mà chưa nạp target tháng: Tự động fallback `month_target = 0 đ` an toàn, không gây crash hoặc rỗng giao diện.
 
+---
 
+## 21. Cơ Chế Batch Ingestion Báo Cáo MISA 2026 (7 Báo Cáo x 9 Tháng) & Checkpoint 2D State Persistence
 
+### 21.1. Kiến Trúc Điều Phối Batch (`scripts/download_batch_saved_reports_2026.py`)
+- **Tập trung hóa quy trình tải và nạp dữ liệu**:
+  - Hỗ trợ toàn diện 7 loại báo cáo định kỳ:
+    * **Nhóm 1 (Phát sinh theo tháng)**: `BAN_HANG` (01), `MUA_HANG` (02), `TAI_KHOAN_CT` (05 - 5 TK: 111, 112, 341, 641, 642), `TON_KHO` (03), `CONG_NO_NCC` (04).
+    * **Nhóm 2 (Snapshot cuối tháng theo Cutoff Date)**: `SO_DU_NH` (07 - Bảng kê số dư ngân hàng), `TUOI_NO_KH` (06 - Chi tiết tuổi nợ 131 và 1311 kết hợp merge Python).
+- **Cơ chế Checkpoint 2 Chiều (`media/auto_imports/batch_checkpoint.json`)**:
+  - Ma trận Trạng thái máy đọc: `Tháng (2026-01 -> 2026-09) x Báo Cáo (7 loại)`.
+  - Tự động bỏ qua các báo cáo đã hoàn thành (`status: DONE`), hỗ trợ resume ngay lập tức khi mạng gián đoạn mà không tải trùng lặp.
+  - Tích hợp tự động nạp CSDL (`auto_import_excel_from_folder`) và kích hoạt tính lại KPI (`update_single_bu_performance`) cho từng tháng.
 
-
-
+### 21.2. Chế Độ Đồng Bộ Hàng Tuần (Weekly Cron Mode)
+- **Cờ thực thi**: `--weekly-sync`
+  - Tự động xác định khoảng thời gian từ đầu năm (`YYYY-01`) đến tháng hiện tại (`YYYY-MM`).
+  - Tự động bật các cờ `--resume`, `--auto-import`, `--recalc-kpi`, gom toàn bộ báo cáo Nhóm 1 và Nhóm 2.
+  - Lệnh gọi:
+    ```bash
+    python -u scripts/download_batch_saved_reports_2026.py --weekly-sync
+    ```
 
 
 
