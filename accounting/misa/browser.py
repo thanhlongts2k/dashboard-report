@@ -349,8 +349,29 @@ async def click_saved_report_link(page, report_name):
             if " - Important" in parts[1]:
                 variations.append(parts[1].replace(" - Important", "").strip())
                 
-    report_link = None
+    if "nhà cung cấp" in report_name.lower():
+        variations.append(report_name.replace("nhà cung cấp", "NCC"))
+        variations.append("04 - Tổng hợp công nợ phải trả NCC")
+        variations.append("Tổng hợp công nợ phải trả NCC")
+        variations.append("Tổng hợp công nợ phải trả")
+    elif "ncc" in report_name.lower():
+        variations.append(report_name.replace("NCC", "nhà cung cấp"))
+        variations.append("04 - Tổng hợp công nợ phải trả nhà cung cấp")
+        variations.append("Tổng hợp công nợ phải trả nhà cung cấp")
+        variations.append("Tổng hợp công nợ phải trả")
+    if "04" in report_name:
+        variations.append("04 - Tổng hợp công nợ phải trả")
+    if "05" in report_name:
+        variations.append("05 - Sổ chi tiết các tài khoản")
+        variations.append("Sổ chi tiết các tài khoản")
+    if "03" in report_name:
+        variations.append("03 - Tổng hợp tồn kho")
+        variations.append("Tổng hợp tồn kho")
+    if "02" in report_name:
+        variations.append("02 - Sổ chi tiết mua hàng")
+        variations.append("Sổ chi tiết mua hàng")
     target_frame = page
+    report_link = None
     
     # Đợi bảng dữ liệu danh sách báo cáo xuất hiện
     for _ in range(12):

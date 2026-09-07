@@ -9,12 +9,15 @@ from .report_exporter import download_report_from_url, merge_tuoi_no_kh_excel_fi
 
 logger = logging.getLogger(__name__)
 
-async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_reports=None):
+async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_reports=None, custom_period_suffix=None, output_dir=None, cutoff_date=None):
     """
     Chạy tự động tải báo cáo MISA.
     - period_option: Kỳ báo cáo tùy chọn (ví dụ: 'Tháng trước', 'Tháng này', 'Tháng 7', 'Năm nay'...).
     - prefix_filter: Lọc chỉ tải đúng 1 loại báo cáo khớp prefix (ví dụ: 'BAN_HANG', 'TON_KHO'...).
     - use_saved_reports: True để ép dùng mẫu đã lưu (Option 2), False để dùng URL động (Option 1), None để lấy theo settings.
+    - custom_period_suffix: Hậu tố file tùy chỉnh (ví dụ: '202608' -> BAN_HANG_202608.xlsx).
+    - output_dir: Thư mục đích lưu file Excel tải về (mặc định: media/auto_imports).
+    - cutoff_date: Ngày chốt cuối tháng cho báo cáo Snapshot (ví dụ: '31/08/2026').
     """
     email = settings.MISA_EMAIL
     password = settings.MISA_PASSWORD
@@ -23,19 +26,31 @@ async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_
     if not email or not password:
         raise Exception("MISA_EMAIL and MISA_PASSWORD must be configured in settings/.env")
 
-    auto_imports_dir = os.path.join(settings.BASE_DIR, 'media', 'auto_imports')
+    auto_imports_dir = output_dir if output_dir else os.path.join(settings.BASE_DIR, 'media', 'auto_imports')
     os.makedirs(auto_imports_dir, exist_ok=True)
 
     async with async_playwright() as p:
-        logger.info(f"Launching Playwright Chromium (headless={headless})...")
-        browser = await p.chromium.launch(
-            headless=headless,
-            args=[
-                '--disable-blink-features=AutomationControlled',
-                '--no-sandbox',
-                '--disable-setuid-sandbox'
-            ]
-        )
+        browser = None
+        launch_args = [
+            '--disable-blink-features=AutomationControlled',
+            '--no-sandbox',
+            '--disable-setuid-sandbox'
+        ]
+        preferred_channel = getattr(settings, 'MISA_BROWSER_CHANNEL', 'chrome')
+        for ch in [preferred_channel, 'msedge', None]:
+            try:
+                if ch:
+                    browser = await p.chromium.launch(headless=headless, channel=ch, args=launch_args)
+                    logger.info(f"Launched browser using channel='{ch}' (headless={headless})")
+                else:
+                    browser = await p.chromium.launch(headless=headless, args=launch_args)
+                    logger.info(f"Launched default Playwright Chromium (headless={headless})")
+                break
+            except Exception as e:
+                logger.debug(f"Failed to launch with channel='{ch}': {e}")
+        
+        if not browser:
+            raise RuntimeError("Could not launch any Chromium browser (chrome, msedge, or default).")
         
         context = None
         state_path = settings.MISA_BROWSER_STATE_PATH
@@ -95,7 +110,7 @@ async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_
             logger.warning(f"Error checking session, re-logging in: {str(e)}")
             await login_to_misa(page, context, email, password)
 
-        file_suffix = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_suffix = str(custom_period_suffix) if custom_period_suffix else datetime.now().strftime('%Y%m%d_%H%M%S')
         downloaded_count = 0
         failed_count = 0
         failed_details = []
@@ -161,10 +176,11 @@ async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_
                         continue
                         
                     try:
-                        skip_params_flag = False if period_option else True
+                        skip_params_flag = False if (period_option or cutoff_date or prefix in ['SO_DU_NH', 'TUOI_NO_KH', 'TAI_KHOAN_CT']) else True
                         success = await download_report_from_url(
                             target_page, None, settings.MISA_EXPORT_SELECTOR, output_path, 
-                            prefix=prefix, skip_parameters=skip_params_flag, period_option=period_option
+                            prefix=prefix, skip_parameters=skip_params_flag, period_option=period_option,
+                            cutoff_date=cutoff_date, custom_period_suffix=file_suffix
                         )
                         if success:
                             downloaded_count += 1
@@ -225,10 +241,10 @@ async def run_misa_automation(period_option=None, prefix_filter=None, use_saved_
                             continue
 
                         try:
-                            skip_params_flag = False if period_option else True
                             success = await download_report_from_url(
                                 target_page, None, settings.MISA_EXPORT_SELECTOR, temp_file, 
-                                prefix='TUOI_NO_KH', skip_parameters=skip_params_flag, period_option=period_option
+                                prefix='TUOI_NO_KH', skip_parameters=False, period_option=period_option,
+                                target_account=acc_code, cutoff_date=cutoff_date, custom_period_suffix=file_suffix
                             )
                             if success and os.path.exists(temp_file):
                                 acc_file_map[acc_code] = temp_file

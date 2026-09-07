@@ -354,6 +354,115 @@ async def select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341', '
 
     logger.info(f"[TAI_KHOAN_CT] Finished selecting accounts: {accounts}")
 
+def compute_cutoff_date(period_option=None, custom_period_suffix=None):
+    """
+    Tính ngày cuối tháng (DD/MM/YYYY) từ period_option hoặc custom_period_suffix.
+    Ví dụ:
+      custom_period_suffix='202601' -> '31/01/2026'
+      custom_period_suffix='202602' -> '28/02/2026'
+      period_option='Tháng 8' -> '31/08/2026'
+    """
+    import calendar
+    import re
+    from datetime import datetime
+
+    year = 2026
+    month = None
+
+    if custom_period_suffix and len(custom_period_suffix) == 6 and custom_period_suffix.isdigit():
+        year = int(custom_period_suffix[:4])
+        month = int(custom_period_suffix[4:6])
+    elif period_option:
+        m_match = re.search(r'(\d+)', period_option)
+        if m_match:
+            month = int(m_match.group(1))
+        if '2025' in period_option:
+            year = 2025
+        elif '2026' in period_option:
+            year = 2026
+
+    if not month:
+        now = datetime.now()
+        month = now.month
+        year = now.year
+
+    last_day = calendar.monthrange(year, month)[1]
+    return f"{last_day:02d}/{month:02d}/{year:04d}"
+
+async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
+    """
+    Xóa và gõ chính xác mốc ngày chốt cuối tháng (DD/MM/YYYY) vào ô 'Đến ngày' trong modal tham số.
+    Tuyệt đối không chọn dropdown 'Tháng' cho các báo cáo Snapshot (SO_DU_NH, TUOI_NO_KH).
+    """
+    logger.info(f"[SNAPSHOT] Setting cutoff date to '{cutoff_date_str}' in 'Đến ngày' input field...")
+    date_selectors = [
+        "xpath=//label[contains(text(), 'Đến ngày')]/ancestor::div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox') or contains(@class, 'ms-datepicker')]//input",
+        "xpath=//label[contains(text(), 'Đến ngày')]/following::input[1]",
+        "xpath=//div[contains(text(), 'Đến ngày') and not(self::input)]/following::input[1]",
+        "xpath=//span[contains(text(), 'Đến ngày')]/following::input[1]",
+        "input[placeholder*='Đến ngày']",
+        "xpath=(//div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox')])[last()]//input",
+    ]
+    date_input, frame = await find_locator_in_any_frame(page_or_frame, date_selectors, timeout=4000)
+    
+    if not date_input:
+        logger.warning(f"Could not find 'Đến ngày' input field with primary selectors. Searching via JS...")
+        js_find_input = """
+        () => {
+            const labels = Array.from(document.querySelectorAll('label, div, span, th, td'));
+            for (const el of labels) {
+                const txt = (el.textContent || '').trim();
+                if (txt === 'Đến ngày' || txt.includes('Đến ngày') || txt.includes('Ngày chốt') || txt.includes('Tính đến ngày')) {
+                    const parent = el.closest('.ms-date, .dx-datebox, .form-group, .flex, .row, div') || el.parentElement;
+                    if (parent) {
+                        const inp = parent.querySelector('input');
+                        if (inp) return inp;
+                    }
+                    if (el.nextElementSibling) {
+                        const inp = el.nextElementSibling.querySelector('input') || (el.nextElementSibling.tagName === 'INPUT' ? el.nextElementSibling : null);
+                        if (inp) return inp;
+                    }
+                }
+            }
+            return null;
+        }
+        """
+        for f in [page_or_frame] + getattr(page_or_frame, 'frames', []):
+            try:
+                handle = await f.evaluate_handle(js_find_input)
+                if handle and await handle.as_element():
+                    date_input = handle.as_element()
+                    break
+            except Exception:
+                pass
+
+    if date_input:
+        try:
+            await date_input.click(force=True, click_count=3)
+            await asyncio.sleep(0.2)
+            await date_input.press("Control+A")
+            await asyncio.sleep(0.1)
+            await date_input.press("Backspace")
+            await asyncio.sleep(0.2)
+            await date_input.evaluate("""el => {
+                el.value = '';
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }""")
+            await asyncio.sleep(0.2)
+            await date_input.type(cutoff_date_str, delay=50)
+            await asyncio.sleep(0.3)
+            await date_input.press("Enter")
+            await asyncio.sleep(0.5)
+            logger.info(f"Successfully typed cutoff date '{cutoff_date_str}' into 'Đến ngày' input.")
+            return True
+        except Exception as e:
+            logger.error(f"Error typing cutoff date '{cutoff_date_str}': {e}")
+            return False
+    else:
+        logger.error("Could not locate 'Đến ngày' input field in parameter modal!")
+        return False
+
 async def select_account_for_tuoi_no_kh(page, account_code):
     """
     Chọn mã tài khoản đơn (ví dụ '131' hoặc '1311') trong ô Combobox 'Tài khoản *' của báo cáo TUOI_NO_KH.
@@ -464,17 +573,18 @@ def merge_tuoi_no_kh_excel_files(acc_file_map, final_output_path):
         return True
     return False
 
-async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None, target_account=None):
+async def download_report_from_url(page, report_url, export_selector, output_path, prefix=None, skip_parameters=False, period_option=None, target_account=None, cutoff_date=None, custom_period_suffix=None):
     """
     Phục hồi 100% luồng thao tác Playwright pre-commit 773e281~1.
     Tích hợp luồng 5 bước tinh gọn cho Danh mục Khách hàng và Danh mục Nhân viên.
+    Hỗ trợ xử lý tham số chuyên biệt cho Nhóm 1 (Phát sinh theo kỳ) và Nhóm 2 (Snapshot theo mốc Đến ngày).
     """
     is_master_data = prefix in ['DANH_SACH_KHACH_HANG', 'DANH_SACH_NHAN_VIEN', 'KHACH_HANG', 'NHAN_VIEN']
     if is_master_data:
         skip_parameters = True
         logger.info(f"[{prefix}] Master Data export mode activated (Streamlined 5-step flow without parameter modals).")
 
-    if prefix == 'TUOI_NO_KH' and not skip_parameters and target_account is None:
+    if report_url is not None and prefix == 'TUOI_NO_KH' and not skip_parameters and target_account is None:
         accounts_to_fetch = getattr(settings, 'MISA_TUOI_NO_KH_ACCOUNTS', ['131', '1311'])
         if len(accounts_to_fetch) > 1:
             logger.info(f"[TUOI_NO_KH] Multi-account export mode enabled for accounts: {accounts_to_fetch}")
@@ -488,7 +598,8 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 res = await download_report_from_url(
                     page, report_url, export_selector, temp_file,
                     prefix=prefix, skip_parameters=skip_parameters,
-                    period_option=period_option, target_account=acc
+                    period_option=period_option, target_account=acc,
+                    cutoff_date=cutoff_date, custom_period_suffix=custom_period_suffix
                 )
                 if res and os.path.exists(temp_file):
                     acc_file_map[acc] = temp_file
@@ -541,99 +652,139 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
         is_saved_report = (report_url is None)
 
         if is_saved_report:
-            if period_option:
-                logger.info(f"[{prefix}] Saved Report Mode: Opening 'Chọn tham số' to set period to '{period_option}'...")
-                # Step 2: Click "Chọn tham số" button
-                param_btn_selectors = [
-                    "button:has-text('Chọn tham số')",
-                    ".btn:has-text('Chọn tham số')",
-                    "div.ms-button:has-text('Chọn tham số')",
-                    "span:has-text('Chọn tham số')",
-                    ".dx-button-content:has-text('Chọn tham số')",
-                    "[title*='Chọn tham số']",
-                    "[aria-label*='Chọn tham số']",
-                    ".mi-param",
-                    ".icon-feature-param"
-                ]
-                param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
-                if not param_btn:
-                    for f in page.frames:
-                        try:
-                            locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
-                            if await locator.is_visible(timeout=1000):
-                                param_btn = locator
-                                frame = f
-                                break
-                        except Exception:
-                            continue
+            is_snapshot = prefix in ['SO_DU_NH', 'TUOI_NO_KH']
+            is_periodic = prefix in ['BAN_HANG', 'MUA_HANG', 'TAI_KHOAN_CT', 'TON_KHO', 'CONG_NO_NCC']
+            needs_param_config = not skip_parameters and (is_snapshot or is_periodic or period_option is not None)
 
-                if param_btn:
-                    logger.info(f"Clicking 'Chon tham so' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
-                    await param_btn.click(force=True)
-                    await asyncio.sleep(1.5)
+            if needs_param_config:
+                logger.info(f"[{prefix}] Saved Report Mode: Configuring parameters (is_snapshot={is_snapshot}, period='{period_option}', cutoff='{cutoff_date}')...")
+                # Step 2: Open "Chọn tham số" if not already opened
+                modal_already_open = False
+                view_btn_precheck, _ = await find_locator_in_any_frame(page, ["button:has-text('Đồng ý')", "button:has-text('Xem báo cáo')"], timeout=1500)
+                if view_btn_precheck:
+                    modal_already_open = True
+                    logger.info("Parameter modal is already visible.")
                 else:
-                    logger.warning("Could not find 'Chon tham so' button. It might already be opened.")
+                    param_btn_selectors = [
+                        "button:has-text('Chọn tham số')",
+                        ".btn:has-text('Chọn tham số')",
+                        "div.ms-button:has-text('Chọn tham số')",
+                        "span:has-text('Chọn tham số')",
+                        ".dx-button-content:has-text('Chọn tham số')",
+                        "[title*='Chọn tham số']",
+                        "[aria-label*='Chọn tham số']",
+                        ".mi-param",
+                        ".icon-feature-param"
+                    ]
+                    param_btn, frame = await find_locator_in_any_frame(page, param_btn_selectors, timeout=5000)
+                    if not param_btn:
+                        for f in page.frames:
+                            try:
+                                locator = f.locator("//*[contains(text(), 'Chọn tham số')]").first
+                                if await locator.is_visible(timeout=1000):
+                                    param_btn = locator
+                                    frame = f
+                                    break
+                            except Exception:
+                                continue
 
-                # Step 3: ONLY Choose Period ("Tháng trước", "Tháng 7", etc.)
-                target_period = period_option
-                logger.info(f"Setting saved report period to: '{target_period}'...")
-                ky_baocao_selectors = [
-                    "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
-                    "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
-                    "xpath=//label[contains(text(), 'Kỳ')]/following::div[contains(@class,'ms-combo')][1]//input",
-                    ".ms-combo input[placeholder*='Kỳ']"
-                ]
-                ky_input, _ = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
-                if not ky_input:
-                    logger.warning("Combobox 'Kỳ báo cáo' not found. Proceeding with current date parameters.")
-                else:
-                    await ky_input.click(force=True)
-                    await asyncio.sleep(0.5)
+                    if param_btn:
+                        logger.info(f"Clicking 'Chọn tham số' button in frame: {getattr(frame, 'name', 'main') or getattr(frame, 'url', '')}")
+                        await param_btn.click(force=True)
+                        await asyncio.sleep(1.5)
+                    else:
+                        logger.warning("Could not find 'Chọn tham số' button. Proceeding with current modal state.")
 
-                    target_period_vars = [target_period]
-                    if "Tháng " in target_period:
-                        num_part = target_period.replace("Tháng ", "").strip()
-                        if num_part.isdigit():
-                            num_val = int(num_part)
-                            target_period_vars.append(f"Tháng {num_val}")
-                            target_period_vars.append(f"Tháng {num_val:02d}")
+                # Step 3: Branch parameter handling by Group
+                if is_snapshot:
+                    # NHÓM 2: Snapshot theo mốc cuối tháng (Xóa và gõ 'Đến ngày', TUYỆT ĐỐI không chọn dropdown 'Tháng')
+                    cutoff_str = cutoff_date or compute_cutoff_date(period_option=period_option, custom_period_suffix=custom_period_suffix)
+                    logger.info(f"[{prefix}] Snapshot Mode: Setting cutoff date to '{cutoff_str}' (skipping 'Kỳ báo cáo' dropdown)...")
+                    await set_cutoff_date_for_snapshot(page, cutoff_str)
 
-                    period_el = None
-                    selected_var = None
-                    for p_var in dict.fromkeys(target_period_vars):
-                        exact_period_selectors = [
-                            f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
-                            f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
-                            f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][contains(text(),'{p_var}')]",
-                            f"text='{p_var}'"
-                        ]
-                        period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=1500, close_blockers=False)
-                        if period_el:
-                            selected_var = p_var
-                            logger.info(f"Found period element matching '{p_var}' in dropdown.")
-                            break
+                    if prefix == 'SO_DU_NH':
+                        # Bỏ tag chi nhánh _Nhật
+                        await remove_nhat_branches(page)
+                        # Chọn tất cả tài khoản ngân hàng
+                        await check_all_select_all_checkboxes(page)
+                        await ensure_all_items_selected(page)
 
-                    if period_el:
+                    if prefix == 'TUOI_NO_KH' and target_account:
                         try:
-                            await period_el.click(force=True)
-                            logger.info(f"Selected period '{selected_var}' successfully via UI dropdown click.")
-                        except Exception as pe:
-                            logger.warning(f"Clicking period element '{selected_var}' failed: {pe}. Trying keyboard input...")
-                            period_el = None
-
-                    if not period_el:
-                        logger.info(f"Dropdown click failed/not found for '{target_period}'. Trying keyboard type into combobox...")
-                        try:
-                            await ky_input.click(force=True, click_count=3)
-                            await asyncio.sleep(0.3)
-                            await ky_input.type(target_period)
-                            await asyncio.sleep(0.5)
-                            await page.keyboard.press("Enter")
-                            await asyncio.sleep(0.5)
-                            period_el = True
-                            logger.info(f"Typed '{target_period}' and pressed Enter successfully into period combobox.")
+                            await select_account_for_tuoi_no_kh(page, target_account)
                         except Exception as e:
-                            logger.error(f"Failed to type '{target_period}' into period combobox: {str(e)}")
+                            logger.debug(f"[TUOI_NO_KH] Note on selecting account '{target_account}': {e}")
+
+                elif is_periodic or period_option:
+                    # NHÓM 1: Phát sinh theo kỳ (Kỳ báo cáo = Tháng {m})
+                    target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
+                    logger.info(f"[{prefix}] Periodic Report Mode: Setting period to: '{target_period}'...")
+                    ky_baocao_selectors = [
+                        "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+                        "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
+                        "xpath=//label[contains(text(), 'Kỳ')]/following::div[contains(@class,'ms-combo')][1]//input",
+                        ".ms-combo input[placeholder*='Kỳ']"
+                    ]
+                    ky_input, _ = await find_locator_in_any_frame(page, ky_baocao_selectors, timeout=3000)
+                    if not ky_input:
+                        logger.warning("Combobox 'Kỳ báo cáo' not found. Proceeding with current date parameters.")
+                    else:
+                        await ky_input.click(force=True)
+                        await asyncio.sleep(0.5)
+
+                        target_period_vars = [target_period]
+                        if "Tháng " in target_period:
+                            num_part = target_period.replace("Tháng ", "").strip()
+                            if num_part.isdigit():
+                                num_val = int(num_part)
+                                target_period_vars.append(f"Tháng {num_val}")
+                                target_period_vars.append(f"Tháng {num_val:02d}")
+
+                        period_el = None
+                        selected_var = None
+                        for p_var in dict.fromkeys(target_period_vars):
+                            exact_period_selectors = [
+                                f"xpath=//div[contains(@class,'dx-dropdowneditor-overlay') or contains(@class,'ms-combo') or contains(@class,'dx-overlay-content')]//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
+                                f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][normalize-space(text())='{p_var}']",
+                                f"xpath=//*[contains(@class,'dx-item-content') or contains(@class,'ms-combo-item') or contains(@class,'dx-list-item-content')][contains(text(),'{p_var}')]",
+                                f"text='{p_var}'"
+                            ]
+                            period_el, _ = await find_locator_in_any_frame(page, exact_period_selectors, timeout=1500, close_blockers=False)
+                            if period_el:
+                                selected_var = p_var
+                                logger.info(f"Found period element matching '{p_var}' in dropdown.")
+                                break
+
+                        if period_el:
+                            try:
+                                await period_el.click(force=True)
+                                logger.info(f"Selected period '{selected_var}' successfully via UI dropdown click.")
+                            except Exception as pe:
+                                logger.warning(f"Clicking period element '{selected_var}' failed: {pe}. Trying keyboard input...")
+                                period_el = None
+
+                        if not period_el:
+                            logger.info(f"Dropdown click failed/not found for '{target_period}'. Trying keyboard type into combobox...")
+                            try:
+                                await ky_input.click(force=True, click_count=3)
+                                await asyncio.sleep(0.3)
+                                await ky_input.type(target_period)
+                                await asyncio.sleep(0.5)
+                                await page.keyboard.press("Enter")
+                                await asyncio.sleep(0.5)
+                                period_el = True
+                                logger.info(f"Typed '{target_period}' and pressed Enter successfully into period combobox.")
+                            except Exception as e:
+                                logger.error(f"Failed to type '{target_period}' into period combobox: {str(e)}")
+
+                    # Group 1 item selections:
+                    if prefix == 'TAI_KHOAN_CT':
+                        accounts_to_select = getattr(settings, 'MISA_SO_CHI_TIET_ACCOUNTS', ['111', '112', '341', '641', '642'])
+                        logger.info(f"[TAI_KHOAN_CT] Automatically selecting 5 detail accounts: {accounts_to_select}")
+                        await select_accounts_for_so_chi_tiet(page, accounts_to_select)
+                    elif prefix in ['TON_KHO', 'CONG_NO_NCC', 'BAN_HANG', 'MUA_HANG']:
+                        await ensure_all_items_selected(page)
+                        await check_all_select_all_checkboxes(page)
 
                 # Step 4: Click "Đồng ý" / "Xem báo cáo" button
                 view_btn_selectors = [
@@ -644,9 +795,18 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                 ]
                 view_btn, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=5000)
                 if view_btn:
-                    logger.info("Clicking 'Dong y' / 'Xem bao cao' button...")
+                    logger.info("Clicking 'Đồng ý' / 'Xem báo cáo' button...")
                     await view_btn.click(force=True)
                     await asyncio.sleep(1.5)
+
+                    if await dismiss_misa_warning_if_any(page):
+                        logger.info("Warning popup dismissed. Re-checking all items and clicking 'Đồng ý' again...")
+                        await ensure_all_items_selected(page)
+                        await check_all_select_all_checkboxes(page)
+                        view_btn_retry, _ = await find_locator_in_any_frame(page, view_btn_selectors, timeout=3000)
+                        if view_btn_retry:
+                            await view_btn_retry.click(force=True)
+                            await asyncio.sleep(1.5)
 
             # Step 5: Wait for report grid data and loading overlays to finish
             if not is_master_data:
@@ -793,14 +953,15 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     except Exception as e:
                         logger.error(f"Error selecting account '{target_account}' for TUOI_NO_KH: {str(e)}")
 
-                # Step 4: Choose Period ("Tháng này", "Tháng 6", etc.) — Fail-Fast
-                skip_ky_bao_cao = (prefix == 'TUOI_NO_KH')
-                target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
-                logger.info(f"Setting report period to: '{target_period}'...")
-                
-                if skip_ky_bao_cao:
-                    logger.info(f"[{prefix}] Skipping 'Ky bao cao' selection as per commit 57a0e59 logic.")
+                # Step 4: Choose Period ("Tháng này", "Tháng 6", etc.) or Snapshot Cutoff Date — Fail-Fast
+                is_direct_snapshot = prefix in ['TUOI_NO_KH', 'SO_DU_NH']
+                if is_direct_snapshot:
+                    cutoff_str = cutoff_date or compute_cutoff_date(period_option=period_option, custom_period_suffix=custom_period_suffix)
+                    logger.info(f"[{prefix}] Direct URL Snapshot Mode: Setting cutoff date to '{cutoff_str}' into 'Đến ngày' (skipping 'Kỳ báo cáo')...")
+                    await set_cutoff_date_for_snapshot(page, cutoff_str)
                 else:
+                    target_period = period_option if period_option else getattr(settings, 'MISA_REPORT_PERIOD_OPTION', 'Tháng này')
+                    logger.info(f"Setting report period to: '{target_period}'...")
                     ky_baocao_selectors = [
                         "xpath=//label[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",
                         "xpath=//div[contains(text(), 'Kỳ báo cáo')]/ancestor::div[contains(@class, 'ms-combo')]//input",

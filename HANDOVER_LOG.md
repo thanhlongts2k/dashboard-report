@@ -3,6 +3,84 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+### 🚨 [RESUME PROTOCOL / BÀN GIAO TIẾP THEO]
+- **Trạng thái tác vụ**: Giai đoạn 1 & Giai đoạn 2 (Trọn bộ 5 báo cáo Nhóm 1 cho 9 tháng từ 01/2026 đến 09/2026) đã HOÀN THÀNH 100% XUẤT SẮC.
+- **Tiến độ xử lý**:
+  - Script điều phối: [`scripts/download_batch_saved_reports_2026.py`](file:///d:/Sources/dashboard-report/scripts/download_batch_saved_reports_2026.py) (Hỗ trợ `--reports GROUP_1,GROUP_2,GROUP_3,ALL`, `--resume`, `--weekly-sync`).
+  - File Checkpoint máy đọc: [`media/auto_imports/batch_checkpoint.json`](file:///d:/Sources/dashboard-report/media/auto_imports/batch_checkpoint.json)
+    * **Đạt 100% (9/9 tháng, 45/45 báo cáo `DONE`)**.
+    * Toàn bộ các tháng 01 đến 09/2026: `status: COMPLETED`, `reconciled: true`.
+  - Kết quả dữ liệu kế toán & KPI YTD (đến 31/08/2026):
+    * Tổng doanh thu bán hàng `SalesTransaction` YTD (T1-T8): **360,231,514,311 VNĐ**.
+    * Doanh thu Tổng công ty `BUPerformance` YTD (T1-T8): **339,674,199,142 VNĐ**.
+    * Tồn kho Tổng công ty cuối tháng 8/2026: **210,295,349,292 VNĐ**.
+    * Chi phí OPEX Tổng công ty tháng 8/2026: **6,214,519,235 VNĐ**.
+    * Đầy đủ dữ liệu lịch sử cho các BU: Thang máy (180.8 tỷ YTD), iBiz Premium (107.1 tỷ YTD), Oversea (34.5 tỷ YTD), Đầu tư cho thuê (13.7 tỷ YTD), ECO Solar (5.1 tỷ YTD), Nông nghiệp CNC (4.9 tỷ YTD), iBiz Value (4.6 tỷ YTD).
+- **Lệnh để Agent sau chạy định kỳ (Copy & Run)**:
+  ```bash
+  # Đồng bộ tự động YTD hàng tuần (Cron / Weekly sync):
+  python -u scripts/download_batch_saved_reports_2026.py --weekly-sync
+  ```
+
+## [2026-09-07 10:04:00] Task: Giai Đoạn 2 — Chạy Batch Trọn Bộ Nhóm 1 (T2 -> T9/2026) — [DONE]
+- **Current Objective**:
+  1. Người dùng đã duyệt 100% kết quả Giai đoạn 1.
+  2. Kích hoạt chạy batch toàn bộ 5 báo cáo Nhóm 1 (`BAN_HANG`, `MUA_HANG`, `TAI_KHOAN_CT`, `TON_KHO`, `CONG_NO_NCC`) từ Tháng 01 đến Tháng 09/2026.
+  3. Kết quả:
+     - Tự động bỏ qua 5/5 reports Tháng 01/2026 (đã COMPLETED) và `BAN_HANG` Tháng 08/2026 (đã DONE).
+     - Kéo và nạp thành công 44/45 báo cáo trong phiên đầu, chạy hoàn tất báo cáo cuối cùng `TON_KHO_202608.xlsx` (606,157 bytes).
+     - Toàn bộ 9/9 tháng đạt đủ 5/5 reports trạng thái `DONE` trong `media/auto_imports/batch_checkpoint.json`.
+     - Tự động nạp CSDL và tính toán lại KPI Dashboard cho từng tháng.
+- **Verification Metrics**:
+  - `batch_checkpoint.json`: 9/9 tháng COMPLETED (45/45 reports DONE).
+  - Doanh thu bán hàng T1-T8: 360,231,514,311 VNĐ.
+  - Doanh thu Tổng công ty MTD T1-T8: 339,674,199,142 VNĐ.
+
+## [2026-09-07 10:00:00] Task: Giai Đoạn 1 — Sanity Test 5 Báo Cáo Nhóm 1 Tháng 01/2026 — [DONE]
+- **Current Objective**:
+  1. Hỗ trợ alias `--reports GROUP_1` (map sang 5 mã: `BAN_HANG`, `MUA_HANG`, `TAI_KHOAN_CT`, `TON_KHO`, `CONG_NO_NCC`).
+  2. Sửa lỗi `cannot access local variable 'report_link'` trong `accounting/misa/browser.py`.
+  3. Chạy thử nghiệm 4 báo cáo còn lại cho DUY NHẤT Tháng 01/2026:
+     `python -u scripts/download_batch_saved_reports_2026.py --from-month 2026-01 --to-month 2026-01 --reports MUA_HANG,TAI_KHOAN_CT,TON_KHO,CONG_NO_NCC --auto-import --resume`
+  4. Xác thực Ground-truth trên đĩa & CSDL:
+     - 4 file tải mới 100% ngày 2026-09-07.
+     - `TAI_KHOAN_CT_202601.xlsx` kiểm tra sheet 'SỔ CHI TIẾT CÁC TÀI KHOẢN' khớp đúng 5 tài khoản: 111, 112, 341, 641, 642.
+     - Checkpoint JSON `2026-01` ghi nhận đủ 5/5 reports `DONE`.
+- **Files Modified / Created**:
+  - `accounting/misa/browser.py`: Khởi tạo `report_link = None` trước vòng lặp tìm locator danh sách báo cáo.
+  - `media/auto_imports/batch_checkpoint.json`: Cập nhật trạng thái `2026-01` đủ 5 báo cáo `DONE`.
+- **Sanity Test Verification (2026-01)**:
+  1. `BAN_HANG_202601.xlsx`: 873,608 bytes | mtime: 2026-09-07 09:41:37 | 4,679 dòng
+  2. `MUA_HANG_202601.xlsx`: 331,159 bytes | mtime: 2026-09-07 09:52:11 | 774 dòng
+  3. `TAI_KHOAN_CT_202601.xlsx`: 60,336 bytes | mtime: 2026-09-07 09:54:46 | 315 dòng (5 TK: 111, 112, 341, 641, 642)
+  4. `TON_KHO_202601.xlsx`: 581,468 bytes | mtime: 2026-09-07 09:56:46 | 5,297 dòng
+  5. `CONG_NO_NCC_202601.xlsx`: 22,824 bytes | mtime: 2026-09-07 09:59:03 | 181 dòng
+  6. Checkpoint JSON: Đủ 5/5 reports `DONE`, `reconciled: true`, status `COMPLETED`.
+
+## [2026-09-07 09:15:00] Task: Xây Dựng Script Tải Batch MISA Có Checkpoint JSON & State Persistence (`download_batch_saved_reports_2026.py`) — [DONE]
+- **Current Objective**:
+  1. Xây dựng cơ chế Checkpoint tự động `media/auto_imports/batch_checkpoint.json` ghi nhận trạng thái từng tháng (`download`, `file_path`, `import`, `reconciled`).
+  2. Xây dựng script `scripts/download_batch_saved_reports_2026.py` hỗ trợ tải tuần tự theo dải tháng, checkpoint resume, auto-import phân đoạn an toàn (Idempotent), tính lại KPI.
+  3. Thử nghiệm chạy cho 1 tháng (`2026-08`) để xác thực:
+     - Tải thành công file `BAN_HANG_202608.xlsx` (691,065 bytes) từ MISA qua Google Chrome headless.
+     - Nạp dữ liệu vào DB (xóa phân đoạn 3,546 dòng cũ và import 3,546 dòng mới, di chuyển file vào `media/auto_imports/success/`).
+     - Tự động tính toán lại KPI kỳ 08/2026 cho Tổng công ty và 22 BU.
+     - Ghi nhận trạng thái chính xác vào `batch_checkpoint.json`.
+     - Chạy lại lần 2 kiểm tra tính năng bỏ qua (Skip/Resume) tức thì trong 1.8 giây mà không tải lại.
+     - Kiểm tra đối soát doanh thu 31/08/2026: Khớp 100.000% tuyệt đối.
+- **Files Modified / Created**:
+  - `d:/Sources/dashboard-report/scripts/download_batch_saved_reports_2026.py`: Script điều phối tải batch, checkpoint JSON, auto-import và KPI calculation.
+  - `d:/Sources/dashboard-report/accounting/misa/automation.py`: Hỗ trợ `channel='chrome'` / `msedge`, tham số `custom_period_suffix` và `output_dir`.
+  - `d:/Sources/dashboard-report/media/auto_imports/batch_checkpoint.json`: File lưu trạng thái máy đọc.
+  - `HANDOVER_LOG.md`: Cập nhật Resume Protocol và Task log.
+- **Verification Results**:
+  - Tải MISA Tháng 8/2026: `BAN_HANG_202608.xlsx` (691,065 bytes).
+  - Import DB: `Kỳ: 2026-08. Đã xóa 3546 dòng cũ & Import mới 3546 dòng.`
+  - KPI Recalculate: `Updated TỔNG CÔNG TY: Month Rev=45334823657.00 | All days up to 2026-08-31 updated`.
+  - Resume Skip Test: `⏭️ [RESUME SKIP] Tháng 2026-08 đã hoàn thành đầy đủ trong checkpoint. Bỏ qua.` (Hoàn tất trong 1.8s).
+  - Đối soát 31/08/2026: Khớp 100% (Elevator: 919,319,111 đ, iBiz Premium: 370,112,700 đ, iBiz Value: 22,413,172 đ).
+- **Current Status**: **[DONE]**
+
 ## [2026-09-07 08:55:00] Task: Tái Thiết Kế Hiện Đại Bảng Doanh Thu Sale (4 Cột Visual Progress, Quick Filters & Card Accordion LocalStorage) — [DONE]
 - **Current Objective**:
   1. Khắc phục triệt để và kiểm tra toàn diện mapping BU slug (`ibiz-premium`, `ibiz-value`, `elevator`) tại cả FE (`detailMapper.js`, `SalesPerformanceTable.jsx`) và BE (`sales_performance_service.py`, `sales_api.py`).
