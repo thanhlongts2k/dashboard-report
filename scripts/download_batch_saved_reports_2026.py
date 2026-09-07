@@ -217,7 +217,8 @@ def find_existing_file_for_month(prefix, year, month):
 
 def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HANG',
                        auto_import=False, recalc_kpi=False, only_download=False,
-                       force=False, resume=True, checkpoint_file=CHECKPOINT_DEFAULT_PATH):
+                       force=False, resume=True, checkpoint_file=CHECKPOINT_DEFAULT_PATH,
+                       cutoff_date_override=None):
     
     checkpoint = BatchCheckpointManager(checkpoint_file)
     month_list = generate_month_list(from_month, to_month)
@@ -241,6 +242,8 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
     print(f"📋 Danh sách báo cáo ({len(report_prefixes)}): {report_prefixes}")
     print(f"💾 Checkpoint File (2D Matrix): {checkpoint_file}")
     print(f"⚙️  Tùy chọn: auto_import={auto_import}, recalc_kpi={recalc_kpi}, only_download={only_download}, resume={resume}, force={force}")
+    if cutoff_date_override:
+        print(f"🎯 Cutoff Date Override: '{cutoff_date_override}'")
     print("=" * 80)
 
     total_months = len(month_list)
@@ -252,7 +255,11 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
         year, month = map(int, month_str.split('-'))
         month_suffix = f"{year:04d}{month:02d}"
         period_str = f"Tháng {month}"
-        cutoff_date = compute_cutoff_date(custom_period_suffix=month_suffix)
+        
+        if cutoff_date_override:
+            cutoff_date = cutoff_date_override
+        else:
+            cutoff_date = compute_cutoff_date(custom_period_suffix=month_suffix)
 
         print("\n" + "-" * 75)
         print(f"📌 [{m_idx}/{total_months}] TIẾN HÀNH XỬ LÝ KỲ: {month_str} (MISA Period: '{period_str}' | Cutoff Date: '{cutoff_date}')")
@@ -304,6 +311,29 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
 
                     expected_file = os.path.join(AUTO_IMPORTS_DIR, f"{prefix}_{month_suffix}.xlsx")
                     if os.path.exists(expected_file) and os.path.getsize(expected_file) > 2000:
+                        # FAIL-FAST: Kiểm tra mốc ngày chốt trong subtitle file Excel
+                        if prefix == 'TUOI_NO_KH' and cutoff_date:
+                            import openpyxl
+                            wb_chk = openpyxl.load_workbook(expected_file, read_only=True)
+                            ws_chk = wb_chk.active
+                            sub_text = ""
+                            for r_chk in range(1, 6):
+                                val_c1 = ws_chk.cell(row=r_chk, column=1).value
+                                if val_c1 and "Đến ngày" in str(val_c1):
+                                    sub_text = str(val_c1).strip()
+                                    break
+                            wb_chk.close()
+                            
+                            if cutoff_date not in sub_text:
+                                err_msg = (
+                                    f"🚨 [CRITICAL FAIL-FAST] File {os.path.basename(expected_file)} có subtitle ngày "
+                                    f"'{sub_text}' KHÔNG KHỚP với ngày cutoff yêu cầu '{cutoff_date}'. "
+                                    f"Dữ liệu bị đóng băng/MISA không nhận tham số. Dừng tiến trình ngay lập tức!"
+                                )
+                                print(f"    ❌ {err_msg}")
+                                checkpoint.update_report(month_str, prefix, download="FAILED", error=err_msg)
+                                raise RuntimeError(err_msg)
+
                         target_file_path = expected_file
                         file_size = os.path.getsize(expected_file)
                         checkpoint.update_report(
@@ -314,6 +344,7 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
                             error=None
                         )
                         print(f"    ✅ Đã tải file thành công: {os.path.basename(expected_file)} ({file_size:,} bytes)")
+
                     else:
                         found = find_existing_file_for_month(prefix, year, month)
                         if found:
@@ -427,6 +458,7 @@ def main():
     parser.add_argument('--resume', action='store_true', help="Tự động resume từ checkpoint (mặc định)")
     parser.add_argument('--no-resume', dest='resume', action='store_false', help="Tắt tính năng tự động resume từ checkpoint")
     parser.add_argument('--checkpoint-file', default=CHECKPOINT_DEFAULT_PATH, help="Đường dẫn lưu file JSON checkpoint")
+    parser.add_argument('--cutoff-date', default=None, help="Mốc ngày chốt snapshot tùy chỉnh (DD/MM/YYYY), ví dụ: 05/09/2026")
     parser.add_argument('--weekly-sync', action='store_true', help="Chế độ chạy tự động định kỳ cuối tuần (đồng bộ YTD, auto-import, recalc KPI)")
     parser.set_defaults(resume=True)
 
@@ -453,7 +485,8 @@ def main():
         only_download=args.only_download,
         force=args.force,
         resume=args.resume,
-        checkpoint_file=args.checkpoint_file
+        checkpoint_file=args.checkpoint_file,
+        cutoff_date_override=args.cutoff_date
     )
 
     sys.exit(0 if success else 1)

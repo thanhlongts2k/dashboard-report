@@ -664,6 +664,35 @@ Tác vụ `sync_warehouse_inventory_data` dùng để tổng hợp số liệu t
 
 ---
 
+### Cập nhật bổ sung 07/09/2026 (Bóc Tách Cấu Trúc 3 Nhóm Nợ Kế Toán & Đối Soát 1-1 Mốc 05/09/2026)
+
+1. **Cấu hình Phân Loại Nợ (`accounting/config/debt_classification.py`)**:
+   - **Phần 1: Nợ hoạt động năm 2026 (`current_year_debt`)**: ~59.07 tỷ VNĐ (Trong hạn: 36.19 tỷ, Quá hạn: 22.88 tỷ).
+   - **Phần 2: Nợ cũ năm 2025 (`debt_2025`)**: 266,666,301 VNĐ (Lê Văn Tín 262.4M + Hoàng Triều 4.25M).
+   - **Phần 3: Nợ cũ khó đòi 2022-2024 (`bad_debt_historical`)**: 4,365,519,339 VNĐ gồm 14 khách hàng/đối tác:
+     * 7 Khách hàng Cambodia: 1,394,969,434 VNĐ (Ngô Đình Trung Tân)
+     * Tiên Phát: 1,029,999,994 VNĐ (Đào Tiến Dũng)
+     * Thiên Hưng: 770,317,068 VNĐ (Đào Tiến Dũng)
+     * Mitsu Lift: 330,348,145 VNĐ (Trịnh Hoàng Quân)
+     * Khách lẻ BEE: 190,810,000 VNĐ (BEE)
+     * Sao Nam Việt: 139,979,799 VNĐ (Đào Tiến Dũng)
+     * Phúc Thành: 121,033,937 VNĐ (Đào Tiến Dũng)
+     * KSP Việt Nam: 116,049,998 VNĐ (Phạm Văn Mừng)
+     * A Me Co: 89,202,659 VNĐ (Ngô Đình Trung Tân)
+     * TM & KT Gia Nguyễn: 64,476,000 VNĐ (BEE)
+     * Đại Thành: 51,710,560 VNĐ (Phạm Văn Mừng)
+     * Điều Khiển Hệ Thống: 28,900,999 VNĐ (Nguyễn Bình Minh)
+     * Electrical & Mechanical: 29,525,837 VNĐ (Đào Tiến Dũng)
+     * Mr. Vannak: 8,194,909 VNĐ (Đào Tiến Dũng)
+2. **Model `EmployeeReceivableSummary` (`accounting/models/performance.py`)**:
+   - Thêm 6 trường mới: `current_year_debt`, `debt_2025`, `bad_debt_historical` và các trường tương ứng cấp nhóm `team_current_year_debt`, `team_debt_2025`, `team_bad_debt_historical` (Migration `0050`).
+3. **Động cơ Bóc tách & Điều chỉnh Nợ (`accounting/services/employee_debt_calculator.py`)**:
+   - Tổng hợp nợ cấp khách hàng, tự động bóc tách các khoản nợ cũ hoặc phần nợ hải ngoại có trong MISA TK 1311 (`MISA_1311_EXCLUSIONS_OR_ADJUSTMENTS`) để không tính trùng vào Nợ 2026.
+   - Gán khách hàng đặc thù theo chuẩn Kế toán (`REPORT_EMPLOYEE_OVERRIDES`: Agro Milk Tây Ninh -> Lê Văn Tín BU Sản xuất, Nhựa Đại Liên -> Nguyễn Đức Thưởng).
+   - Tự động cộng dồn đệ quy nợ nhóm Bottom-up cho toàn bộ cây phân cấp quản lý.
+
+---
+
 ## 14. Quy Trình Xác Thực Google SSO, Email Thông Báo & Kích Hoạt Mức 2 (One-Click Activation)
 
 ### 14.1. Luồng Hoạt Động (Workflow)

@@ -466,17 +466,19 @@ class ManualAdjustmentAdmin(admin.ModelAdmin):
 class EmployeeReceivableSummaryAdmin(admin.ModelAdmin):
     list_display = (
         'employee', 'department', 'reporting_period', 'is_manager',
-        'own_total_debt', 'own_overdue_total', 'own_overdue_above_120',
-        'team_total_debt', 'team_overdue_total', 'subordinate_count'
+        'current_year_debt', 'debt_2025', 'bad_debt_historical', 'own_total_debt',
+        'team_current_year_debt', 'team_total_debt', 'subordinate_count'
     )
     list_filter = ('reporting_period', 'is_manager', 'department')
     search_fields = ('employee__employee_code', 'employee__full_name', 'department__department_name')
     readonly_fields = (
-        'created_at', 'updated_at', 'own_total_debt', 'own_due_total', 'own_overdue_total',
-        'own_overdue_above_60', 'own_overdue_above_120', 'team_total_debt', 'team_due_total',
-        'team_overdue_total', 'team_overdue_above_120', 'subordinate_count'
+        'created_at', 'updated_at', 'own_total_debt', 'current_year_debt', 'debt_2025',
+        'bad_debt_historical', 'own_due_total', 'own_overdue_total',
+        'own_overdue_above_60', 'own_overdue_above_120', 'team_total_debt',
+        'team_current_year_debt', 'team_debt_2025', 'team_bad_debt_historical',
+        'team_due_total', 'team_overdue_total', 'team_overdue_above_120', 'subordinate_count'
     )
-    ordering = ('-reporting_period', '-is_manager', '-team_total_debt')
+    ordering = ('-reporting_period', '-is_manager', '-team_current_year_debt')
 
 
 @admin.register(SalesTarget)

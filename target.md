@@ -653,6 +653,13 @@ class EmployeeReceivableSummary(models.Model):
     * [scripts/import_customer_mapping.py](file:///d:/Sources/dashboard-report/scripts/import_customer_mapping.py): Nạp mapping KH - Sales và tự động tính toán.
     * [scripts/auto_assign_managers.py](file:///d:/Sources/dashboard-report/scripts/auto_assign_managers.py): Tự động gán cây quản lý đa cấp SCD Type 2.
 
+- ✅ **Phase 4: Bóc Tách Cấu Trúc 3 Nhóm Nợ Kế Toán & Khớp Ground-Truth 1-1 (05/09/2026)** — **COMPLETED**
+  - **3 Nhóm Nợ Chuẩn Hóa**:
+    * **Phần 1: Nợ Hoạt Động 2026 (`current_year_debt`)**: 59.07 tỷ VNĐ (Trong hạn: 36.19 tỷ, Quá hạn: 22.88 tỷ).
+    * **Phần 2: Nợ Cũ Năm 2025 (`debt_2025`)**: 266,666,301 VNĐ (Lê Văn Tín 262.4M + Hoàng Triều 4.25M).
+    * **Phần 3: Nợ Cũ Khó Đòi 2022-2024 (`bad_debt_historical`)**: 4,365,519,339 VNĐ (14 khách hàng/đối tác theo dõi độc lập).
+  - **Cơ chế Bóc tách & Điều chỉnh**: Cấu hình tập trung tại `accounting/config/debt_classification.py`, model `EmployeeReceivableSummary` (Migration `0050`) và engine `accounting/services/employee_debt_calculator.py`.
+
 ---
 
 ## 14. Kiến Trúc Hệ Thống Gửi Email Nhắc Nợ Phân Cấp (Debt Reminder Email Automation)

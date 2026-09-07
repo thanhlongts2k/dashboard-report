@@ -234,6 +234,18 @@ def get_global_anti_popup_script():
                     try { el.remove(); } catch(e) {}
                 });
 
+                // TIÊU DIỆT TOAST THÔNG BÁO CHE MÀN HÌNH (ví dụ: "Bắt đầu tính giá xuất kho...")
+                const toasts = document.querySelectorAll('.toast, .v-toast, .ms-toast, .notification, .ms-notification, .el-notification, [class*="toast"], [class*="notification"]');
+                toasts.forEach(t => {
+                    const closeBtn = t.querySelector('.icon-close, [class*="close"], button, .close');
+                    if (closeBtn) {
+                        try { closeBtn.click(); } catch(e) {}
+                    }
+                    t.style.display = 'none';
+                    t.style.pointerEvents = 'none';
+                    try { t.remove(); } catch(e) {}
+                });
+
                 // 2. Xóa các Lớp phủ mờ (Backdrops) nếu KHÔNG có Modal Tham Số
                 const hasActiveParamModal = Array.from(document.querySelectorAll('.ms-popup, .v-dialog, .con-ms-popup, .dx-dialog-wrapper')).some(p => {
                     const style = window.getComputedStyle(p);

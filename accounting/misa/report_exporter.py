@@ -422,10 +422,11 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
     # Step 1: Set "Từ ngày" if present
     if from_date_str:
         tu_ngay_selectors = [
+            ".ms-date-picker-container:has(.ms-input-title:has-text('Từ ngày')) input.input-date",
+            ".from-date input.input-date",
+            "xpath=//div[contains(@class, 'ms-input-title') and contains(text(), 'Từ ngày')]/ancestor::div[contains(@class, 'ms-date-picker-container')]//input[contains(@class, 'input-date')]",
+            "xpath=//div[contains(@class, 'ms-input-title') and contains(text(), 'Từ ngày')]/following::input[contains(@class, 'input-date')][1]",
             "xpath=//label[contains(text(), 'Từ ngày')]/ancestor::div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox') or contains(@class, 'ms-datepicker')]//input",
-            "xpath=//label[contains(text(), 'Từ ngày')]/following::input[1]",
-            "xpath=//div[contains(text(), 'Từ ngày') and not(self::input)]/following::input[1]",
-            "xpath=//span[contains(text(), 'Từ ngày')]/following::input[1]",
             "input[placeholder*='Từ ngày']",
         ]
         tu_input, _ = await find_locator_in_any_frame(page_or_frame, tu_ngay_selectors, timeout=1500)
@@ -435,15 +436,23 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
                 await asyncio.sleep(0.1)
                 await tu_input.press("Control+A")
                 await tu_input.press("Backspace")
-                await tu_input.evaluate("""el => {
-                    el.value = '';
+                await tu_input.type(from_date_str, delay=40)
+                await tu_input.press("Enter")
+                await tu_input.evaluate("""(el, val) => {
+                    el.value = val;
                     el.dispatchEvent(new Event('input', { bubbles: true }));
                     el.dispatchEvent(new Event('change', { bubbles: true }));
-                }""")
-                await asyncio.sleep(0.1)
-                await tu_input.type(from_date_str, delay=40)
-                await asyncio.sleep(0.2)
-                await tu_input.press("Enter")
+                    el.blur();
+                    let p = el.parentElement;
+                    if (p) {
+                        let hidden = p.querySelector('input[style*="display: none"], input[type="hidden"]');
+                        if (hidden) {
+                            hidden.value = val;
+                            hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                }""", from_date_str)
                 logger.info(f"Successfully typed start date '{from_date_str}' into 'Từ ngày' input.")
                 await asyncio.sleep(0.3)
             except Exception as e:
@@ -451,12 +460,17 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
 
     # Step 2: Set "Đến ngày"
     date_selectors = [
+        ".ms-date-picker-container:has(.ms-input-title:has-text('Đến ngày')) input.input-date",
+        ".to-date input.input-date",
+        "xpath=//div[contains(@class, 'ms-input-title') and contains(text(), 'Đến ngày')]/ancestor::div[contains(@class, 'ms-date-picker-container')]//input[contains(@class, 'input-date')]",
+        "xpath=//div[contains(@class, 'ms-input-title') and contains(text(), 'Đến ngày')]/following::input[contains(@class, 'input-date')][1]",
+        ".ms-date-picker-container input.input-date",
+        "input.input-date[placeholder='DD/MM/YYYY']",
         "xpath=//label[contains(text(), 'Đến ngày')]/ancestor::div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox') or contains(@class, 'ms-datepicker')]//input",
         "xpath=//label[contains(text(), 'Đến ngày')]/following::input[1]",
         "xpath=//div[contains(text(), 'Đến ngày') and not(self::input)]/following::input[1]",
-        "xpath=//span[contains(text(), 'Đến ngày')]/following::input[1]",
         "input[placeholder*='Đến ngày']",
-        "xpath=(//div[contains(@class, 'ms-date') or contains(@class, 'dx-datebox')])[last()]//input",
+        ".dx-datebox input",
     ]
     date_input, frame = await find_locator_in_any_frame(page_or_frame, date_selectors, timeout=4000)
     
@@ -468,13 +482,9 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
             for (const el of labels) {
                 const txt = (el.textContent || '').trim();
                 if (txt === 'Đến ngày' || txt.includes('Đến ngày') || txt.includes('Ngày chốt') || txt.includes('Tính đến ngày')) {
-                    const parent = el.closest('.ms-date, .dx-datebox, .form-group, .flex, .row, div') || el.parentElement;
+                    const parent = el.closest('.ms-date-picker-container, .ms-date, .dx-datebox, .form-group, .flex, .row, div') || el.parentElement;
                     if (parent) {
-                        const inp = parent.querySelector('input');
-                        if (inp) return inp;
-                    }
-                    if (el.nextElementSibling) {
-                        const inp = el.nextElementSibling.querySelector('input') || (el.nextElementSibling.tagName === 'INPUT' ? el.nextElementSibling : null);
+                        const inp = parent.querySelector('input.input-date') || parent.querySelector('input');
                         if (inp) return inp;
                     }
                 }
@@ -494,22 +504,59 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
     if date_input:
         try:
             await date_input.click(force=True, click_count=3)
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.1)
             await date_input.press("Control+A")
             await asyncio.sleep(0.1)
             await date_input.press("Backspace")
+            await asyncio.sleep(0.1)
+            await date_input.type(cutoff_date_str, delay=40)
             await asyncio.sleep(0.2)
-            await date_input.evaluate("""el => {
-                el.value = '';
+            await date_input.press("Enter")
+            await asyncio.sleep(0.3)
+            
+            # Dispatch events, update hidden sibling, and sync DevExtreme/Vue state
+            await date_input.evaluate("""(el, val) => {
+                el.value = val;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
-            }""")
-            await asyncio.sleep(0.2)
-            await date_input.type(cutoff_date_str, delay=50)
-            await asyncio.sleep(0.3)
-            await date_input.press("Enter")
+                el.blur();
+                
+                // Update hidden input sibling if present
+                let p = el.parentElement;
+                if (p) {
+                    let hidden = p.querySelector('input[style*="display: none"], input[type="hidden"]');
+                    if (hidden) {
+                        hidden.value = val;
+                        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+                
+                // DevExtreme DateBox instance support
+                let dateBoxEl = el.closest('.dx-datebox') || (p && p.closest('.dx-datebox'));
+                if (dateBoxEl && window.DevExpress && window.DevExpress.ui && window.DevExpress.ui.dxDateBox) {
+                    let inst = window.DevExpress.ui.dxDateBox.getInstance(dateBoxEl);
+                    if (inst) {
+                        let parts = val.split('/');
+                        if (parts.length === 3) {
+                            inst.option('value', new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])));
+                        }
+                    }
+                }
+                
+                // MISA Vue container update
+                let container = el.closest('.ms-date-picker-container');
+                if (container && container.__vue__) {
+                    if (typeof container.__vue__.handleInputDate === 'function') {
+                        container.__vue__.handleInputDate(val);
+                    }
+                    if ('value' in container.__vue__) {
+                        container.__vue__.value = val;
+                    }
+                }
+            }""", cutoff_date_str)
             await asyncio.sleep(0.5)
-            logger.info(f"Successfully typed cutoff date '{cutoff_date_str}' into 'Đến ngày' input.")
+            logger.info(f"Successfully typed and synced cutoff date '{cutoff_date_str}' into 'Đến ngày' input.")
             
             # Dismiss any popup warning if appeared
             await dismiss_misa_warning_if_any(page_or_frame)
@@ -520,6 +567,7 @@ async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
     else:
         logger.error("Could not locate 'Đến ngày' input field in parameter modal!")
         return False
+
 
 async def select_account_for_tuoi_no_kh(page, account_code):
     """
@@ -1451,6 +1499,22 @@ async def download_report_from_url(page, report_url, export_selector, output_pat
                     except Exception:
                         dropdown_item = loc
                         break
+
+            if not dropdown_item:
+                logger.info(f"[{prefix}] Dropdown item not found on first attempt. Retrying excel_btn click...")
+                try:
+                    await excel_btn.click(force=True)
+                    await asyncio.sleep(2.0)
+                    for sel in dropdown_selectors:
+                        loc, _ = await find_locator_in_any_frame(page, [sel], timeout=1500, close_blockers=False)
+                        if loc:
+                            txt = (await loc.inner_text()).strip()
+                            if 'nhập' in txt.lower():
+                                continue
+                            dropdown_item = loc
+                            break
+                except Exception as ex_retry:
+                    logger.debug(f"Retry excel click error: {ex_retry}")
 
             if dropdown_item:
                 item_text = await dropdown_item.inner_text()

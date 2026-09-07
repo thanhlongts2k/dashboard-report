@@ -119,17 +119,28 @@ class EmployeeReceivableSummary(models.Model):
     is_manager = models.BooleanField(default=False, verbose_name="Là Quản lý nhóm/Trưởng phòng")
 
     # Chỉ số công nợ cá nhân (Own Debt)
-    own_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cá nhân")
-    own_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn cá nhân")
-    own_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn cá nhân")
+    own_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cá nhân (toàn bộ)")
+    own_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn 2026 (cá nhân)")
+    own_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn 2026 (cá nhân)")
     own_overdue_above_60 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn >60 ngày (cá nhân)")
     own_overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ xấu >120 ngày (cá nhân)")
 
+    # Bóc tách 3 nhóm nợ chuẩn Kế toán (Cá nhân)
+    current_year_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Công nợ năm 2026 (cá nhân)")
+    debt_2025 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ cũ năm 2025 (cá nhân)")
+    bad_debt_historical = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ cũ khó đòi 2022-2024 (cá nhân)")
+
     # Chỉ số công nợ nhóm / quản lý (Team / Managed Debt - Cộng dồn đệ quy)
-    team_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cả nhóm")
-    team_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn cả nhóm")
-    team_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn cả nhóm")
+    team_total_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Tổng nợ cả nhóm (toàn bộ)")
+    team_due_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ trong hạn 2026 cả nhóm")
+    team_overdue_total = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ quá hạn 2026 cả nhóm")
     team_overdue_above_120 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ xấu cả nhóm (>120 ngày)")
+
+    # Bóc tách 3 nhóm nợ chuẩn Kế toán (Cả nhóm)
+    team_current_year_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Công nợ năm 2026 (cả nhóm)")
+    team_debt_2025 = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ cũ năm 2025 (cả nhóm)")
+    team_bad_debt_historical = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Nợ cũ khó đòi 2022-2024 (cả nhóm)")
+
     subordinate_count = models.IntegerField(default=0, verbose_name="Số nhân viên cấp dưới")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Ngày tạo")

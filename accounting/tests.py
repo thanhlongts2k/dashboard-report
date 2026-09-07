@@ -1740,6 +1740,66 @@ class SalesPerformanceTests(TestCase):
         self.assertEqual(float(data['tree'][0]['metrics']['day_revenue']), 50000000.0)
 
 
+class EmployeeReceivableSummaryCalculationTests(TestCase):
+    """
+    Test suite cho tính năng Bóc tách 3 nhóm nợ theo chuẩn Kế toán (Employee Receivables Summary):
+      1. Nợ năm 2026 (current_year_debt)
+      2. Nợ cũ 2025 (debt_2025)
+      3. Nợ cũ khó đòi 2022-2024 (bad_debt_historical)
+    """
+    def setUp(self):
+        from accounting.models import Employee, Customer, ReceivablesAgeing
+        from decimal import Decimal
+
+        self.emp_tan = Employee.objects.create(employee_code='2001', full_name='NGÔ ĐÌNH TRUNG TÂN')
+        self.emp_dung = Employee.objects.create(employee_code='3003', full_name='ĐÀO TIẾN DŨNG')
+        self.emp_tin = Employee.objects.create(employee_code='7011', full_name='LÊ VĂN TÍN')
+
+        # Customer 1: Khách hàng thường năm 2026
+        self.cust_normal = Customer.objects.create(code='CUST_NORM', name='Khách hàng thường 2026', assigned_employee=self.emp_tan)
+        ReceivablesAgeing.objects.create(
+            customer=self.cust_normal,
+            reporting_period='2026-09',
+            account_code='1311',
+            total_debt=Decimal('100000000'),
+            due_total=Decimal('60000000'),
+            overdue_total=Decimal('40000000')
+        )
+
+        # Customer 2: A ME CO (Thuộc Nợ khó đòi 2022-2024)
+        self.cust_ameco = Customer.objects.create(code='PAR2019/001561', name='CÔNG TY CỔ PHẦN CÔNG NGHIỆP A ME CO', assigned_employee=self.emp_tan)
+        ReceivablesAgeing.objects.create(
+            customer=self.cust_ameco,
+            reporting_period='2026-09',
+            account_code='1311',
+            total_debt=Decimal('89202659'),
+            due_total=Decimal('0'),
+            overdue_total=Decimal('89202659')
+        )
+
+    def test_3_tier_debt_calculation(self):
+        from accounting.services import update_employee_receivable_summary
+        from accounting.models import EmployeeReceivableSummary
+        from decimal import Decimal
+
+        update_employee_receivable_summary('2026-09')
+
+        summary_tan = EmployeeReceivableSummary.objects.filter(employee=self.emp_tan, reporting_period='2026-09').first()
+        self.assertIsNotNone(summary_tan)
+        # Nợ khó đòi của Tân phải có khoản A ME CO (89.2M) và 7 KH Cambodia (1.39B)
+        self.assertEqual(summary_tan.bad_debt_historical, Decimal('1484172093'))
+        # Nợ 2026 của Tân chỉ tính khách hàng thường (100M), A ME CO đã được bóc tách
+        self.assertEqual(summary_tan.current_year_debt, Decimal('100000000'))
+        self.assertEqual(summary_tan.own_due_total, Decimal('60000000'))
+        self.assertEqual(summary_tan.own_overdue_total, Decimal('40000000'))
+
+        summary_tin = EmployeeReceivableSummary.objects.filter(employee=self.emp_tin, reporting_period='2026-09').first()
+        self.assertIsNotNone(summary_tin)
+        # Nợ 2025 của Tín phải có 262.4M
+        self.assertEqual(summary_tin.debt_2025, Decimal('262409544'))
+
+
+
 
 
 
