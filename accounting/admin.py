@@ -5,7 +5,7 @@ from .models import (
     Department, JobTitle, EmployeeAssignment,
     Product, BusinessUnit, SalesTransaction, Supplier, SupplierDebt, SupplierGroup,
     AccountDetail, ReceivablesAgeing, InventorySummary, ImportLog, CustomerGroup, BankBalance,
-    BUTargetPlan, ManualAdjustment, EmployeeReceivableSummary
+    BUTargetPlan, ManualAdjustment, EmployeeReceivableSummary, SalesTarget
 )
 from .resources import (
     PurchaseDetailResource, SalesTransactionResource, SupplierDebtResource, 
@@ -476,4 +476,17 @@ class EmployeeReceivableSummaryAdmin(admin.ModelAdmin):
         'own_overdue_above_60', 'own_overdue_above_120', 'team_total_debt', 'team_due_total',
         'team_overdue_total', 'team_overdue_above_120', 'subordinate_count'
     )
-    ordering = ('-reporting_period', '-is_manager', '-team_total_debt')
+    ordering = ('-reporting_period', '-is_manager', '-team_total_debt')
+
+
+@admin.register(SalesTarget)
+class SalesTargetAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee', 'business_unit', 'region', 'sales_group',
+        'period', 'month_target', 'year_target', 'prev_target',
+        'display_order', 'is_active'
+    )
+    list_filter = ('period', 'business_unit', 'region', 'sales_group', 'is_active')
+    search_fields = ('employee__employee_code', 'employee__full_name', 'sales_group', 'region')
+    ordering = ('business_unit', 'display_order', 'id')
+

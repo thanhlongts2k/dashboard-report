@@ -1189,6 +1189,149 @@ python manage.py send_executive_dashboard \
   --period "2026-09"
 ```
 
+---
+
+## 25. Báo Cáo Doanh Thu Theo Nhân Viên Sale (Sales Performance Report)
+
+### 25.1. Bối cảnh & Nghiệp vụ
+Báo cáo theo dõi tiến độ thực hiện mục tiêu doanh thu năm 2026 theo từng nhân sự bán hàng (Sales Reps), bám sát biểu mẫu kế toán:
+- Phân cấp đa tầng: Toàn Công ty -> Đơn vị kinh doanh (BU) -> Miền / Nhóm -> Từng Nhân viên Sale.
+- Quy tắc đối soát kế toán:
+  + Nguồn doanh thu: `SalesTransaction.actual_sales` phân bổ theo `Customer.assigned_employee`.
+  + **Loại trừ 100% Doanh thu Nội bộ**: `exclude(customer__group__code__in=['Internal'])`.
+  + **Loại trừ 100% Khách hàng HiSa**: `exclude(customer__in=hisa_customers)` (Mã PAR2019/000883, PAR2023/007877, hoặc tên/mã chứa 'HISA').
+- Các cột đối soát:
+  + Lũy kế Năm 2026 (Kế hoạch | Thực tế | % TT/KH)
+  + Lũy kế trước đó T1-T7 (Kế hoạch | Thực tế | % TT/KH)
+  + Tháng báo cáo T8 (Kế hoạch | Thực tế | % TT/KH)
+  + Doanh thu Ngày chốt
+
+### 25.2. Cấu Trúc Model CSDL (`SalesTarget`)
+Lưu trữ trong [`accounting/models/performance.py`](file:///d:/Sources/dashboard-report/accounting/models/performance.py):
+- `employee`: ForeignKey(`Employee`, on_delete=models.CASCADE)
+- `business_unit`: ForeignKey(`BusinessUnit`, on_delete=models.CASCADE)
+- `region`: CharField(max_length=100) — 'Miền Bắc', 'Miền Nam', 'BU AGRITECH', 'Đơn vị SAB'
+- `sales_group`: CharField(max_length=100) — 'Miền Bắc_Elevator', 'Miền Nam_Elevator',...
+- `period`: CharField(max_length=10) — '2026-08', '2026'
+- `month_target`: DecimalField — Kế hoạch tháng (VNĐ)
+- `year_target`: DecimalField — Kế hoạch năm (VNĐ)
+- `prev_target`: DecimalField — Kế hoạch lũy kế trước đó T1-T7 (VNĐ)
+- `display_order`: IntegerField — Thứ tự sắp xếp hiển thị
+- `is_active`: BooleanField — Cờ kích hoạt
+
+### 25.3. Script Seed Dữ Liệu Chỉ Tiêu (`seed_sales_targets_2026.py`)
+Script nạp chỉ tiêu cho 27 nhân sự của các BU (Elevator, iBiz Premium, iBiz Value, ECO, Agritech, SAB):
+```bash
+python scripts/seed_sales_targets_2026.py
+```
+
+### 25.4. API Endpoint: `GET /api/sales/performance-by-employee/`
+- **Route**: `GET /api/sales/performance-by-employee/`
+- **Quyền hạn (RBAC)**:
+  + `BOD_ADMIN` / `is_superuser`: Xem toàn bộ công ty hoặc lọc từng BU theo tham số `bu_code`.
+  + `BU_HEAD`: Chỉ xem các BU thuộc quyền quản lý (`managed_bus`).
+- **Query Parameters**:
+  + `date` (string, YYYY-MM-DD): Ngày chốt báo cáo (ví dụ: `2026-08-31`).
+  + `period` (string, YYYY-MM): Kỳ báo cáo (ví dụ: `2026-08`).
+  + `bu_code` (string, optional): Mã BU cần lọc (`BU_ELEVATOR`, `BU_IBIZ_PREMIUM`, `BU_IBIZ_VALUE`, `BU_ECO`, hoặc `ALL`).
+- **Response Format**:
+```json
+{
+  "success": true,
+  "date": "2026-08-31",
+  "period": "2026-08",
+  "bu_code": "BU_ELEVATOR",
+  "is_bod": true,
+  "summary": {
+    "year_target": 30000000000,
+    "year_actual": 17850000000,
+    "year_rate": 59.5,
+    "prev_target": 17500000000,
+    "prev_actual": 16930680889,
+    "prev_rate": 96.7,
+    "month_target": 2500000000,
+    "month_actual": 919319111,
+    "month_rate": 36.8,
+    "day_revenue": 919319111
+  },
+  "tree": [
+    {
+      "id": "BU_ELEVATOR",
+      "type": "BU",
+      "name": "Thang máy",
+      "code": "BU_ELEVATOR",
+      "metrics": { ... },
+      "children": [
+        {
+          "id": "reg_bu_elevator_1",
+          "type": "REGION",
+          "name": "Tổng Miền Bắc",
+          "region_name": "Miền Bắc",
+          "sales_group": "Miền Bắc_Elevator",
+          "metrics": { ... },
+          "children": [
+            {
+              "id": "emp_2000017",
+              "type": "EMPLOYEE",
+              "employee_code": "2000017",
+              "name": "NGUYỄN ĐỨC THƯỞNG",
+              "metrics": {
+                "year_target": 2500000000,
+                "year_actual": 1379630,
+                "year_rate": 0.1,
+                "prev_target": 1400000000,
+                "prev_actual": 0,
+                "prev_rate": 0.0,
+                "month_target": 200000000,
+                "month_actual": 1379630,
+                "month_rate": 0.7,
+                "day_revenue": 1379630
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 25.5. Frontend Integration (`SalesPerformanceTable.jsx`)
+- Tích hợp tại: [`src/components/sales/SalesPerformanceTable.jsx`](file:///d:/Sources/project-dashboard/src/components/sales/SalesPerformanceTable.jsx).
+- Nhúng trực tiếp vào trang Chi tiết BU ([`src/pages/DashboardBuDetailPage.jsx`](file:///d:/Sources/project-dashboard/src/pages/DashboardBuDetailPage.jsx)).
+- **Cơ chế Card Accordion (Thu gọn / Mở rộng toàn bộ Block)**:
+  + Lưu trạng thái đóng/mở độc lập theo từng BU vào `localStorage` (`sales_card_expanded_${buKey}`), giúp người dùng duy trì tùy chọn xem khi chuyển trang hoặc tải lại.
+  + Khi ở trạng thái "Thu gọn" (Collapsed): Ẩn toàn bộ thân bảng, chỉ giữ lại thanh Header của Card kèm dải tóm tắt vắn tắt (`collapsed-summary-strip`: DT Ngày, DT Tháng thực tế kèm % Đạt, Lũy kế Năm kèm % Đạt) và nút bấm góc phải có icon Chevron Down kèm chữ "Mở rộng".
+  + Khi ở trạng thái "Mở rộng" (Expanded): Bung toàn bộ nội dung bảng dữ liệu và thanh bộ lọc chi tiết, nút đổi thành Chevron Up kèm chữ "Thu gọn".
+- **Tái thiết kế giao diện tinh gọn từ 11 cột Excel xuống 4 cột trực quan (Visual Progress)**:
+  1. **Cột 1: NHÂN VIÊN / NHÓM (Sticky bên trái khi cuộn ngang)**:
+     - Tên nhân sự in đậm (`font-bold text-slate-900`), mã NV mờ bên dưới (`text-xs text-slate-400 font-mono`).
+     - Phân loại trực quan bằng Role Avatar Icon (`👔 Trưởng nhóm` / `👤 Sales`).
+     - Nhóm Miền Bắc / Miền Nam có icon mũi tên mở/đóng danh sách thành viên con kèm badge số lượng sales.
+     - Có nút phụ "Bung tất cả Sales" / "Thu gọn Sales" ở góc header để toggle nhanh toàn bộ chi tiết.
+  2. **Cột 2: TIẾN ĐỘ THÁNG NÀY (MTD)**:
+     - Dòng trên: Doanh thu thực tế (font lớn, `tabular-nums font-bold`) + Badge % Hoàn thành.
+     - Dòng giữa: Thanh Progress Bar mỏng (chiều cao 6px, bo tròn `rounded-full`, đổi màu động theo % đạt).
+     - Dòng dưới: Text mờ thể hiện `Mục tiêu: X đ` và `Chênh lệch: +/- Y đ`.
+  3. **Cột 3: TIẾN ĐỘ CẢ NĂM (YTD)**:
+     - Dòng trên: Thực tế YTD (`tabular-nums font-bold`) + Badge % Hoàn thành năm.
+     - Dòng giữa: Thanh Progress Bar mỏng 6px.
+     - Dòng dưới: `Kế hoạch năm: X đ` và `Chênh lệch: +/- Y đ`.
+  4. **Cột 4: DOANH SỐ TRONG NGÀY**:
+     - Số tiền phát sinh ngày chốt báo cáo (font nổi bật `text-blue-700 font-bold tabular-nums`), có badge so sánh nhanh với doanh thu tháng.
+- **Thanh Bộ Lọc Nhanh (Quick Filter Pills)**:
+  - Hàng nút filter bấm nhanh tích hợp trên Header bảng: `[Tất cả]` · `[Miền Bắc]` · `[Miền Nam]` · `[Cần bám sát (< 70%)]` kèm counter số lượng nhân sự tương ứng.
+  - Khi bấm `[Cần bám sát (< 70%)]`: Tự động lọc ra những Sales chưa đạt tiến độ tháng để quản lý tập trung đôn đốc.
+- **Chuẩn hóa Màu sắc & Badge (Tương phản cao)**:
+  - Đạt / Vượt ($\ge 100\%$): Nền `bg-emerald-50`, chữ `text-emerald-700`, progress bar `bg-emerald-500`.
+  - Cần bám sát ($70\% - 99.9\%$): Nền `bg-amber-50`, chữ `text-amber-700`, progress bar `bg-amber-500`.
+  - Chậm tiến độ ($< 70\%$): Nền `bg-rose-50`, chữ `text-rose-700`, progress bar `bg-rose-500`.
+- **Chuẩn hóa Mapping BU & Xử lý kỳ linh hoạt**:
+  - Hỗ trợ đầy đủ các slug URL: `ibiz-premium` $\rightarrow$ `BU_IBIZ PREMIUM`, `ibiz-value` $\rightarrow$ `BU_IBIZ VALUE`, `elevator` $\rightarrow$ `BU_ELEVATOR`.
+  - Khi xem kỳ tháng 9/2026 trở đi mà chưa nạp target tháng: Tự động fallback `month_target = 0 đ` an toàn, không gây crash hoặc rỗng giao diện.
+
+
+
 
 
 

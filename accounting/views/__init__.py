@@ -18,6 +18,7 @@ from .debt_api import (
     AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView, SendDebtRemindersAPIView,
     OverdueCustomersAPIView
 )
+from .sales_api import SalesPerformanceByEmployeeAPIView
 
 __all__ = [
     'LoginAPI', 'GoogleLoginAPI', 'ActivateUserAPIView', 'CurrentUserAPIView', 'BranchViewSet', 'CustomerViewSet',
@@ -29,6 +30,6 @@ __all__ = [
     'DashboardCollectionByBUAPIView', 'SendEmailAPIView',
     'BUTargetPlanViewSet', 'ManualAdjustmentViewSet',
     'AllBUsDebtSummaryAPIView', 'BUDebt3TierDrilldownAPIView', 'SendDebtRemindersAPIView',
-    'OverdueCustomersAPIView'
+    'OverdueCustomersAPIView', 'SalesPerformanceByEmployeeAPIView'
 ]
 

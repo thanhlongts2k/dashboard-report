@@ -1,5 +1,6 @@
 from django.db import models
 from .organization import BusinessUnit, Warehouse, Product
+from .employee import Employee
 
 class BUPerformance(models.Model):
     business_unit = models.ForeignKey(
@@ -143,4 +144,42 @@ class EmployeeReceivableSummary(models.Model):
     def __str__(self):
         role = "Quản lý" if self.is_manager else "Sales"
         return f"{self.employee.full_name} ({role}) - Kỳ {self.reporting_period}"
+
+
+class SalesTarget(models.Model):
+    employee = models.ForeignKey(
+        Employee, 
+        on_delete=models.CASCADE, 
+        related_name='sales_targets',
+        verbose_name="Nhân viên Sales"
+    )
+    business_unit = models.ForeignKey(
+        BusinessUnit, 
+        on_delete=models.CASCADE, 
+        related_name='sales_targets',
+        verbose_name="Đơn vị kinh doanh (BU)"
+    )
+    region = models.CharField(max_length=100, verbose_name="Miền / Khối (e.g. Miền Bắc, Miền Nam, BU ECO...)")
+    sales_group = models.CharField(max_length=100, verbose_name="Nhóm hàng (e.g. Miền Bắc_Elevator, Miền Nam_Premium...)")
+    period = models.CharField(max_length=7, db_index=True, verbose_name="Kỳ báo cáo (YYYY-MM)")
+    
+    month_target = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Kế hoạch Tháng")
+    year_target = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Kế hoạch Năm")
+    prev_target = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Kế hoạch Lũy kế các tháng trước (T1..T-1)")
+    
+    display_order = models.PositiveIntegerField(default=0, verbose_name="Thứ tự hiển thị")
+    is_active = models.BooleanField(default=True, verbose_name="Đang áp dụng")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Ngày tạo")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Ngày cập nhật")
+
+    class Meta:
+        db_table = 'sales_targets'
+        verbose_name = "Chỉ tiêu Sales"
+        verbose_name_plural = "Bảng Quản lý Chỉ tiêu Sales (Sales Targets)"
+        unique_together = ('employee', 'business_unit', 'period')
+        ordering = ['business_unit', 'display_order', 'id']
+
+    def __str__(self):
+        return f"{self.employee.full_name} ({self.sales_group}) - Kỳ {self.period}"
+
 

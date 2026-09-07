@@ -1570,6 +1570,177 @@ class EmployeeUserProvisioningTests(TestCase):
         self.assertIn('sab', rbac['managed_bu_keys'])
 
 
+class SalesPerformanceTests(TestCase):
+    """
+    Test suite cho tính năng Báo cáo Doanh thu theo Nhân viên Sale (Sales Performance)
+    Gồm: Model SalesTarget, Service tính toán phân cấp và API Endpoint.
+    """
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from accounting.models import (
+            BusinessUnit, Employee, Customer, CustomerGroup, SalesTransaction, SalesTarget,
+            Product, Warehouse, Branch, MaterialGroup
+        )
+
+        # Tạo BU, Branch, Warehouse, Product & Nhân viên
+        self.bu = BusinessUnit.objects.create(code='BU_ELEVATOR', name='Thang máy', is_main=True, manager='NGUYỄN VĂN A')
+        self.bu_other = BusinessUnit.objects.create(code='BU_SOLAR', name='Điện mặt trời', is_main=True, manager='NGUYỄN VĂN B')
+        self.branch = Branch.objects.create(name='Chi nhánh Hà Nội')
+        self.warehouse = Warehouse.objects.create(code='KHO_HN', name='Kho Hà Nội')
+        self.mat_group = MaterialGroup.objects.create(code='MG01', name='Nhóm VT', origin='VN')
+        self.product = Product.objects.create(code='SP01', name='Thiết bị thang máy', unit='Cái', group=self.mat_group)
+
+        self.emp1 = Employee.objects.create(employee_code='2000017', full_name='NGUYỄN ĐỨC THƯỞNG')
+        self.emp2 = Employee.objects.create(employee_code='2000588', full_name='NGUYỄN HOÀNG TÂN')
+
+        # Tạo SalesTarget
+        self.target1 = SalesTarget.objects.create(
+            employee=self.emp1,
+            business_unit=self.bu,
+            region='Miền Bắc',
+            sales_group='Miền Bắc_Elevator',
+            period='2026-08',
+            month_target=200000000,
+            year_target=2500000000,
+            prev_target=1400000000,
+            display_order=1
+        )
+
+        # Tạo Customer và phân bổ sales
+        self.cust1 = Customer.objects.create(code='CUST_01', name='Khách hàng Thang máy 1', assigned_employee=self.emp1, has_revenue=True)
+        self.cust_internal = Customer.objects.create(code='CUST_INT', name='Khách hàng Nội bộ', assigned_employee=self.emp1, has_revenue=True)
+        int_group = CustomerGroup.objects.create(code='Internal', name='Khách hàng Nội bộ')
+        self.cust_internal.group = int_group
+        self.cust_internal.save()
+
+        # Tạo giao dịch bán hàng (SalesTransaction)
+        # 1. Giao dịch tháng 8 ngày 31/08
+        SalesTransaction.objects.create(
+            doc_id='BH001',
+            posting_date='2026-08-31',
+            customer=self.cust1,
+            product=self.product,
+            warehouse=self.warehouse,
+            branch=self.branch,
+            business_unit=self.bu,
+            sales_amount=50000000,
+            actual_sales=50000000
+        )
+        # 2. Giao dịch tháng 8 ngày 15/08
+        SalesTransaction.objects.create(
+            doc_id='BH002',
+            posting_date='2026-08-15',
+            customer=self.cust1,
+            product=self.product,
+            warehouse=self.warehouse,
+            branch=self.branch,
+            business_unit=self.bu,
+            sales_amount=30000000,
+            actual_sales=30000000
+        )
+        # 3. Giao dịch tháng 5 (nằm trong T1-T7)
+        SalesTransaction.objects.create(
+            doc_id='BH003',
+            posting_date='2026-05-10',
+            customer=self.cust1,
+            product=self.product,
+            warehouse=self.warehouse,
+            branch=self.branch,
+            business_unit=self.bu,
+            sales_amount=100000000,
+            actual_sales=100000000
+        )
+        # 4. Giao dịch của khách hàng nội bộ (phải bị loại trừ)
+        SalesTransaction.objects.create(
+            doc_id='BH004',
+            posting_date='2026-08-31',
+            customer=self.cust_internal,
+            product=self.product,
+            warehouse=self.warehouse,
+            branch=self.branch,
+            business_unit=self.bu,
+            sales_amount=999999999,
+            actual_sales=999999999
+        )
+
+        # Users & RBAC
+        self.admin_user = User.objects.create_superuser(username='admin_test', email='admin@haophuong.com', password='password123')
+        self.bu_head_user = User.objects.create_user(username='bu_head_test', email='head@haophuong.com', password='password123')
+        self.emp_head = Employee.objects.create(
+            employee_code='2000999',
+            full_name='NGUYỄN VĂN A',
+            email='head@haophuong.com',
+            user=self.bu_head_user
+        )
+
+    def test_salestarget_model(self):
+        from accounting.models import SalesTarget
+        targets = SalesTarget.objects.filter(employee__employee_code='2000017')
+        self.assertEqual(targets.count(), 1)
+        t = targets.first()
+        self.assertEqual(float(t.month_target), 200000000.0)
+        self.assertEqual(float(t.year_target), 2500000000.0)
+        self.assertEqual(t.region, 'Miền Bắc')
+
+    def test_sales_performance_service_calculation(self):
+        from accounting.services.sales_performance_service import get_sales_performance_data
+        result = get_sales_performance_data(
+            target_date='2026-08-31',
+            period='2026-08',
+            bu_code='BU_ELEVATOR',
+            user=self.admin_user
+        )
+
+        self.assertTrue(result['success'])
+        tree = result['tree']
+        self.assertEqual(len(tree), 1)
+        bu_data = tree[0]
+        self.assertEqual(bu_data['code'], 'BU_ELEVATOR')
+
+        metrics = bu_data['metrics']
+        # Kiểm tra doanh thu ngày 31/08: Chỉ có BH001 (50tr), loại trừ BH004 (nội bộ)
+        self.assertEqual(float(metrics['day_revenue']), 50000000.0)
+        # Tháng 8: BH001 (50tr) + BH002 (30tr) = 80tr
+        self.assertEqual(float(metrics['month_actual']), 80000000.0)
+        # T1-T7: BH003 (100tr)
+        self.assertEqual(float(metrics['prev_actual']), 100000000.0)
+        # Năm 2026: 80tr + 100tr = 180tr
+        self.assertEqual(float(metrics['year_actual']), 180000000.0)
+
+        # Kiểm tra tỷ lệ % đạt
+        # Tháng KH: 200tr, TT: 80tr -> 40.0%
+        self.assertAlmostEqual(float(metrics['month_rate']), 40.0, places=1)
+
+        # Kiểm tra cấu trúc hierarchy: BU -> regions -> sales
+        self.assertEqual(len(bu_data['children']), 1)
+        region = bu_data['children'][0]
+        self.assertEqual(region['region_name'], 'Miền Bắc')
+        self.assertEqual(region['name'], 'Tổng Miền Bắc')
+        self.assertEqual(len(region['children']), 1)
+        emp = region['children'][0]
+        self.assertEqual(emp['employee_code'], '2000017')
+        self.assertEqual(emp['name'], 'NGUYỄN ĐỨC THƯỞNG')
+
+    def test_sales_performance_api_view(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+
+        # 1. Unauthenticated -> 401
+        res = client.get('/api/sales/performance-by-employee/?date=2026-08-31&period=2026-08&bu_code=BU_ELEVATOR')
+        self.assertEqual(res.status_code, 401)
+
+        # 2. Authenticated as Admin -> 200 OK
+        client.force_authenticate(user=self.admin_user)
+        res = client.get('/api/sales/performance-by-employee/?date=2026-08-31&period=2026-08&bu_code=BU_ELEVATOR')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(len(data['tree']), 1)
+        self.assertEqual(data['tree'][0]['code'], 'BU_ELEVATOR')
+        self.assertEqual(float(data['tree'][0]['metrics']['day_revenue']), 50000000.0)
+
+
+
 
 
 

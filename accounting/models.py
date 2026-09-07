@@ -5,7 +5,8 @@ from .models import (
     ManualAdjustment, ImportLog, SalesTransaction, AccountDetail,
     BankBalance, SupplierGroup, Supplier, SupplierDebt,
     ReceivablesAgeing, PurchaseDetail, BUPerformance,
-    BUPerformanceDaily, InventorySummary
+    BUPerformanceDaily, InventorySummary, EmployeeReceivableSummary,
+    SalesTarget
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     'ManualAdjustment', 'ImportLog', 'SalesTransaction', 'AccountDetail',
     'BankBalance', 'SupplierGroup', 'Supplier', 'SupplierDebt',
     'ReceivablesAgeing', 'PurchaseDetail', 'BUPerformance',
-    'BUPerformanceDaily', 'InventorySummary'
+    'BUPerformanceDaily', 'InventorySummary', 'EmployeeReceivableSummary',
+    'SalesTarget'
 ]

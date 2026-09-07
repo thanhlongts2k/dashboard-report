@@ -9,7 +9,7 @@ from .views import (
 from .views import (
     LoginAPI, GoogleLoginAPI, ActivateUserAPIView, CurrentUserAPIView, BUReportAPIView, BUPerformanceDailyListView, 
     DashboardCollectionByBUAPIView, SendEmailAPIView, AllBUsDebtSummaryAPIView, BUDebt3TierDrilldownAPIView,
-    SendDebtRemindersAPIView, OverdueCustomersAPIView
+    SendDebtRemindersAPIView, OverdueCustomersAPIView, SalesPerformanceByEmployeeAPIView
 )
 
 
@@ -54,4 +54,7 @@ urlpatterns = [
 
     # --- REST API TỰ ĐỘNG GỬI EMAIL NHẮC NỢ PHÂN CẤP ---
     path('debt/notifications/send-reminders/', SendDebtRemindersAPIView.as_view(), name='send_debt_reminders_api'),
+
+    # --- REST API BÁO CÁO DOANH THU THEO NHÂN VIÊN SALE (SALES PERFORMANCE) ---
+    path('sales/performance-by-employee/', SalesPerformanceByEmployeeAPIView.as_view(), name='sales_performance_by_employee'),
 ]

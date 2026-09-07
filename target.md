@@ -734,6 +734,75 @@ Hỗ trợ các tùy chọn CLI: `--only-import`, `--only-download`, `--only-kpi
 - Cho phép gửi Báo cáo Điều hành Tổng quan (`Executive Dashboard`) và email tổng hợp công nợ cho nhiều người nhận To và CC cùng một lúc mà không bị trùng lặp.
 - Management command hỗ trợ: `python manage.py send_executive_dashboard --to "email1, email2" --cc "cc1, cc2"`.
 
+---
+
+## 18. Cơ Chế Báo Cáo Doanh Thu Theo Nhân Viên Sale & Model SalesTarget
+
+### 18.1. Mục Tiêu & Bản Chất Kế Toán
+Hệ thống triển khai theo dõi chi tiết hiệu suất bán hàng của từng nhân sự (Sales Reps) theo biểu mẫu "BẢNG THEO DÕI MỤC TIÊU DOANH THU CÔNG TY HẢO PHƯƠNG 2026":
+1. **Nguồn Doanh Thu Thực Tế**:
+   - Trên chứng từ bán hàng MISA nạp vào `SalesTransaction`, trường `employee` thường bị bỏ trống. Do đó, doanh thu thực tế được gán về cho nhân viên thông qua khách hàng: `SalesTransaction.customer.assigned_employee`.
+2. **Quy Tắc Loại Trừ Kế Toán Nghiêm Ngặt**:
+   - **Doanh thu nội bộ**: `exclude(customer__group__code__in=['Internal'])`.
+   - **Doanh thu HiSa**: `exclude(customer__in=hisa_customers)` (các mã PAR2019/000883, PAR2023/007877 và các mã/tên có chứa chữ "HISA").
+   - Chỉ tính khách hàng có ghi nhận doanh thu: `customer__has_revenue=True`.
+3. **Chuẩn Hóa Mapping Nhân Sự**:
+   - Khắc phục các sai lệch gõ tên từ bảng Excel kế toán về chuẩn mã nhân viên (`employee_code`):
+     * "Nguyễn Đức Thương" -> `NGUYỄN ĐỨC THƯỞNG` (Mã: `2000017`)
+     * "Nguyễn Hoàng Tín"  -> `NGUYỄN HOÀNG TÂN`   (Mã: `2000588`)
+     * "Nguyễn Huy Phong"  -> `NGUYỄN NGỌC HUY PHONG` (Mã: `2000793`)
+     * "Nguyễn Quốc Huy"   -> `NGUYỄN QUỐC HUY`   (Mã: `2000471`)
+4. **Cơ Chế Khối ECO + AGRITECH + SAB**:
+   - Trong bảng mục tiêu doanh thu, Khối ECO được gộp chung bao gồm: Tổng BU ECO (Trương Hồng Thái, Võ Trung Nam, Lê Thị Hồng Yến), BU AGRITECH (Lý Kế Phú) và Đơn vị SAB (Trần Hồng Quân).
+   - Backend service và Frontend component hỗ trợ định tuyến và hiển thị linh hoạt theo đúng yêu cầu nghiệp vụ.
+
+### 18.2. Frontend Integration & Kiến Trúc Bảng 4 Cột Visual Progress
+- Nhúng trực tiếp component `SalesPerformanceTable` vào trang Chi tiết BU (`/bu/:buKey`), không tạo tab độc lập trên thanh menu chính.
+- **Cơ chế Card Accordion (Thu gọn / Mở rộng toàn bộ Block)**:
+  * Trạng thái đóng/mở được lưu trữ trong `localStorage` theo từng BU (`sales_card_expanded_${buKey}`).
+  * Mặc định khi tải trang là **MỞ RỘNG (Expanded)** để người dùng thấy ngay bảng số liệu.
+  * Nút "Thu gọn": Đóng toàn bộ nội dung khối bảng dữ liệu lại, Card chỉ hiển thị thanh Header tóm tắt kèm Dải số liệu vắn tắt (`collapsed-summary-strip`: DT Ngày, DT Tháng, Lũy kế Năm kèm badge % hoàn thành) và nút "Mở rộng" (Chevron Down).
+  * Nút "Mở rộng": Bung mở toàn bộ bảng dữ liệu ra tức thì.
+- **Tái thiết kế giao diện từ 11 cột Excel xuống 4 cột trực quan (Visual Progress)**:
+  1. **Cột 1: NHÂN VIÊN / NHÓM (Sticky bên trái khi cuộn ngang)**:
+     - Tên nhân sự in đậm, mã NV mờ bên dưới, icon phân biệt Trưởng nhóm (`👔`) / Sales (`👤`).
+     - Nhóm Miền Bắc / Miền Nam có icon mũi tên mở/đóng danh sách thành viên con kèm counter số sales.
+     - Nút "Bung tất cả Sales" / "Thu gọn Sales" ở góc header bảng.
+  2. **Cột 2: TIẾN ĐỘ THÁNG NÀY (MTD)**:
+     - Dòng trên: Doanh thu thực tế (font lớn, `tabular-nums font-bold`) + Badge % Hoàn thành.
+     - Dòng giữa: Thanh Progress Bar mỏng (chiều cao 6px, bo tròn `rounded-full`, đổi màu theo % đạt).
+     - Dòng dưới: Text mờ thể hiện `Mục tiêu: X đ` và `Chênh lệch: +/- Y đ`.
+  3. **Cột 3: TIẾN ĐỘ CẢ NĂM (YTD)**:
+     - Dòng trên: Thực tế YTD (`tabular-nums font-bold`) + Badge % Hoàn thành năm.
+     - Dòng giữa: Thanh Progress Bar mỏng 6px.
+     - Dòng dưới: `Kế hoạch năm: X đ` và `Chênh lệch: +/- Y đ`.
+  4. **Cột 4: DOANH SỐ TRONG NGÀY**:
+     - Số tiền phát sinh ngày chốt báo cáo (font nổi bật `text-blue-700 font-bold tabular-nums`).
+- **Thanh Bộ Lọc Nhanh (Quick Filter Pills)**:
+  - Các nút: `[Tất cả]` · `[Miền Bắc]` · `[Miền Nam]` · `[Cần bám sát (< 70%)]` kèm counter số nhân sự.
+  - Khi bấm `[Cần bám sát (< 70%)]`: Tự động lọc ra những Sales chưa đạt tiến độ tháng để quản lý tập trung đôn đốc.
+- **Chuẩn hóa Màu sắc & Badge (Độ tương phản cao)**:
+  * Đạt / Vượt ($\ge 100\%$): Nền `bg-emerald-50`, chữ `text-emerald-700`, progress bar `bg-emerald-500`.
+  * Cần bám sát ($70\% - 99.9\%$): Nền `bg-amber-50`, chữ `text-amber-700`, progress bar `bg-amber-500`.
+  * Chậm tiến độ ($< 70\%$): Nền `bg-rose-50`, chữ `text-rose-700`, progress bar `bg-rose-500`.
+  * Padding các ô thoáng đãng (`py-3 px-4`), không dính sát viền.
+
+### 18.3. Bảng Đối Soát Số Liệu Thực Tế Khớp Tuyệt Đối (Ngày 31/08/2026)
+
+| BU | Tên BU | KH Năm 2026 | TT Năm 2026 (% Đạt) | KH T1-T7 | TT T1-T7 (% Đạt) | KH Tháng 8 | TT Tháng 8 (% Đạt) | DT Ngày 31/08 |
+|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **BU_ELEVATOR** | Thang máy (Elevator) | 251,600,000,000 | 138,273,199,073 (55.0%) | 119,600,000,000 | 123,642,343,821 (103.4%) | 22,500,000,000 | 14,630,855,252 (65.0%) | **919,319,111** |
+| ↳ *Tổng Miền Bắc* | *3 sales* | 140,900,000,000 | 60,331,892,905 (42.8%) | 66,900,000,000 | 56,323,561,646 (84.2%) | 12,600,000,000 | 4,008,331,259 (31.8%) | 29,256,260 |
+| ↳ *Tổng Miền Nam* | *5 sales* | 110,700,000,000 | 77,941,306,168 (70.4%) | 52,700,000,000 | 67,318,782,175 (127.7%) | 9,900,000,000 | 10,622,523,993 (107.3%) | 890,062,851 |
+| **BU_IBIZ PREMIUM** | Thiết bị điện cao cấp (iBiz Premium) | 174,599,500,001 | 107,840,244,474 (61.8%) | 93,500,000,000 | 97,787,479,972 (104.6%) | 15,500,000,001 | 10,052,764,502 (64.9%) | **370,112,700** |
+| ↳ *Tổng Miền Bắc* | *6 sales* | 112,999,500,001 | 72,400,287,294 (64.1%) | 60,600,000,001 | 65,218,593,494 (107.6%) | 10,000,000,000 | 7,181,693,800 (71.8%) | 2,659,500 |
+| ↳ *Tổng Miền Nam* | *9 sales* | 61,600,000,000 | 35,439,957,180 (57.5%) | 32,900,000,000 | 32,568,886,478 (99.0%) | 5,500,000,001 | 2,871,070,702 (52.2%) | 367,453,200 |
+| **BU_IBIZ VALUE** | Thiết bị điện phổ thông (iBiz Value) | 15,000,000,000 | 4,668,102,921 (31.1%) | 9,575,000,000 | 3,878,008,292 (40.5%) | 1,300,000,000 | 790,094,629 (60.8%) | **22,413,172** |
+| ↳ *Tổng Miền Bắc* | *3 sales* | 4,000,000,000 | 1,098,196,177 (27.5%) | 1,125,000,000 | 717,325,143 (63.8%) | 400,000,000 | 380,871,034 (95.2%) | 3,644,500 |
+| ↳ *Tổng Miền Nam* | *9 sales* | 11,000,000,000 | 3,569,906,744 (32.5%) | 8,450,000,000 | 3,160,683,149 (37.4%) | 900,000,000 | 409,223,595 (45.5%) | 18,768,672 |
+
+
+
 
 
 

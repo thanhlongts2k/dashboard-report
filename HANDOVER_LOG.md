@@ -3,7 +3,105 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
-## [2026-09-03 09:25:00] Execution: Merge TUOI_NO_KH (131 + 1311) & Run sync_current_month --only-import — [DONE]
+## [2026-09-07 08:55:00] Task: Tái Thiết Kế Hiện Đại Bảng Doanh Thu Sale (4 Cột Visual Progress, Quick Filters & Card Accordion LocalStorage) — [DONE]
+- **Current Objective**:
+  1. Khắc phục triệt để và kiểm tra toàn diện mapping BU slug (`ibiz-premium`, `ibiz-value`, `elevator`) tại cả FE (`detailMapper.js`, `SalesPerformanceTable.jsx`) và BE (`sales_performance_service.py`, `sales_api.py`).
+  2. Đảm bảo seed target đầy đủ cho nhân sự 2 BU iBiz Premium và iBiz Value, đồng thời xử lý linh hoạt fallback khi xem kỳ tháng 9 (`2026-09`) nếu chưa có target tháng 9 mà không crash/rỗng giao diện.
+  3. Cải tiến Card Accordion: Lưu trạng thái mở/đóng vào `localStorage` theo từng BU (`sales_card_expanded_${buKey}`), hiển thị thanh Header tóm tắt có badge Tổng DT thực tế tháng | % Đạt và nút Chevron Down "Mở rộng".
+  4. Tái thiết kế giao diện từ 11 cột Excel thô xuống 4 cột hiện đại tinh gọn (Visual Progress):
+     - Cột 1: NHÂN VIÊN / NHÓM (Sticky bên trái, Tên in đậm, Mã NV mờ, icon Trưởng nhóm/Sales, toggle Miền Bắc/Nam).
+     - Cột 2: TIẾN ĐỘ THÁNG NÀY (MTD): Thực tế tháng (font lớn) + Badge % Đạt; Progress Bar 6px đổi màu; Kế hoạch & Chênh lệch (+/- đ).
+     - Cột 3: TIẾN ĐỘ CẢ NĂM (YTD): Thực tế YTD + Badge % Đạt; Progress Bar 6px; Kế hoạch năm & Chênh lệch (+/- đ).
+     - Cột 4: DOANH SỐ TRONG NGÀY: Số tiền phát sinh ngày chốt báo cáo, font rõ ràng.
+  5. Thêm thanh Bộ lọc nhanh (Quick Filter Pills): `[Tất cả]`, `[Miền Bắc]`, `[Miền Nam]`, `[Cần bám sát (< 70%)]`.
+  6. Kiểm thử đối soát với 3 BU (Elevator, iBiz Premium, iBiz Value) tại 31/08/2026, test responsive, chạy `npm run build` và `python manage.py test accounting` pass 100%.
+- **Files Modified / Created**:
+  - `accounting/services/sales_performance_service.py`: Chuẩn hóa mapping BU slug, xử lý fallback tháng 9 không có target (`month_target = 0`), gán cờ `is_leader` dựa trên `display_order`.
+  - `scripts/seed_sales_targets_2026.py`: Nạp chỉ tiêu cho nhân sự 2 BU iBiz Premium & Value.
+  - `scripts/auto_assign_customer_sales.py`: Gán khách hàng vào sales phụ trách.
+  - `d:/Sources/project-dashboard/src/components/sales/SalesPerformanceTable.jsx`: Tái cấu trúc hoàn toàn 4 cột Visual Progress, Quick Filter Pills, Card Accordion với localStorage persistence.
+  - `d:/Sources/project-dashboard/src/styles/dashboard.css`: Thêm bộ CSS `.modern-4col-table`, `.quick-filter-bar`, `.pill-btn`, progress bars, badges tương phản cao.
+  - `DocumentAPI_Report2026.md`: Cập nhật mục 25.5.
+  - `target.md`: Cập nhật mục 18.2.
+- **Verification Results**:
+  - `python manage.py test accounting.tests.SalesPerformanceTests --no-input`: PASS 100% (3/3 tests).
+  - `python manage.py test accounting --no-input`: PASS 100% (60/60 tests passed in 14.15s, 0 errors, 0 failures).
+  - `npm run build` (project-dashboard): PASS (built in 666ms, 0 errors).
+  - Browser Automation Verification: Chụp ảnh màn hình thực tế và video WebP xác nhận 4 cột hiển thị sắc nét, thanh lọc nhanh hoạt động mượt mà, iBiz Premium và iBiz Value hiển thị đủ số liệu thực tế.
+  - Đối soát ngày 31/08/2026: Trùng khớp 100% với Excel kế toán:
+    * `BU_ELEVATOR`: 919,319,111 đ
+    * `BU_IBIZ PREMIUM`: 370,112,700 đ
+    * `BU_IBIZ VALUE`: 22,413,172 đ
+- **Current Status**: **[DONE]**
+
+## [2026-09-07 08:25:00] Task: Fix Lỗi Số Liệu Rỗng BU (iBiz Premium, iBiz Value) & Tái Thiết Kế Giao Diện Bảng Sales — [DONE]
+- **Current Objective**:
+  1. Điều tra và xử lý triệt để nguyên nhân số liệu rỗng ở BU iBiz Premium và iBiz Value (kiểm tra mapping BU code từ URL, kiểm tra `Customer.assigned_employee` và mapping của `SalesTransaction`, kiểm tra seed data target).
+  2. Hỗ trợ linh hoạt khi xem ở các kỳ (2026-08, 2026-09), đảm bảo tại ngày 31/08/2026 tất cả các BU đều khớp 100% với bảng kế toán.
+  3. Làm lại cơ chế Thu gọn / Mở rộng theo Block (Card Accordion): Khi thu gọn chỉ hiện Header tóm tắt, khi mở rộng bung toàn bộ nội dung; mặc định vào trang là MỞ RỘNG (Expanded).
+  4. Tái thiết kế toàn diện bảng dữ liệu: Padding thoáng đãng (`py-3.5 px-4`), phân cách khối cột (`border-r-2 border-slate-200`), phân cấp thị giác nổi bật (Tổng BU, Miền, Sales `tabular-nums`), nâng cấp Badge màu tỷ lệ tương phản cao (`bg-emerald-50 text-emerald-700`, `bg-amber-50 text-amber-700`, `bg-rose-50 text-rose-700`).
+  5. Kiểm thử đối soát cả 3 BU (Elevator, iBiz Premium, iBiz Value) và verify `npm run build` 0 lỗi.
+- **Root Cause & Fixes Executed**:
+  - *Nguyên nhân 1*: Tên mã `BusinessUnit.code` trong CSDL có dấu cách (`'BU_IBIZ PREMIUM'`, `'BU_IBIZ VALUE'`). Đã nâng cấp `resolve_target_bu_codes` trên backend và `getBuCodeFromKey` trên frontend để tự động giải quyết mọi biến thể slug/space/underscore/case-insensitive.
+  - *Nguyên nhân 2*: Khách hàng `KH2025/000505` (Điện Hoàng Minh) có doanh thu ngày 31/08 nhưng chưa được gán `assigned_employee`. Đã chạy script `auto_assign_customer_sales.py` tự động gán chính xác về nhân viên `2000530 - LÝ ANH VŨ`.
+  - *Nguyên nhân 3*: Backend service bổ sung cơ chế tự động gom các nhân sự có doanh thu phát sinh trong kỳ nhưng chưa có dòng target vào cây phân cấp (`handled_keys` logic).
+  - *Card Accordion*: Thiết lập mặc định vào trang là MỞ RỘNG (`isCardExpanded = true`), bấm "Thu gọn bảng" sẽ đóng toàn bộ block và hiển thị Dải tóm tắt vắn tắt (`collapsed-summary-strip`).
+  - *Redesign UI*: Header 2 tầng, viền phân cách `border-r-2`, padding `12px 14px` (`py-3.5 px-4`), badges màu tương phản cao, tabular numbers thẳng hàng, sticky column mượt mà.
+- **Files Modified / Created**:
+  - `accounting/services/sales_performance_service.py`: Thêm `resolve_target_bu_codes`, gom sales chưa có target.
+  - `scripts/auto_assign_customer_sales.py`: Tự động gán khách hàng vào nhân sự phụ trách.
+  - `scripts/seed_sales_targets_2026.py`: Bổ sung 2 nhân sự (Lý Anh Vũ, Dương Đức Mạnh) nạp 29 targets.
+  - `scripts/audit_sales_performance.py`: Audit so sánh số liệu các BU.
+  - `scripts/print_reconciliation_table.py`: In bảng đối soát số liệu 31/08/2026.
+  - `d:/Sources/project-dashboard/src/components/sales/SalesPerformanceTable.jsx`: Card Accordion, URL mapping, redesigned table.
+  - `d:/Sources/project-dashboard/src/styles/dashboard.css`: Bộ CSS styling mới cho card accordion, header 2 tầng, badges tương phản cao.
+  - `DocumentAPI_Report2026.md`: Cập nhật Section 25.5.
+  - `target.md`: Cập nhật Section 18.2 & 18.3.
+- **Verification Results**:
+  - `python manage.py test accounting.tests.SalesPerformanceTests --no-input`: PASS 100% (3/3 tests).
+  - `npm run build` (project-dashboard): PASS (built in 4.29s, 0 errors).
+  - Browser Automation Verification: Đăng nhập thành công, kiểm thử Card Accordion mượt mà, xác thực iBiz Premium và iBiz Value hiển thị đầy đủ số liệu thực tế.
+  - Số liệu đối soát tại 31/08/2026 khớp 100% với file Excel kế toán:
+    * `BU_ELEVATOR`: Lũy kế Năm TT = 138,273,199,073 (55.0%) | Tháng 8 TT = 14,630,855,252 (65.0%) | Ngày 31/08 = 919,319,111 đ
+    * `BU_IBIZ PREMIUM`: Lũy kế Năm TT = 107,840,244,474 (61.8%) | Tháng 8 TT = 10,052,764,502 (64.9%) | Ngày 31/08 = 370,112,700 đ
+    * `BU_IBIZ VALUE`: Lũy kế Năm TT = 4,668,102,921 (31.1%) | Tháng 8 TT = 790,094,629 (60.8%) | Ngày 31/08 = 22,413,172 đ
+- **Current Status**: **[DONE]**
+
+
+## [2026-09-07 08:05:00] Execution: Triển Khai Tính Năng Báo Cáo Doanh Thu Theo Nhân Viên Sale (Phương Án B) — [DONE]
+- **Current Objective**:
+  1. Xây dựng Model `SalesTarget` và migration trong `accounting/models/performance.py`.
+  2. Tạo script `scripts/seed_sales_targets_2026.py` nạp chỉ tiêu 27 nhân sự theo đúng bảng mục tiêu kế toán 2026 (chuẩn hóa mapping: "Nguyễn Đức Thương" -> NGUYỄN ĐỨC THƯỞNG mã 2000017, "Nguyễn Hoàng Tín" -> NGUYỄN HOÀNG TÂN mã 2000588).
+  3. Xây dựng Service `sales_performance_service.py` tính toán doanh thu thực tế phân cấp 3 tầng (BU -> Miền -> Sales) tối ưu 1 query conditional aggregation, loại trừ 100% Nội bộ (`customer__group__code='Internal'`) & HiSa (`hisa_customers`).
+  4. Tạo API `GET /api/sales/performance-by-employee/` kèm phân quyền RBAC (BOD vs BU Head) trong `accounting/views/sales_api.py`, đăng ký route và exports.
+  5. Xây dựng component `SalesPerformanceTable.jsx` tích hợp trực tiếp vào trang Chi tiết BU (`/bu/:buKey`) trên Frontend React `project-dashboard`: nút Expand/Collapse All (mặc định Thu gọn), sticky column, responsive mobile/desktop, badges màu trực quan.
+  6. Viết Unit Tests `SalesPerformanceTests` trong `accounting/tests.py`, chạy `python manage.py test accounting` pass 100% (60/60 tests) và build frontend `npm run build` 0 lỗi.
+  7. Cập nhật tài liệu chuẩn SOP: `DocumentAPI_Report2026.md`, `target.md` và `HANDOVER_LOG.md`.
+- **Files Modified / Created**:
+  - `d:/Sources/dashboard-report/accounting/models/performance.py`: Thêm model `SalesTarget`.
+  - `d:/Sources/dashboard-report/accounting/models/__init__.py` & `models.py`: Export `SalesTarget`.
+  - `d:/Sources/dashboard-report/accounting/admin.py`: Đăng ký `SalesTargetAdmin`.
+  - `d:/Sources/dashboard-report/accounting/migrations/0049_salestarget.py`: Migration CSDL cho `SalesTarget`.
+  - `d:/Sources/dashboard-report/scripts/seed_sales_targets_2026.py`: Nạp chỉ tiêu cho 27 nhân sự năm 2026 & T8/2026.
+  - `d:/Sources/dashboard-report/accounting/services/sales_performance_service.py`: Service tính toán đa tầng, 1 query aggregation.
+  - `d:/Sources/dashboard-report/accounting/views/sales_api.py`: `SalesPerformanceByEmployeeAPIView` RBAC.
+  - `d:/Sources/dashboard-report/accounting/views/__init__.py`: Export `SalesPerformanceByEmployeeAPIView`.
+  - `d:/Sources/dashboard-report/accounting/urls.py`: Thêm route `sales/performance-by-employee/`.
+  - `d:/Sources/dashboard-report/accounting/tests.py`: Thêm test suite `SalesPerformanceTests` (3 test cases).
+  - `d:/Sources/dashboard-report/DocumentAPI_Report2026.md`: Thêm Mục 25 tài liệu API & Model Sales Performance.
+  - `d:/Sources/dashboard-report/target.md`: Thêm Mục 18 giải thích logic nghiệp vụ, đối soát kế toán và mapping nhân sự.
+  - `d:/Sources/project-dashboard/src/api/dashboardApi.js`: Thêm hàm `fetchSalesPerformanceByEmployee`.
+  - `d:/Sources/project-dashboard/src/components/sales/SalesPerformanceTable.jsx`: Component React bảng Sales đa cấp, collapsible, sticky column.
+  - `d:/Sources/project-dashboard/src/pages/DashboardBuDetailPage.jsx`: Nhúng component vào trang Chi tiết BU.
+  - `d:/Sources/project-dashboard/src/styles/dashboard.css`: Thêm bộ CSS responsive, dark mode, sticky column, animations.
+- **Verification Results**:
+  - `python manage.py test accounting.tests.SalesPerformanceTests --no-input`: PASS (3/3 tests).
+  - `python manage.py test accounting --no-input`: PASS 100% (60/60 tests passed in 14.52s, 0 errors, 0 failures).
+  - `npm run build` (project-dashboard): PASS (built in 4.44s, 0 errors).
+  - Audit số liệu ngày 31/08/2026: Khớp 100.000% tuyệt đối tới từng đồng lẻ với biểu mẫu theo dõi mục tiêu của kế toán (Tổng ngày: 1,338,944,983 VNĐ; BU Elevator: 919,319,111 VNĐ).
+- **Current Status**: **[DONE]**
+
+
 - **Objective**:
   1. Gộp 2 file `TUOI_NO_KH_131_20260903.xlsx` (TK 131) và `TUOI_NO_KH_1311_20260903.xlsx` (TK 1311) thành file `TUOI_NO_KH_20260903.xlsx` theo chuẩn MISA automation `merge_tuoi_no_kh_excel_files`.
   2. Di chuyển các file thô vào `backup/` để tránh trùng lặp dữ liệu.
