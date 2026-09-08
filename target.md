@@ -875,6 +875,30 @@ Hệ thống triển khai theo dõi chi tiết hiệu suất bán hàng của t�
     * Cụm 1: "Nhân sự BU ECO (3 nhân sự)" mở sẵn mặc định.
     * Cụm 2: "🔄 Doanh số bán chéo & Vãng lai" thu gọn mặc định, hiển thị tổng 256.6 tr (Ngoài KH); khi bấm bung sẽ hiển thị từng nhân sự kèm badge phòng ban.
 
+---
+
+## 21. QUY CHUẨN NẠP KẾ HOẠCH DOANH THU THÁNG (SALESTARGET) & FOCUS ACTION HUB "THÁNG NÀY" (MTD)
+
+### 21.1. Bộ Dữ Liệu Kế Hoạch Doanh Thu Tháng 09/2026
+* **Nguồn số liệu**: Bảng theo dõi mục tiêu doanh thu chính thức từ Phòng Kế toán Công ty Hạo Phương năm 2026 (`seed_sales_targets_2026.py`).
+* **Tổng kết đối soát (29 nhân sự / 7 BU)**:
+  - **BU Elevator**: Tháng 9 = 24.7 tỷ | Cả năm = 253.8 tỷ
+  - **BU iBiz Premium**: Tháng 9 = 16.5 tỷ | Cả năm = 175.6 tỷ
+  - **BU iBiz Value**: Tháng 9 = 1.4 tỷ | Cả năm = 15.0 tỷ
+  - **BU ECO**: Tháng 9 = 1.5 tỷ (Phạm Văn Mừng 1.1 tỷ, Phan Thái Vũ 200 tr, Nguyễn Quốc Huy 200 tr) | Cả năm = 15.9 tỷ
+  - **BU AgriTech**: Tháng 9 = 500 tr | Cả năm = 5.4 tỷ
+  - **BU SAB**: Tháng 9 = 450 tr | Cả năm = 3.8 tỷ
+  - **BU Chế tạo & Sản xuất**: Tháng 9 = 0 đ | Cả năm = 5.4 tỷ
+  - **Toàn công ty**: Tháng 9 = **45.05 tỷ** | T1-T8 = **278.04 tỷ** | Cả năm = **474.9 tỷ**.
+
+### 21.2. Khóa Cố Định Góc Nhìn Action Hub Sang MTD (Tháng Này)
+* **Yêu cầu quản trị**: Theo chỉ đạo điều hành, Action Hub (Top Vinh Danh, Báo Động Chậm Tiến Độ, Tiến Độ Vùng Miền) cần tập trung 100% vào việc đôn đốc nhịp tiến độ của tháng hiện tại.
+* **Quy chuẩn hiển thị Frontend (`SalesPerformanceTable.jsx`)**:
+  - `hubPeriodType` khởi tạo mặc định và cố định là `"MTD"`.
+  - Ẩn nút "Cả năm" tại header switcher, chỉ hiển thị duy nhất badge pill "Tháng này" bo góc thanh lịch.
+  - Thanh tiến độ hiển thị trực quan % hoàn thành theo chỉ tiêu tháng (không còn bị gán 0.0% hoặc nhãn "Chưa đặt KH").
+
+
 
 
 

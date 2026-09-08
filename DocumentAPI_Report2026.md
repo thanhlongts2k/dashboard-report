@@ -1425,6 +1425,24 @@ python scripts/seed_sales_targets_2026.py
     * **Cụm 2: "🔄 Doanh số bán chéo & Vãng lai (2 nhân sự ngoài BU)"**: Mặc định thu gọn, hiển thị tổng 256.6 triệu (Ngoài KH). Khi người dùng click mở rộng, hiển thị danh sách nhân sự bán chéo kèm badge phòng ban gốc rõ ràng (`Bán chéo • BU Agritech-Eco`, `Bán chéo • SS Cung ứng`).
     * **Tối ưu Mobile (< 768px)**: Tích hợp accordion card 1 dòng `🔄 Bán chéo & Vãng lai (2 ngoài BU) 256.6 tr` không bị tràn hoặc gãy chữ, chạm mở mượt mà.
 
+### 25.7. Nạp Kế Hoạch Doanh Thu Tháng 09/2026 (`SalesTarget`) & Khóa Focus Action Hub Sang MTD (Tháng Này)
+- **Nạp Dữ Liệu Kế Hoạch Tháng 09/2026**:
+  - Script nạp: `scripts/seed_sales_targets_2026.py --period 2026-09`
+  - Đã nạp đầy đủ 29 bản ghi chỉ tiêu nhân sự thuộc 7 BU khớp 100% tài liệu kế toán chính thức:
+    * Elevator: 24.7 tỷ (Năm: 253.8 tỷ)
+    * iBiz Premium: 16.5 tỷ (Năm: 175.6 tỷ)
+    * iBiz Value: 1.4 tỷ (Năm: 15.0 tỷ)
+    * ECO: 1.5 tỷ (Phạm Văn Mừng 1.1 tỷ, Phan Thái Vũ 200 tr, Nguyễn Quốc Huy 200 tr; Năm: 15.9 tỷ)
+    * AgriTech: 500 tr (Năm: 5.4 tỷ)
+    * SAB: 450 tr (Năm: 3.8 tỷ)
+    * Chế tạo & Sản xuất: 0 đ (Năm: 5.4 tỷ)
+    * **Tổng toàn công ty**: Tháng 9 đạt **45.05 tỷ** (Cả năm: **474.9 tỷ**).
+- **Khóa Chế Độ Focus "Tháng Này" (MTD) trên Action Hub**:
+  - Trong `SalesPerformanceTable.jsx`:
+    * Khởi tạo và cố định state `hubPeriodType = "MTD"`.
+    * Ẩn nút "Cả năm" tại header switcher, chỉ hiển thị duy nhất badge pill "Tháng này".
+    * Toàn bộ 3 card khối Action Hub (Top Vinh Danh, Báo Động Chậm Tiến Độ, Tiến Độ Vùng Miền) tự động bám sát nhịp kế hoạch và thực đạt của Tháng 9, hiển thị thanh tiến độ và % chuẩn xác (loại bỏ hoàn toàn lỗi hiển thị `0.0%` hoặc `Chưa đặt KH`).
+
 ---
 
 ## 21. Cơ Chế Batch Ingestion Báo Cáo MISA 2026 (7 Báo Cáo x 9 Tháng) & Checkpoint 2D State Persistence

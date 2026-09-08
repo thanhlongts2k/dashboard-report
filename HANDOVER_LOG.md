@@ -3,6 +3,31 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-09-08 16:53:00] Task: Nạp Kế Hoạch Doanh Thu Tháng 09/2026 (SalesTarget) & Khóa Focus "Tháng Này" Cho Sales Action Hub — [DONE ✅]
+
+- **Current Objective**: 
+  1. Backend (`scripts/seed_sales_targets_2026.py`): Nạp toàn bộ 29 bản ghi chỉ tiêu kế hoạch Sales kỳ Tháng 09/2026 (`SalesTarget`) từ Bảng theo dõi mục tiêu chính thức của Kế toán (Tổng KH Tháng 9: 45.05 tỷ, Tổng KH Năm: 474.9 tỷ, Tổng KH T1-T8: 278.04 tỷ).
+  2. Frontend (`SalesPerformanceTable.jsx`): Ẩn tùy chọn "Cả năm", khóa cố định chế độ xem vào "Tháng này" (MTD) cho khối theo dõi Sales Performance Action Hub theo đúng chỉ đạo của Lãnh đạo.
+- **Kỹ thuật Đã Triển Khai**:
+  1. Backend (`dashboard-report/scripts/seed_sales_targets_2026.py`):
+     - Định nghĩa `TARGETS_2026_09` gồm đầy đủ 29 nhân sự thuộc 7 BU (Elevator: 24.7 tỷ, iBiz Premium: 16.5 tỷ, iBiz Value: 1.4 tỷ, Eco: 1.5 tỷ, AgriTech: 500 tr, SAB: 450 tr, Manufacturing: 0).
+     - Đã thực thi script seeding: Khởi tạo mới thành công 29 bản ghi `SalesTarget` với `period='2026-09'`.
+     - Tổng đối soát kế hoạch khớp 100% tài liệu kế toán: Tháng = 45.05 tỷ, T1-T8 = 278.04 tỷ, Cả năm = 474.9 tỷ.
+  2. Frontend (`project-dashboard/src/components/sales/SalesPerformanceTable.jsx`):
+     - Dòng 233: Đặt mặc định `const [hubPeriodType, setHubPeriodType] = useState("MTD")` tập trung theo dõi Tháng này.
+     - Dòng 1163-1200: Ẩn nút "Cả năm", thay cụm switcher bằng pill badge "Tháng này" bo góc xám thanh lịch, tập trung 100% góc nhìn điều hành vào tiến độ Tháng 9.
+- **Kết quả Kiểm Thử & Nghiệm Thu**:
+  - Backend Unit Test: `python manage.py test accounting` -> **Ran 64 tests in 13.918s — OK! (100% PASS)**.
+  - Frontend Build: `npm run build` -> **✓ built in 661ms, 0 errors!**
+  - Nghiệm thu trực quan Browser:
+    + `/bu/ibiz-premium`: Cụm switcher đã ẩn nút "Cả năm", hiển thị duy nhất "Tháng này". Top Vinh Danh và Tiến độ vùng miền hiển thị chính xác % hoàn thành và Target Tháng 9 (Trần Thị Tuyến 12.1%, Ngô Văn Hiếu 15.0%, Lê Tuấn Kiên 21.9%; Miền Bắc 13.0% / KH 10.7 tỷ, Miền Nam 1.9% / KH 5.8 tỷ), triệt tiêu hoàn toàn hiện tượng 0.0% và "Chưa đặt KH".
+    + `/bu/eco`: Nút "Cả năm" đã ẩn, chỉ hiển thị "Tháng này".
+- **Files Modified**:
+  - `d:/Sources/dashboard-report/scripts/seed_sales_targets_2026.py`
+  - `d:/Sources/project-dashboard/src/components/sales/SalesPerformanceTable.jsx`
+  - `d:/Sources/dashboard-report/HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
 ## [2026-09-08 14:02:00] Task: Chuẩn Hóa Doanh Số Bán Chéo (Cross-Selling) & Tách Biệt Nhân Sự Biên Chế BU ECO — [DONE ✅]
 
 - **Current Objective**: 
