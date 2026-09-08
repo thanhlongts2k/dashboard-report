@@ -513,4 +513,23 @@ python scripts/download_batch_saved_reports_2026.py --from-month 2026-01 --to-mo
 python scripts/download_batch_saved_reports_2026.py --from-month 2026-09 --to-month 2026-09 --reports TUOI_NO_KH --auto-import --recalc-kpi --force
 ```
 
+### 6.20. Script Nạp Dữ Liệu Mục Tiêu Kế Hoạch BU & Toàn Công Ty (`seed_target_plans.py`)
+
+Script nạp hạn mức Kế hoạch Mục tiêu vĩ mô vào bảng `BUTargetPlan` (Doanh thu Năm/Tháng, Thu tiền Năm/Tháng, Tồn kho, Tiền mặt, Vay ngân hàng, OPEX) dựa trên Báo cáo chính thức của Kế toán. Sau khi nạp, script tự động kích hoạt tính toán lại toàn bộ chỉ số hiệu suất (`BUPerformance`) cho tất cả Business Units và Tổng Công Ty.
+
+```powershell
+# 1. Nạp kế hoạch cho tháng hiện hành (Mặc định: Tháng 09/2026):
+python scripts/seed_target_plans.py
+
+# 2. Nạp kế hoạch chỉ định kỳ Tháng và Năm:
+python scripts/seed_target_plans.py --month 9 --year 2026
+
+# 3. Nạp kế hoạch cho Tháng 08/2026:
+python scripts/seed_target_plans.py --month 8 --year 2026
+
+# 4. Nạp kế hoạch cho Tháng 07/2026:
+python scripts/seed_target_plans.py --month 7 --year 2026
+```
+
+
 

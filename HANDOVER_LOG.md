@@ -3,6 +3,88 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-09-08 11:52:00] Task: Zero-Scroll & Full Height Fit cho Bảng Tổng Hợp BU & Cảnh Báo Điều Hành — [DONE ✅]
+
+- **Current Objective**: Triệt tiêu hoàn toàn thanh cuộn dọc nội bộ (overflow-y scrollbar) trên Bảng Tổng hợp BU, đảm bảo hiển thị 100% 10 dòng (Tổng toàn công ty + 9 BU, bao gồm dòng cuối SAB Thủy sản). Tinh chỉnh mật độ compact cell padding 5.5px 10px (~38px/dòng), đồng bộ chiều cao 2 card cân đối.
+- **Kỹ thuật & Tinh chỉnh Đã Áp Dụng**:
+  1. `project-dashboard/src/styles/modules/overview-table.css`:
+     + Bỏ `height: 520px` cố định, chuyển thành `height: 100%` kết hợp `justify-content: flex-start`.
+     + `.overview-table-wrap`: Bỏ `overflow-y: auto` và `scrollbar-gutter`, chuyển sang `overflow: visible` (Fit-to-content).
+     + Tinh chỉnh Compact Row Density: `padding: 5.5px 10px; height: auto` cho `td`, `padding: 7px 10px` cho `th` và dòng Tổng.
+  2. Symmetrical Layout: Cả 2 card (.overview-card) co giãn và bằng nhau tuyệt đối theo chiều cao thực tế của 10 dòng BU.
+- **Kết quả Nghiệm Thu Trực Quan (Visual Verification)**:
+  - `npm run build`: **Biên dịch PASS 100% (718ms), 0 lỗi.**
+  - Ảnh chụp màn hình tại Zoom 100% (1920x1080 & 1366x768):
+    + Dòng cuối cùng **"SAB (Thủy sản) — TRẦN HỒNG QUÂN"** hiển thị trọn vẹn 100% ở đáy bảng.
+    + Không còn bất kỳ thanh cuộn ngang/dọc nào trong khung bảng.
+- **Files Modified**:
+  - `project-dashboard/src/styles/modules/overview-table.css` (Modified)
+  - `dashboard-report/HANDOVER_LOG.md` (Updated)
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-08 11:43:00] Task: Tái Cấu Trúc Khối Bảng Tổng Hợp BU và Cảnh Báo Điều Hành (Overview Refactor) — [DONE ✅]
+
+- **Current Objective**: Triệt tiêu tình trạng nhồi nhét thông tin (buộc zoom 67%), loại bỏ cột chết và trùng lặp thông tin, chuẩn hóa 4 cột tích hợp đa tầng (Dual-tier Cell), tính toán Nhịp độ Thời gian (Time-Pace Metric) thực tế để tránh hiệu ứng đỏ rực, lọc bỏ cảnh báo rác và phân hạng Executive Alerts nguy cấp nhất.
+- **Kế hoạch & Tinh chỉnh Kỹ thuật đã triển khai**:
+  1. `project-dashboard/src/utils/dashboardMapper.js`:
+     + Chuẩn hóa 4 cột chính: `bu` (Đơn vị / Phụ trách), `revenueProgress` (Tiến độ Doanh thu đa tầng), `cashProgress` (Tiến độ Thu tiền đa tầng tích hợp run-rate ~X/ngày), `timePace` (Nhịp độ thời gian thực tế).
+     + Viết hàm `calculateTimePace` và `getPaceTone`: So sánh % đạt với % thời gian thực tế trong tháng ($D_{\text{cutoff}} / D_{\text{total}} \approx 23.3\%$), xóa bỏ định kiến so sánh ngày 7 với cả tháng.
+     + Viết hàm `filterExecutiveAlerts`: Loại bỏ 100% cảnh báo rác (Target=0, Gap=0) và BU có nhịp tốt $\ge 80\%$, chỉ giữ lại Top ngoại lệ nguy cấp nhất (Tồn kho vượt trần, Nợ ngân hàng sát trần, BU chậm nhịp nặng có Gap $\ge 10$ tỷ).
+  2. `project-dashboard/src/components/DataTable.jsx`:
+     + Hỗ trợ render `bu-info-cell` (Tên BU in đậm + Phụ trách in mờ ngay dưới).
+     + Hỗ trợ render `dual-tier-cell` với micro-progress bar và thông tin chi tiết.
+     + Hỗ trợ render `pace-badge` theo tone màu (Xanh: Bám sát, Vàng cam: Cần bám sát, Đỏ: Chậm nhịp).
+     + Định dạng nổi bật cho dòng `TỔNG TOÀN CÔNG TY` (`row-total-corp` với `bg-slate-100/90 font-bold border-b-2 border-slate-300`).
+     + Nâng cấp `alert-row-item` hiển thị thẻ chấm màu trạng thái và mô tả chi tiết nhịp kỳ vọng.
+  3. `project-dashboard/src/components/dashboard/BuPerformanceTable.jsx`:
+     + Bọc ngoài bằng class `overview-table-grid` để tận dụng layout grid linh hoạt 62% - 38%.
+  4. `project-dashboard/src/styles/modules/overview-table.css` (Kỷ luật Modular CSS):
+     + Tạo riêng file module CSS cho bảng Tổng quan và Cảnh báo điều hành, import tại dòng đầu của `src/styles/dashboard.css`.
+     + Không làm phình to file `dashboard.css`.
+- **Kết quả Kiểm tra & Biên dịch**:
+  - `npm run build`: **Biên dịch thành công 100% trong 717ms, 0 lỗi!**
+  - Chụp ảnh visual nghiệm thu tự động bằng Playwright tại Zoom 100%:
+    + Desktop (1920x1080): Đạt chuẩn C-Level, bảng hiển thị thoáng đãng, không tràn, không thanh cuộn ngang.
+    + Laptop (1366x768): Tương thích mượt mà, cấu trúc co giãn tối ưu.
+- **Files Modified**:
+  - `project-dashboard/src/utils/dashboardMapper.js` (Modified)
+  - `project-dashboard/src/components/DataTable.jsx` (Modified)
+  - `project-dashboard/src/components/dashboard/BuPerformanceTable.jsx` (Modified)
+  - `project-dashboard/src/styles/modules/overview-table.css` (New Module)
+  - `project-dashboard/src/styles/dashboard.css` (Import Module)
+  - `dashboard-report/HANDOVER_LOG.md` (Updated)
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-08 11:31:00] Task: Cập Nhật và Nạp Dữ Liệu Mục Tiêu Kế Hoạch Tháng 09/2026 (BUTargetPlan) — [DONE ✅]
+
+- **Current Objective**: Nạp chuẩn xác 100% số liệu Kế hoạch Năm 2026 và Tháng 09/2026 từ báo cáo chính thức của Kế toán ("SỐ LIỆU MỤC TIÊU ĐƯỢC GIAO VÀ CAM KẾT TỪ BỘ PHẬN" - ngày 07/09/2026) vào bảng CSDL `BUTargetPlan` (cấp Tổng Công Ty và 8 đơn vị kinh doanh cốt lõi), đồng thời kích hoạt động cơ tính toán lại toàn bộ chỉ số hiệu suất `BUPerformance` cho kỳ Tháng 9/2026.
+- **Kết quả Nạp Dữ Liệu & Đối Soát Thực Tế**:
+  - **TOTAL_CORP (Tổng Công Ty)**:
+    + Doanh thu: Kế hoạch Tháng = `68,417,883,530` đ | Kế hoạch Năm = `723,408,013,496` đ ✅ KHỚP 100%
+    + Thu tiền: Kế hoạch Tháng = `54,867,543,092` đ | Kế hoạch Năm = `594,258,344,410` đ ✅ KHỚP 100%
+    + Tồn kho Kế hoạch: `200,000,000,000` đ (Ms Diễm) ✅ KHỚP 100%
+    + Tiền mặt (Cash) Kế hoạch: `30,000,000,000` đ (Ms Thảo AC) ✅ KHỚP 100%
+    + Dư nợ Ngân hàng Kế hoạch: `175,000,000,000` đ (Ms Thảo AC) ✅ KHỚP 100%
+    + OPEX Kế hoạch Tháng: `6,606,411,962` đ (Ms Thảo AC) ✅ KHỚP 100%
+  - **Đơn vị Kinh doanh (BU Targets)**:
+    + `BU_ELEVATOR`: DT Tháng = `45,125,000,000` đ | TT Tháng = `28,974,659,562` đ
+    + `BU_IBIZ PREMIUM`: DT Tháng = `16,500,000,000` đ | TT Tháng = `19,000,000,000` đ
+    + `BU_IBIZ VALUE`: DT Tháng = `1,400,000,000` đ | TT Tháng = `1,500,000,000` đ
+    + `BU_ECO`: DT Tháng = `1,500,000,000` đ | TT Tháng = `1,500,000,000` đ
+    + `BU_AGRITECH`: DT Tháng = `500,000,000` đ | TT Tháng = `500,000,000` đ
+    + `BU_SAB` & `SAB`: DT Tháng = `450,000,000` đ | TT Tháng = `450,000,000` đ
+    + `ĐTCT` (Cho thuê Solar 11 hệ + 6 hệ): DT Tháng = `2,942,883,530` đ | TT Tháng = `2,942,883,530` đ
+    + `BU_MANUFACTURING` & `Oversea`: DT Tháng = 0 đ | TT Tháng = 0 đ
+- **Kết quả Kiểm tra Hệ thống & Test Suite**:
+  - `BUTargetPlan`: 11/11 bản ghi nạp thành công ✅
+  - `BUPerformance`: Tính toán lại 100% chỉ số thực hiện / kế hoạch cho toàn bộ BU và Tổng công ty ✅
+  - `python manage.py test accounting`: **64/64 tests PASSED (0 FAILURES, 0 ERRORS)** ✅
+- **Files Modified**:
+  - ✅ `scripts/seed_target_plans.py`: Nâng cấp hỗ trợ `TARGET_PLANS_BY_MONTH`, nạp bộ dữ liệu Tháng 09/2026 và CLI arguments (`--month`, `--year`).
+  - ✅ `Run_Test_Scripts.md`: Bổ sung Mục 6.20 hướng dẫn chi tiết script nạp kế hoạch.
+  - ✅ `HANDOVER_LOG.md`: Ghi nhận hoàn tất quy trình SOP.
+- **Current Status**: **[DONE ✅]**
+
 ## [2026-09-08 10:48:00] Task: RCA & Permanent Fix — Tuổi Nợ Tự Động Cập Nhật Hàng Ngày — [DONE ✅]
 
 - **Current Objective**: Điều tra gốc rễ tại sao Tuổi Nợ bị dừng ở mốc 05/09/2026, thiết lập cơ chế vĩnh viễn ngăn tái diễn, và đối soát số liệu mốc 07/09/2026 vs báo cáo Kế toán.
