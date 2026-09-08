@@ -3,6 +3,29 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-09-08 13:13:00] Task: Tối Ưu Hóa Toàn Diện Giao Diện Mobile (< 768px) Cho Trang Tổng Quan — [DONE ✅]
+
+- **Current Objective**: Khắc phục lỗi hiển thị Mobile vỡ chữ: Sửa trục X nhãn BU biểu đồ bị đè chữ bằng vuốt ngang mượt mà (`overflow-x: auto; min-width: 660px; scrollbar-none`); bổ sung Segmented Tabs chuyển đổi `[ 📊 Tổng Hợp BU (10) ]` và `[ 🚨 Cảnh Báo (6) ]` trên Mobile (< 768px); chuyển đổi bảng BU trên Mobile thành danh sách Mobile Cards dạng compact 2 cột (Doanh thu & Thu tiền tích hợp micro-bar, run-rate, pace badge); ghim thẻ TỔNG TOÀN CÔNG TY lên đầu với nền `bg-slate-100`; giữ nguyên 100% Desktop (>= 768px).
+- **Kỹ thuật & Tinh chỉnh Đã Áp Dụng**:
+  1. `project-dashboard/src/components/dashboard/BuMobileCards.jsx`: Tạo mới component thẻ BU compact chuẩn mobile, chia 2 cột rõ ràng Doanh thu & Thu tiền kèm micro-bar, % đạt, run-rate và pace-badge.
+  2. `project-dashboard/src/components/dashboard/BuPerformanceTable.jsx`: Tích hợp Segmented Switcher chuyển đổi giữa 2 khối Tổng Hợp BU và Cảnh Báo trên Mobile; tự động ẩn trên Desktop.
+  3. `project-dashboard/src/components/ProgressChart.jsx`: Bọc Recharts trong container `chart-inner-scroll` cho phép vuốt ngang mượt mà trên Mobile (min-width 660px), loại bỏ 100% tình trạng nhãn BU bị đè chữ chéo lên nhau.
+  4. `project-dashboard/src/styles/modules/overview-table.css`: Modular hóa toàn bộ CSS cho Segmented Tabs, Mobile BU Cards, và Mobile Chart Horizontal Swipe.
+- **Kết quả Nghiệm Thu Trực Quan (Visual Verification)**:
+  - `npm run build`: **PASS 100% trong 7.97s, 0 lỗi!**
+  - Mobile Viewport (390x844):
+    + Trục X nhãn BU của biểu đồ thoáng đãng, các nhãn tách rời sắc nét, vuốt ngang mượt mà.
+    + Tab `[ 📊 Tổng Hợp BU (10) ]`: Thẻ TỔNG TOÀN CÔNG TY nổi bật ở đầu với nền `bg-slate-100`, các thẻ BU hiển thị 2 cột cân đối, không đè chữ, không tràn số.
+    + Tab `[ 🚨 Cảnh Báo (6) ]`: Danh sách 6 ngoại lệ gọn gàng, giảm 60% chiều dài trang cuộn.
+  - Desktop Viewport (1920x1080): Giữ nguyên 100% bố cục song song 2 cột zero-scroll, không bị regression.
+- **Files Modified**:
+  - `project-dashboard/src/components/dashboard/BuMobileCards.jsx` (New)
+  - `project-dashboard/src/components/dashboard/BuPerformanceTable.jsx` (Modified)
+  - `project-dashboard/src/components/ProgressChart.jsx` (Modified)
+  - `project-dashboard/src/styles/modules/overview-table.css` (Modified)
+  - `dashboard-report/HANDOVER_LOG.md` (Updated)
+- **Current Status**: **[DONE ✅]**
+
 ## [2026-09-08 11:52:00] Task: Zero-Scroll & Full Height Fit cho Bảng Tổng Hợp BU & Cảnh Báo Điều Hành — [DONE ✅]
 
 - **Current Objective**: Triệt tiêu hoàn toàn thanh cuộn dọc nội bộ (overflow-y scrollbar) trên Bảng Tổng hợp BU, đảm bảo hiển thị 100% 10 dòng (Tổng toàn công ty + 9 BU, bao gồm dòng cuối SAB Thủy sản). Tinh chỉnh mật độ compact cell padding 5.5px 10px (~38px/dòng), đồng bộ chiều cao 2 card cân đối.

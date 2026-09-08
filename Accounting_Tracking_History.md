@@ -2,10 +2,32 @@
 
 > **Mục đích tài liệu**: Lưu trữ toàn bộ lịch sử đối soát số liệu Thu tiền (Collection) và Doanh thu (Sales) giữa Báo cáo Kế toán (Excel) và Hệ thống Database (`BUPerformance`). Agent hoặc Lập trình viên có thể truy cập thẳng vào file này để lấy dữ liệu chính xác và giải trình nhanh nhất mà không tốn Token/Quota để query lại DB.
 >
-> **Lần cập nhật gần nhất**: `2026-07-31 16:42:40` (UTC+7)  
+> **Lần cập nhật gần nhất**: `2026-09-08 13:20:00` (UTC+7)  
 > **Người thực hiện**: Agent AI (Antigravity IDE)
 
 ---
+
+## 📸 BẢNG SNAPSHOT KẾ HOẠCH & TIẾN ĐỘ THÁNG 09/2026 (CHỐT 07/09/2026)
+
+* **Vết thời gian chốt snapshot**: Ngày **07/09/2026** (Kỳ Tháng 09/2026, 7/30 ngày $\approx 23.33\%$).
+* **Nguồn dữ liệu gốc**: Báo cáo chính thức Kế toán ("SỐ LIỆU MỤC TIÊU ĐƯỢC GIAO VÀ CAM KẾT TỪ BỘ PHẬN") nạp qua `scripts/seed_target_plans.py`.
+* **Cấp Tổng Công Ty (TOTAL_CORP)**:
+  - Doanh thu: Kế hoạch Tháng = `68,417,883,530` đ | Thực hiện 07/09 = `4.47 tỷ` (6.54%) | Chậm nhịp -10.6% vs nhịp kỳ vọng 23.3%
+  - Thu tiền: Kế hoạch Tháng = `54,867,543,092` đ | Thực hiện 07/09 = `7.01 tỷ` (12.78%) | Tốc độ thu: `~1 tỷ/ngày`
+  - Tồn kho trần: `200,000,000,000` đ | Thực tế: `211 tỷ` (Vượt trần +10.94 tỷ 🚨)
+  - Tiền mặt kế hoạch: `30,000,000,000` đ | Thực tế: `38.17 tỷ` (Đạt 127.22%)
+  - Nợ ngân hàng trần: `175,000,000,000` đ | Thực tế: `175 tỷ` (Sát trần, còn dư địa 431 triệu 🚨)
+  - OPEX kế hoạch: `6,606,411,962` đ | Tạm tính: `1.79 tỷ` (27.14%)
+
+* **Chi Tiết Kế Hoạch 8 Đơn Vị Kinh Doanh Trọng Yếu (BUs)**:
+  1. `BU_ELEVATOR`: DT Tháng = `45,125,000,000` đ | TT Tháng = `28,974,659,562` đ | TH DT = `2.66 tỷ` (5.89%) | TH TT = `2.78 tỷ` (9.59%)
+  2. `BU_IBIZ PREMIUM`: DT Tháng = `16,500,000,000` đ | TT Tháng = `19,000,000,000` đ | TH DT = `1.5 tỷ` (9.11%) | TH TT = `3.89 tỷ` (20.47% - Bám sát nhịp 🟢)
+  3. `BU_IBIZ VALUE`: DT Tháng = `1,400,000,000` đ | TT Tháng = `1,500,000,000` đ | TH DT = `265 triệu` (18.91%) | TH TT = `157 triệu` (10.47%)
+  4. `BU_ECO`: DT Tháng = `1,500,000,000` đ | TT Tháng = `1,500,000,000` đ | TH DT = `23.31 triệu` (1.55%) | TH TT = `70.53 triệu` (4.7%)
+  5. `BU_AGRITECH`: DT Tháng = `500,000,000` đ | TT Tháng = `500,000,000` đ | TH DT = `0` (0%) | TH TT = `0` (0%)
+  6. `BU_SAB`: DT Tháng = `450,000,000` đ | TT Tháng = `450,000,000` đ | TH DT = `0` (0%) | TH TT = `100 triệu` (22.22% - Bám sát nhịp 🟢)
+  7. `BU_DTCT`: DT Tháng = `2,942,883,530` đ | TT Tháng = `2,942,883,530` đ | TH DT = `343 triệu` (11.65%) | TH TT = `428 triệu` (14.55%)
+  8. `BU_MANUFACTURING` & `Oversea`: DT Tháng = 0 đ | TT Tháng = 0 đ
 
 ## ⚡ HƯỚNG DẪN TRUY VẤN DỮ LIỆU SNAPSHOT DATABASE CHO AGENT (DB SNAPSHOT QUERY SYNTAX)
 
