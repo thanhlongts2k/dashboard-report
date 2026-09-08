@@ -182,6 +182,21 @@ class BatchCheckpointManager:
             return False
         return True
 
+    def reset_active_period(self, month_str, report_codes):
+        """Xóa cờ DONE cho tháng hiện hành để buộc đồng bộ lại mỗi ngày."""
+        if month_str not in self.data["months"]:
+            return
+        m = self.data["months"][month_str]
+        m["status"] = "PENDING_DAILY_SYNC"
+        m["reconciled"] = False
+        for code in report_codes:
+            if code in m.get("reports", {}):
+                m["reports"][code]["download"] = "PENDING"
+                m["reports"][code]["import"] = "PENDING"
+        m["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.save()
+        print(f"  🔄 [ACTIVE PERIOD RESET] Đã xóa cờ DONE cho tháng {month_str} ({len(report_codes)} báo cáo). Sẵn sàng đồng bộ lại.")
+
 
 def generate_month_list(from_month_str, to_month_str):
     """Sinh danh sách các chuỗi tháng 'YYYY-MM' từ from_month đến to_month."""
@@ -215,10 +230,24 @@ def find_existing_file_for_month(prefix, year, month):
     return None
 
 
+def is_active_period(month_str):
+    """
+    Kiểm tra xem một kỳ tháng có phải là tháng hiện tại hoặc tương lai không.
+    Tháng active TUYỆT ĐỐI KHÔNG được khóa bằng DONE trong checkpoint.
+    Mỗi lần đồng bộ phải tải lại snapshot mới nhất.
+    """
+    now = datetime.now()
+    try:
+        y, m = map(int, month_str.split('-'))
+        return (y > now.year) or (y == now.year and m >= now.month)
+    except Exception:
+        return False
+
+
 def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HANG',
                        auto_import=False, recalc_kpi=False, only_download=False,
                        force=False, resume=True, checkpoint_file=CHECKPOINT_DEFAULT_PATH,
-                       cutoff_date_override=None):
+                       cutoff_date_override=None, daily_sync=False):
     
     checkpoint = BatchCheckpointManager(checkpoint_file)
     month_list = generate_month_list(from_month, to_month)
@@ -255,9 +284,25 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
         year, month = map(int, month_str.split('-'))
         month_suffix = f"{year:04d}{month:02d}"
         period_str = f"Tháng {month}"
-        
+
+        # === PERMANENT FIX: ACTIVE PERIOD PROTECTION ===
+        # Tháng đang diễn ra (hiện tại hoặc tương lai): Không bao giờ được skip bởi checkpoint.
+        # Mỗi lần chạy daily-sync phải tải lại snapshot mới nhất.
+        period_is_active = is_active_period(month_str)
+        if daily_sync and period_is_active:
+            # Reset checkpoint của tháng này trước khi chạy
+            checkpoint.reset_active_period(month_str, report_prefixes)
+            force_this_period = True  # Buộc download + import lại
+            print(f"  ⚡ [DAILY SYNC] Kỳ {month_str} là tháng hiện hành → Reset checkpoint, tải snapshot mới.")
+        else:
+            force_this_period = force
+
         if cutoff_date_override:
             cutoff_date = cutoff_date_override
+        elif daily_sync and period_is_active:
+            # Daily sync: luôn dùng ngày hôm nay làm cutoff cho tháng hiện hành
+            cutoff_date = datetime.now().strftime("%d/%m/%Y")
+            print(f"  📅 [DAILY SYNC] Cutoff tự động = ngày hôm nay: '{cutoff_date}'")
         else:
             cutoff_date = compute_cutoff_date(custom_period_suffix=month_suffix)
 
@@ -284,12 +329,16 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
                 rep_status = checkpoint.get_report_status(month_str, prefix)
                 rep_done = checkpoint.is_report_done(month_str, prefix, auto_import=auto_import)
 
-            if resume and not force and rep_done:
-                print(f"  ⏭️ [RESUME SKIP] Kỳ {month_str} - Báo cáo '{prefix}' đã hoàn tất. Bỏ qua.")
-                continue
+            if resume and not force_this_period and rep_done:
+                if period_is_active:
+                    # ACTIVE PERIOD: Không bao giờ skip - tháng đang chạy luôn cần refresh
+                    print(f"  🔄 [ACTIVE PERIOD] Kỳ {month_str} là tháng hiện hành → Bỏ qua skip, tải lại snapshot.")
+                else:
+                    print(f"  ⏭️ [RESUME SKIP] Kỳ {month_str} - Báo cáo '{prefix}' đã hoàn tất. Bỏ qua.")
+                    continue
 
             target_file_path = existing_file
-            download_needed = force or (rep_status.get("download") != "DONE") or (not existing_file)
+            download_needed = force_this_period or (rep_status.get("download") != "DONE") or (not existing_file) or (daily_sync and period_is_active)
 
             # 1. BƯỚC TẢI FILE TỪ MISA
             if download_needed:
@@ -375,7 +424,7 @@ def run_batch_pipeline(from_month='2026-01', to_month='2026-09', reports='BAN_HA
 
             # 2. BƯỚC NẠP VÀO DATABASE (AUTO-IMPORT)
             if auto_import and target_file_path:
-                import_needed = force or (rep_status.get("import") != "DONE")
+                import_needed = force_this_period or (rep_status.get("import") != "DONE") or (daily_sync and period_is_active)
                 if import_needed:
                     print(f"  📥 [BƯỚC 2/3 - IMPORT DB] Đang nạp {os.path.basename(target_file_path)} vào CSDL...")
                     checkpoint.update_report(month_str, prefix, import_status="IN_PROGRESS")
@@ -460,6 +509,7 @@ def main():
     parser.add_argument('--checkpoint-file', default=CHECKPOINT_DEFAULT_PATH, help="Đường dẫn lưu file JSON checkpoint")
     parser.add_argument('--cutoff-date', default=None, help="Mốc ngày chốt snapshot tùy chỉnh (DD/MM/YYYY), ví dụ: 05/09/2026")
     parser.add_argument('--weekly-sync', action='store_true', help="Chế độ chạy tự động định kỳ cuối tuần (đồng bộ YTD, auto-import, recalc KPI)")
+    parser.add_argument('--daily-sync', action='store_true', help="Chế độ đồng bộ hàng ngày: Tự động reset checkpoint tháng hiện hành và lấy cutoff = ngày hôm nay. Không bao giờ skip Active Period.")
     parser.set_defaults(resume=True)
 
     args = parser.parse_args()
@@ -476,6 +526,23 @@ def main():
             args.reports = 'GROUP_1,GROUP_2'
         print(f"⏰ [WEEKLY SYNC MODE ACTIVATED] Đồng bộ tuần tự từ đầu năm {args.from_month} đến tháng hiện tại {args.to_month} (Báo cáo: {args.reports})...")
 
+    # Xử lý cờ --daily-sync
+    if args.daily_sync:
+        now = datetime.now()
+        current_month = now.strftime("%Y-%m")
+        # Daily sync chỉ đồng bộ tháng hiện tại, báo cáo công nợ nhạy cảm
+        if args.from_month == '2026-01':  # Nếu chưa override từ weekly_sync
+            args.from_month = current_month
+        args.to_month = current_month
+        args.auto_import = True
+        args.resume = True
+        if args.reports == 'BAN_HANG':  # Default, chưa được set
+            args.reports = 'TUOI_NO_KH'  # Daily sync ưu tiên công nợ
+        print(f"\n📅 [DAILY SYNC MODE] Kỳ hiện tại: {current_month}")
+        print(f"   Cutoff tự động = ngày hôm nay: {now.strftime('%d/%m/%Y')}")
+        print(f"   Báo cáo: {args.reports}")
+        print(f"   Active Period Protection: BẬT (tháng {current_month} sẽ không bị skip)\n")
+
     success = run_batch_pipeline(
         from_month=args.from_month,
         to_month=args.to_month,
@@ -486,7 +553,8 @@ def main():
         force=args.force,
         resume=args.resume,
         checkpoint_file=args.checkpoint_file,
-        cutoff_date_override=args.cutoff_date
+        cutoff_date_override=args.cutoff_date,
+        daily_sync=args.daily_sync
     )
 
     sys.exit(0 if success else 1)

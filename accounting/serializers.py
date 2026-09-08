@@ -281,6 +281,7 @@ class GlobalDebtSummarySerializer(serializers.Serializer):
 
 class AllBUsDebtResponseSerializer(serializers.Serializer):
     period = serializers.CharField()
+    data_as_of = serializers.CharField(required=False, allow_null=True)
     global_summary = GlobalDebtSummarySerializer()
     bus = BUDebtSummarySerializer(many=True)
 

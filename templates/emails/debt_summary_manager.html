@@ -159,6 +159,12 @@
                                             {% endif %}
                                         </td>
                                     </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" align="center" style="padding: 16px; color: #16a34a; font-weight: 700; border: 1px solid #e2e8f0; background-color: #f0fdf4;">
+                                            🎉 Tuyệt vời! Toàn bộ khách hàng của BU đều thanh toán đúng hạn, không có nợ quá hạn.
+                                        </td>
+                                    </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>

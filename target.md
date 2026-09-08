@@ -809,6 +809,50 @@ Hệ thống triển khai theo dõi chi tiết hiệu suất bán hàng của t�
 | ↳ *Tổng Miền Bắc* | *3 sales* | 4,000,000,000 | 1,098,196,177 (27.5%) | 1,125,000,000 | 717,325,143 (63.8%) | 400,000,000 | 380,871,034 (95.2%) | 3,644,500 |
 | ↳ *Tổng Miền Nam* | *9 sales* | 11,000,000,000 | 3,569,906,744 (32.5%) | 8,450,000,000 | 3,160,683,149 (37.4%) | 900,000,000 | 409,223,595 (45.5%) | 18,768,672 |
 
+---
+
+## 18. QUY TẮC AN TOÀN MỐC NGÀY CHỐT TUỔI NỢ MISA (ANTI-FUTURE-OVERDUE MANDATE)
+* **Sự cố ngày 08/09/2026**:
+  - Hàm `compute_cutoff_date` trước đây tự động lấy ngày cuối tháng (`calendar.monthrange`) dẫn đến việc khi tải báo cáo MISA cho Tháng 9/2026 (ngày chạy là 08/09/2026), tham số "Đến ngày" bị gán thành `30/09/2026` (nhìn trước tương lai 22 ngày).
+  - Hệ quả: MISA tự động đẩy toàn bộ hóa đơn có hạn thanh toán từ 08/09 đến 30/09 (điều khoản 30 ngày của các đơn hàng giữa/cuối tháng 8) sang trạng thái "Nợ quá hạn 1-14 ngày", làm nợ quá hạn toàn công ty bị thổi phồng +44 tỷ VND và 58 khách hàng bị báo sai nợ quá hạn (trong đó có Thiên Phú Electric, Autoss, Hoàng Minh của BU iBiz Value).
+* **Quy chuẩn kỹ thuật bắt buộc**:
+  - `compute_cutoff_date` đối với tháng hiện tại đang diễn ra **BẮT BUỘC** lấy ngày hôm nay (`min(now.day, last_day)`), không bao giờ được phép lấy ngày trong tương lai.
+  - Bảng "Top Khách Hàng Nợ Quá Hạn Lớn Nhất" trong email Trưởng BU chỉ được hiển thị các khách hàng có `overdue_total > 0`. Khách hàng có quá hạn = 0 (dù có nợ trong hạn lớn) tuyệt đối không được đưa vào bảng này.
+
+---
+
+## 19. CƠ CHẾ CHỐNG KHÓA THÁNG HIỆN HÀNH (`is_active_period`) & TỰ ĐỘNG HÓA ĐỒNG BỘ HÀNG NGÀY (`--daily-sync`)
+
+### 19.1. Bối cảnh & Điểm nghẽn Checkpoint đối với Tháng Đang Chạy
+* **Vấn đề phát hiện**:
+  - File [batch_checkpoint.json](file:///d:/Sources/dashboard-report/media/auto_imports/batch_checkpoint.json) lưu trạng thái máy đọc từng tháng (`COMPLETED`, `reconciled: true`).
+  - Khi một tháng đang chạy (active period, ví dụ `2026-09`) đã từng hoàn thành nạp snapshot ở mốc ngày cũ (05/09/2026), checkpoint đánh dấu tháng này là `DONE`.
+  - Khi chạy định kỳ các script batch kế tiếp với cờ `--weekly-sync` hoặc `--resume`, hệ thống kiểm tra thấy checkpoint đã `DONE` nên **tự động bỏ qua (skip)**, khiến số liệu tuổi nợ và hiệu suất bị "đóng băng" ở mốc cũ, không phản ánh biến động hàng ngày.
+
+### 19.2. Cơ Chế Bảo Vệ Chống Khóa Tháng Hiện Hành (`is_active_period()`)
+* **Triển khai trong [scripts/download_batch_saved_reports_2026.py](file:///d:/Sources/dashboard-report/scripts/download_batch_saved_reports_2026.py)**:
+  - Hàm `is_active_period(month_str)`: Nhận diện tháng đang diễn ra bằng cách so khớp với tháng hiện tại của hệ thống (`timezone.now().strftime('%Y-%m')`).
+  - **Quy tắc bảo vệ**: Đối với tháng đang hoạt động (`is_active_period() == True`):
+    * **TUYỆT ĐỐI KHÔNG BAO GIỜ SKIP**: Bỏ qua cờ `rep_done=True` trong checkpoint để luôn kéo dữ liệu mới nhất.
+    * Kích hoạt `BatchCheckpointManager.reset_active_period(month_str)`: Chủ động reset trạng thái `COMPLETED` / `DONE` của tháng hiện tại, bắt buộc quy trình chạy tải và nạp đè snapshot mới.
+    * Ghi đè (upsert/replace) phân đoạn dữ liệu của tháng hiện hành an toàn theo cơ chế Idempotent.
+
+### 19.3. Cờ CLI Mới `--daily-sync` Phục Vụ Tự Động Hóa Hàng Ngày
+* **Mục đích**: Tự động hóa 100% việc cập nhật số liệu hàng ngày cho tháng hiện hành mà không cần truyền tham số thủ công.
+* **Cú pháp thực thi**:
+  ```bash
+  python scripts/download_batch_saved_reports_2026.py --daily-sync
+  ```
+* **Hành vi tự động khi kích hoạt `--daily-sync`**:
+  1. Tự động xác định tháng hiện hành (`from_month = to_month = YYYY-MM`).
+  2. Tự động gán mốc snapshot `cutoff_date` = ngày hôm nay (`DD/MM/YYYY`).
+  3. Kích hoạt `reset_active_period()` mở khóa checkpoint cho tháng hiện hành.
+  4. Tải các báo cáo trọng yếu (Tuổi nợ `TUOI_NO_KH`, Sổ chi tiết `TAI_KHOAN_CT`).
+  5. Tự động nạp CSDL (`--auto-import`) và tính toán lại toàn bộ KPI, công nợ nhân viên (`--recalc-kpi`).
+* **Lịch biểu vận hành đề xuất (Windows Task Scheduler / Cron)**:
+  - Chạy hàng ngày vào các khung giờ: `07:30`, `12:30`, và `18:00`.
+
+
 
 
 

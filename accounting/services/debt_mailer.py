@@ -408,11 +408,12 @@ def collect_bu_manager_debt_data(period=None, bu_code=None):
             })
         bu_sales_list.sort(key=lambda x: x['total_debt'], reverse=True)
 
-        # Top overdue customers in BU
         all_active_customers = [c for c in cust_agg.values() if c['total_debt'] > 0]
+        # Top overdue customers in BU: CHỈ LẤY KHÁCH HÀNG THỰC SỰ CÓ PHÁT SINH NỢ QUÁ HẠN > 0
+        all_overdue_customers = [c for c in cust_agg.values() if (c.get('overdue_total') or Decimal('0')) > Decimal('0')]
         # Sort by overdue descending, then by total_debt descending
-        all_active_customers.sort(key=lambda x: (x['overdue_total'], x['total_debt']), reverse=True)
-        top_overdue_customers = all_active_customers[:10]  # Top 10 khách hàng
+        all_overdue_customers.sort(key=lambda x: (x['overdue_total'], x['total_debt']), reverse=True)
+        top_overdue_customers = all_overdue_customers[:10]  # Top tối đa 10 khách hàng nợ quá hạn
 
         bu_display_code = format_bu_code_display(bu.code)
 

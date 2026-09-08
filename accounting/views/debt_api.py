@@ -133,8 +133,17 @@ class AllBUsDebtSummaryAPIView(views.APIView):
 
         g_rate = float(round(calc_total_overdue / calc_total_debt * 100, 2)) if calc_total_debt > 0 else 0.0
 
+        # FIX #3 - PERMANENT: Lấy ngày chốt thực tế từ max(doc_date) trong CSDL
+        # Thay vì Frontend tự suy đoán, API trả về đúng ngày snapshot dữ liệu.
+        from django.db.models import Max as _Max
+        data_as_of = ReceivablesAgeing.objects.filter(
+            reporting_period=period
+        ).aggregate(_m=_Max('doc_date'))['_m']
+        data_as_of_str = data_as_of.strftime('%d/%m/%Y') if data_as_of else None
+
         response_payload = {
             "period": period,
+            "data_as_of": data_as_of_str,  # Ngày chốt thực tế (VD: "07/09/2026")
             "global_summary": {
                 "receivable_total": calc_total_debt,
                 "due_total": calc_total_due,

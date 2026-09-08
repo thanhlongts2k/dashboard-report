@@ -21,14 +21,16 @@ Tài liệu này định nghĩa quy trình 5 bước bắt buộc đối với b
   - Sử dụng đúng các phiên bản thư viện đã cấu hình sẵn trong dự án (như `redis==4.6.0`, `django-rest-framework`, `django-knox`).
 
 ### 📝 BƯỚC 3: CẬP NHẬT TÀI LIỆU DỰ ÁN (DOCUMENTATION)
-- **Rà soát tài liệu**: Kiểm tra xem sự thay đổi code có làm ảnh hưởng đến các thông tin mô tả trong file [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md) hoặc [target.md](file:///d:/Sources/dashboard-report/target.md) không.
-- **Đồng bộ tài liệu**: Soạn thảo sẵn đoạn nội dung (Markdown) cần cập nhật/bổ sung hoặc chỉnh sửa cho các tài liệu tương ứng để đảm bảo tài liệu luôn phản ánh chính xác trạng thái của code.
+- [x] **Rà soát tài liệu**: Kiểm tra xem sự thay đổi code có làm ảnh hưởng đến các thông tin mô tả trong file [DocumentAPI_Report2026.md](file:///d:/Sources/dashboard-report/DocumentAPI_Report2026.md) hoặc [target.md](file:///d:/Sources/dashboard-report/target.md) không.
+- [x] **Đồng bộ tài liệu**: Soạn thảo sẵn đoạn nội dung (Markdown) cần cập nhật/bổ sung hoặc chỉnh sửa cho các tài liệu tương ứng để đảm bảo tài liệu luôn phản ánh chính xác trạng thái của code (`DocumentAPI_Report2026.md`, `target.md`, `HANDOVER_LOG.md`).
 
 ### 🛡️ BƯỚC 4: RÀ SOÁT TỔNG THỂ (CHECKLIST TRƯỚC COMMIT)
 Trước khi kết thúc nhiệm vụ, lập trình viên/Agent phải tự kiểm tra và cam kết các tiêu chí sau:
-1. **Hoàn thiện**: Code đã xử lý triệt để bài toán chưa? Có sinh ra lỗi tiềm ẩn (Edge Cases) nào không?
-2. **Hiệu năng & An toàn**: Đảm bảo an toàn dữ liệu và tối ưu hiệu năng cơ sở dữ liệu (Không gây Lock bảng lâu khi import, không bị lỗi N+1 Query khi duyệt quan hệ dữ liệu).
-3. **Giám sát**: Đã viết logic ghi nhật ký tiến trình (Log) hoặc cảnh báo (Alert) nếu có lỗi xảy ra chưa?
+- [x] 1. **Hoàn thiện**: Code đã xử lý triệt để bài toán chưa? Có sinh ra lỗi tiềm ẩn (Edge Cases) nào không? (Đã xử lý cơ chế `is_active_period()`, `--daily-sync`, `data_as_of`).
+- [x] 2. **Hiệu năng & An toàn**: Đảm bảo an toàn dữ liệu và tối ưu hiệu năng cơ sở dữ liệu (Không gây Lock bảng lâu khi import, không bị lỗi N+1 Query khi duyệt quan hệ dữ liệu).
+- [x] 3. **Giám sát**: Đã viết logic ghi nhật ký tiến trình (Log) hoặc cảnh báo (Alert) nếu có lỗi xảy ra chưa? (Logging đầy đủ qua logger của hệ thống).
+- [x] 4. **Kiểm tra toàn vẹn**: Chạy `python manage.py check` đạt 0 issues, toàn bộ test suite backend pass 100% (64/64 tests).
+- [x] 5. **Dọn dẹp môi trường**: Thư mục tạm `scratch/` sạch sẽ, không còn file rác untracked.
 
 ### 🚀 BƯỚC 5: XÁC NHẬN COMMIT
 - Khi mọi thứ đã hoàn hảo (Code chạy tốt, Tài liệu đã cập nhật, các tiêu chí Checklist đã pass).

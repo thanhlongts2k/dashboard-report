@@ -983,7 +983,44 @@ python manage.py sync_employee_users --email long.nguyen@haophuong.com
 
 ## 18. API Quản Lý Công Nợ, Báo Cáo Tuổi Nợ & Gửi Email Nhắc Nợ
 
-### 18.1. API Tổng Hợp Tuổi Nợ Chi Tiết Theo BU (`GET /api/debt/bus/<bu_code>/drilldown/` hoặc `GET /api/debt/aging/`)
+### 18.1. API Tổng Hợp Công Nợ Tất Cả Business Units (`GET /api/debt/bus/`)
+* **Đường dẫn**: `GET /api/debt/bus/`
+* **View**: `AllBUsDebtSummaryAPIView` (`accounting/views/debt_api.py`)
+* **Xác thực**: `IsAuthenticated` (Yêu cầu Token Knox `Authorization: Token <token>`)
+* **Query Parameters**:
+  * `period` *(string, tùy chọn)*: Định dạng `YYYY-MM` (ví dụ `2026-09`, mặc định là kỳ có dữ liệu mới nhất).
+  * `include_all` hoặc `all` *(boolean, tùy chọn)*: `true`/`false` (mặc định: `false` - chỉ hiện các BU có nợ quá hạn hoặc tổng nợ > 0).
+* **Response Body Schema (200 OK)**:
+  * Trả về tổng quan công nợ toàn công ty (`global_summary`) và danh sách từng đơn vị kinh doanh (`bus[]`).
+  * **Trường `data_as_of`**: Ngày chốt dữ liệu thực tế (định dạng `DD/MM/YYYY`, ví dụ: `"07/09/2026"`), được trích xuất động từ `max(doc_date)` trong CSDL `ReceivablesAgeing` của kỳ báo cáo. Giúp Frontend Dashboard hiển thị chính xác mốc thời gian snapshot thực tế của dữ liệu thay vì tự suy đoán mốc ngày hoặc hiển thị nhầm ngày cuối tháng tương lai.
+  ```json
+  {
+    "period": "2026-09",
+    "data_as_of": "07/09/2026",
+    "global_summary": {
+      "receivable_total": 140638833170.0,
+      "due_total": 85998097506.0,
+      "overdue_total": 36169079628.0,
+      "overdue_rate": 25.72,
+      "bu_count": 8
+    },
+    "bus": [
+      {
+        "id": 1,
+        "code": "BU_IBIZ PREMIUM",
+        "name": "BU iBiz Premium",
+        "manager_name": "HỒ TÔN NHẬT MINH",
+        "receivable_total": 16072957217.0,
+        "due_total": 12151670984.0,
+        "overdue_total": 3921286233.0,
+        "overdue_rate": 24.4,
+        "performance_id": 1
+      }
+    ]
+  }
+  ```
+
+### 18.2. API Tổng Hợp Tuổi Nợ Chi Tiết Theo BU (`GET /api/debt/bus/<bu_code>/drilldown/` hoặc `GET /api/debt/aging/`)
 * **Đường dẫn**: `GET /api/debt/bus/<bu_code>/drilldown/`
 * **Xác thực**: `IsAuthenticated` (Yêu cầu Token Knox `Authorization: Token <token>`)
 * **Phân quyền & Chốt chặn Object-Level (Defense in Depth)**:
@@ -998,7 +1035,7 @@ python manage.py sync_employee_users --email long.nguyen@haophuong.com
     * `tier_1_bu`: Thông tin BU, tổng nợ, nợ đến hạn, nợ quá hạn và tỷ lệ nợ xấu.
     * `tier_2_and_3`: Danh sách nhóm phụ trách kinh doanh (`bu_teams`) và các khách hàng trọng điểm (`key_accounts_summary`) kèm chi tiết 11 nấc hạn nợ.
 
-### 18.2. API Kích Hoạt Gửi Email Nhắc Nợ Tự Động (`POST /api/debt/notifications/send-reminders/`)
+### 18.3. API Kích Hoạt Gửi Email Nhắc Nợ Tự Động (`POST /api/debt/notifications/send-reminders/`)
 * **Đường dẫn**: `POST /api/debt/notifications/send-reminders/`
 * **Xác thực**: `IsAuthenticated` (Yêu cầu Token Knox `Authorization: Token <token>`)
 * **Phân quyền thực thi**:
@@ -1094,6 +1131,16 @@ python scripts/send_live_debt_reminders.py --period 2026-08 --live
 * **Tiêu đề Email**: `[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ BU {bu_display_code} — {period_display} — Kính gửi {manager_name}` (Ví dụ: `[Hạo Phương] 📊 Báo Cáo Tổng Hợp Công Nợ BU IBIZ VALUE — Tháng 08/2026 — Kính gửi NGUYỄN NGỌC HUY PHONG`).
 * **Quy tắc hiển thị Mã BU**: Sử dụng hàm `format_bu_code_display` trong `accounting/services/debt_mailer.py` tự động bóc tách tiền tố `BU_` hoặc `BU ` (Ví dụ: `BU_IBIZ VALUE` $\rightarrow$ `IBIZ VALUE`, `BU_ELEVATOR` $\rightarrow$ `ELEVATOR`) để hiển thị chuẩn mực `BU IBIZ VALUE`.
 * **Thuật ngữ thống nhất**: Chuyển 100% danh xưng từ *"Khối"* sang *"BU"* trong template `debt_summary_manager.html` và bản plain text (Trưởng BU, Tổng Nợ BU, Bảng Phân Bổ Theo Nhân Viên Trong BU, Top Khách Hàng Nợ Quá Hạn Lớn Nhất Trong BU, Nút CTA Xem Drilldown Chi Tiết Toàn BU Trên Dashboard).
+
+### 20.5. Quy Chuẩn An Toàn Mốc Ngày Chốt Tính Tuổi Nợ (STRICT ANTI-FUTURE-OVERDUE) & Bộ Lọc Top Quá Hạn
+* **Quy chuẩn Mốc ngày chốt MISA (`compute_cutoff_date`)**:
+  - **Tháng trong quá khứ** (đã đóng sổ): Mốc chốt lấy ngày cuối tháng (`calendar.monthrange(year, month)[1]`, e.g. `31/08/2026`).
+  - **Tháng hiện tại đang diễn ra**: TUYỆT ĐỐI KHÔNG lấy ngày cuối tháng tương lai (vì MISA sẽ tính trước hạn thanh toán của các hóa đơn chưa đến hạn thành nợ quá hạn). Bắt buộc chặn ở ngày hiện tại `min(now.day, last_day)` (e.g. `08/09/2026`).
+  - **Tháng tương lai**: Bắt buộc chặn ở ngày hiện tại `now.day/now.month/now.year`.
+* **Quy chuẩn Bảng Top Khách Hàng Nợ Quá Hạn trong Email Trưởng BU**:
+  - Bảng "Top Khách Hàng Nợ Quá Hạn Lớn Nhất Trong BU" chỉ chứa các khách hàng thực sự có phát sinh nợ quá hạn (`overdue_total > 0`).
+  - Tuyệt đối không fill các slot còn lại bằng khách hàng có quá hạn = 0 (dù có nợ trong hạn lớn).
+  - Nếu BU không có khách hàng nào nợ quá hạn, template hiển thị thông báo chúc mừng (`{% empty %}`).
 
 ---
 

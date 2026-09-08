@@ -363,38 +363,54 @@ async def select_accounts_for_so_chi_tiet(page, accounts=['111', '112', '341', '
 
 def compute_cutoff_date(period_option=None, custom_period_suffix=None):
     """
-    Tính ngày cuối tháng (DD/MM/YYYY) từ period_option hoặc custom_period_suffix.
-    Ví dụ:
-      custom_period_suffix='202601' -> '31/01/2026'
-      custom_period_suffix='202602' -> '28/02/2026'
-      period_option='Tháng 8' -> '31/08/2026'
+    Tính ngày chốt mốc (DD/MM/YYYY) từ period_option hoặc custom_period_suffix.
+    Quy tắc an toàn chống thổi phồng nợ quá hạn tương lai (STRICT ANTI-FUTURE-OVERDUE):
+    1. Tháng trong quá khứ (ví dụ Tháng 8/2026 trở về trước): Lấy ngày cuối tháng đó (e.g. '31/08/2026').
+    2. Tháng hiện tại đang diễn ra (ví dụ Tháng 9/2026 khi hôm nay là 08/09/2026):
+       TUYỆT ĐỐI KHÔNG lấy ngày cuối tháng tương lai (30/09/2026) vì MISA sẽ tính trước
+       các khoản chưa đến hạn thành nợ quá hạn. Bắt buộc lấy ngày hiện tại (e.g. '08/09/2026').
+    3. Tháng trong tương lai: Chặn tối đa ở ngày hiện tại.
     """
     import calendar
     import re
     from datetime import datetime
 
-    year = 2026
+    now = datetime.now()
+    year = now.year
     month = None
 
     if custom_period_suffix and len(custom_period_suffix) == 6 and custom_period_suffix.isdigit():
         year = int(custom_period_suffix[:4])
         month = int(custom_period_suffix[4:6])
     elif period_option:
-        m_match = re.search(r'(\d+)', period_option)
+        m_match = re.search(r'(\d+)', str(period_option))
         if m_match:
             month = int(m_match.group(1))
-        if '2025' in period_option:
+        if '2025' in str(period_option):
             year = 2025
-        elif '2026' in period_option:
+        elif '2026' in str(period_option):
             year = 2026
 
     if not month:
-        now = datetime.now()
         month = now.month
         year = now.year
 
     last_day = calendar.monthrange(year, month)[1]
-    return f"{last_day:02d}/{month:02d}/{year:04d}"
+
+    # Kiểm tra xem kỳ này có phải là tháng hiện tại hoặc tương lai không
+    is_current_month = (year == now.year and month == now.month)
+    is_future_month = (year > now.year) or (year == now.year and month > now.month)
+
+    if is_current_month:
+        # Tháng hiện tại: lấy ngày hôm nay (không vượt quá last_day)
+        day = min(now.day, last_day)
+        return f"{day:02d}/{month:02d}/{year:04d}"
+    elif is_future_month:
+        # Tháng tương lai: chặn ở ngày hôm nay
+        return f"{now.day:02d}/{now.month:02d}/{now.year:04d}"
+    else:
+        # Tháng trong quá khứ đã đóng sổ: lấy ngày cuối tháng
+        return f"{last_day:02d}/{month:02d}/{year:04d}"
 
 async def set_cutoff_date_for_snapshot(page_or_frame, cutoff_date_str):
     """

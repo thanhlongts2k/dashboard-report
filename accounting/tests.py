@@ -1799,6 +1799,68 @@ class EmployeeReceivableSummaryCalculationTests(TestCase):
         self.assertEqual(summary_tin.debt_2025, Decimal('262409544'))
 
 
+class DebtCutoffDateAndManagerReportTests(TestCase):
+    """
+    Test suite kiểm tra an toàn mốc ngày chốt tính tuổi nợ (STRICT ANTI-FUTURE-OVERDUE)
+    và logic bảng Top khách hàng nợ quá hạn của Trưởng BU.
+    """
+    def test_compute_cutoff_date_ongoing_month_capped_at_today(self):
+        from accounting.misa.report_exporter import compute_cutoff_date
+        from datetime import datetime
+        now = datetime.now()
+
+        # Kỳ 'Tháng này' hoặc tháng hiện tại đang diễn ra: bắt buộc capped ở ngày hôm nay, không được là cuối tháng
+        cutoff_str = compute_cutoff_date(period_option="Tháng này")
+        parts = [int(p) for p in cutoff_str.split('/')]
+        self.assertEqual(parts[1], now.month)
+        self.assertEqual(parts[2], now.year)
+        self.assertLessEqual(parts[0], now.day)
+
+    def test_compute_cutoff_date_past_month_returns_last_day(self):
+        from accounting.misa.report_exporter import compute_cutoff_date
+        # Kỳ Tháng 8/2026 trong quá khứ đã đóng sổ: lấy ngày cuối tháng
+        cutoff_str = compute_cutoff_date(period_option="Tháng 8", custom_period_suffix="202608")
+        self.assertEqual(cutoff_str, "31/08/2026")
+
+    def test_manager_top_overdue_never_includes_zero_overdue_customers(self):
+        from accounting.models import BusinessUnit, Customer, ReceivablesAgeing
+        from accounting.services.debt_mailer import collect_bu_manager_debt_data
+        from decimal import Decimal
+
+        bu_test = BusinessUnit.objects.create(code='BU_TEST_DEBT', name='BU Test Debt', is_main=True)
+        cust_good = Customer.objects.create(code='KH_GOOD', name='Khách hàng trả đúng hạn', business_unit=bu_test)
+        cust_bad = Customer.objects.create(code='KH_BAD', name='Khách hàng nợ quá hạn', business_unit=bu_test)
+
+        # KH_GOOD: nợ 100tr nhưng 100% trong hạn (quá hạn = 0)
+        ReceivablesAgeing.objects.create(
+            customer=cust_good,
+            reporting_period='2026-09',
+            account_code='1311',
+            total_debt=Decimal('100000000'),
+            due_total=Decimal('100000000'),
+            overdue_total=Decimal('0')
+        )
+        # KH_BAD: nợ 50tr, trong đó quá hạn 20tr
+        ReceivablesAgeing.objects.create(
+            customer=cust_bad,
+            reporting_period='2026-09',
+            account_code='1311',
+            total_debt=Decimal('50000000'),
+            due_total=Decimal('30000000'),
+            overdue_total=Decimal('20000000')
+        )
+
+        bu_reports = collect_bu_manager_debt_data(period='2026-09', bu_code='BU_TEST_DEBT')
+        self.assertEqual(len(bu_reports), 1)
+        top_ovd = bu_reports[0]['top_overdue_customers']
+
+        # Bảng Top quá hạn CHỈ ĐƯỢC PHÉP chứa KH_BAD, KHÔNG ĐƯỢC CHỨA KH_GOOD
+        self.assertEqual(len(top_ovd), 1)
+        self.assertEqual(top_ovd[0]['customer_code'], 'KH_BAD')
+        self.assertEqual(top_ovd[0]['overdue_total'], Decimal('20000000'))
+
+
+
 
 
 
