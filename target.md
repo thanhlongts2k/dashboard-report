@@ -852,6 +852,30 @@ Hệ thống triển khai theo dõi chi tiết hiệu suất bán hàng của t�
 * **Lịch biểu vận hành đề xuất (Windows Task Scheduler / Cron)**:
   - Chạy hàng ngày vào các khung giờ: `07:30`, `12:30`, và `18:00`.
 
+---
+
+## 20. QUY CHUẨN XỬ LÝ DOANH SỐ BÁN CHÉO (CROSS-SELLING) & BẢO TOÀN KPI NHÂN SỰ BU
+
+### 20.1. Nguyên Tắc Quản Trị & Nghiệp Vụ
+* **Bản chất nghiệp vụ**:
+  - Khi nhân sự thuộc BU/Bộ phận khác bán hàng và ghi nhận doanh thu tại BU hiện tại (Ví dụ: Nhân sự Lý Kế Phú thuộc BU AgriTech bán thiết bị Solar phát sinh tại BU ECO trị giá 256.1 tr; Lê Thị Thạch thuộc SS Cung ứng phát sinh 500k tại BU ECO).
+  - Doanh thu này là doanh số bán hàng thực tế của BU (Bảo toàn 100% doanh thu BU: BU ECO đạt 6.53 tỷ = 6.27 tỷ nhân sự biên chế + 256.6 tr bán chéo).
+* **Nguyên tắc tách biệt KPI**:
+  - Không tính Target cho nhân sự bán chéo (`year_target = 0`), không áp chỉ tiêu của BU ECO cho nhân sự ngoài đơn vị.
+  - Không đưa nhân sự bán chéo vào Action Hub (Top Vinh danh / Báo động chậm tiến độ) của BU để đảm bảo tính công bằng và chính xác trong quản trị nhân sự.
+
+### 20.2. Cấu Trúc Dữ Liệu Node Phụ `CROSS_SELLING`
+* **Node phụ Backend**:
+  - Gom các nhân sự ngoài BU vào Node `CROSS_SELLING` với tên hiển thị "Doanh số bán chéo & Vãng lai".
+  - Cờ nhận diện: `is_cross_selling: True`.
+  - Giữ lại `department_name` gốc từ bảng `EmployeeAssignment` để hiển thị badge chú thích rõ phòng ban gốc trên Dashboard.
+* **Frontend Accordion & Filter Tabs**:
+  - Action Hub và Tabs bộ lọc chỉ tính trên nhân sự chính thức của BU: tab hiển thị "Nhân sự BU (3)" và nút mở rộng ghi rõ "Xem danh sách bảng số liệu chi tiết (3 nhân sự BU)".
+  - Bảng chi tiết phân tách:
+    * Cụm 1: "Nhân sự BU ECO (3 nhân sự)" mở sẵn mặc định.
+    * Cụm 2: "🔄 Doanh số bán chéo & Vãng lai" thu gọn mặc định, hiển thị tổng 256.6 tr (Ngoài KH); khi bấm bung sẽ hiển thị từng nhân sự kèm badge phòng ban.
+
+
 
 
 

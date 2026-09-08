@@ -1405,6 +1405,26 @@ python scripts/seed_sales_targets_2026.py
 - **Chuẩn hóa Mapping BU & Xử lý kỳ linh hoạt**:
   - Khi xem kỳ tháng 9/2026 trở đi mà chưa nạp target tháng: Tự động fallback `month_target = 0 đ` an toàn, không gây crash hoặc rỗng giao diện.
 
+### 25.6. Chuẩn Quản Trị Doanh Số Bán Chéo (Cross-Selling) & Minh Bạch KPI Nhân Sự BU
+- **Bản chất nghiệp vụ**:
+  - Giao dịch bán chéo (Cross-selling) là các hóa đơn phát sinh tại đơn vị kinh doanh (BU) nhưng do nhân sự thuộc phòng ban hoặc BU khác thực hiện (Ví dụ: Nhân sự Lý Kế Phú thuộc BU AgriTech bán thiết bị Solar phát sinh tại BU ECO trị giá 256.1 tr; Lê Thị Thạch thuộc SS Cung ứng phát sinh 500k tại BU ECO).
+  - Doanh thu này là doanh số bán hàng thực tế của BU (Bảo toàn 100% doanh thu BU: BU ECO đạt 6.53 tỷ = 6.27 tỷ nhân sự biên chế + 256.6 tr bán chéo).
+- **Quy tắc xử lý Backend (`sales_performance_service.py`)**:
+  - Khi truy vấn BU đơn lẻ (`not is_composite_view`), hệ thống không gom các nhân sự ngoài BU vào các Region hành chính giả (như "Tổng Miền Nam").
+  - Toàn bộ nhân sự ngoài kế hoạch biên chế được gom vào một Node/Region phụ đặc thù:
+    * Mã: `reg_key = 'CROSS_SELLING'`
+    * Tên hiển thị: `reg_name = 'Doanh số bán chéo & Vãng lai'`
+    * Cờ đánh dấu: `is_cross_selling: True`
+    * Thông tin phòng ban gốc: `department_name` và `title_name` từ `EmployeeAssignment`.
+  - Không giao Target (`year_target = 0`), không tính KPI % hoàn thành vào nhân sự BU.
+- **Quy tắc hiển thị Frontend (`SalesPerformanceTable.jsx`)**:
+  - **Action Hub & Filter Tabs**: Tự động loại trừ các node `is_cross_selling` khỏi danh sách `allEmployees`. Tab bộ lọc hiển thị rõ ràng `Nhân sự BU (3)` và nút toggle ghi `Xem danh sách bảng số liệu chi tiết (3 nhân sự BU)`.
+  - **Bảo vệ Action Hub**: Tuyệt đối không đưa nhân sự bán chéo vào Top Vinh Danh hay Báo Động Chậm Tiến Độ. Vinh danh chuẩn xác Mừng (#1), Vũ (#2) và cảnh báo duy nhất Huy (2.1%).
+  - **Bảng Chi Tiết Phân Cụm Rõ Ràng**:
+    * **Cụm 1: "Nhân sự BU ECO (3 nhân sự)"**: Tự động mở rộng mặc định, hiển thị đầy đủ 3 nhân sự biên chế kèm Target và % đạt.
+    * **Cụm 2: "🔄 Doanh số bán chéo & Vãng lai (2 nhân sự ngoài BU)"**: Mặc định thu gọn, hiển thị tổng 256.6 triệu (Ngoài KH). Khi người dùng click mở rộng, hiển thị danh sách nhân sự bán chéo kèm badge phòng ban gốc rõ ràng (`Bán chéo • BU Agritech-Eco`, `Bán chéo • SS Cung ứng`).
+    * **Tối ưu Mobile (< 768px)**: Tích hợp accordion card 1 dòng `🔄 Bán chéo & Vãng lai (2 ngoài BU) 256.6 tr` không bị tràn hoặc gãy chữ, chạm mở mượt mà.
+
 ---
 
 ## 21. Cơ Chế Batch Ingestion Báo Cáo MISA 2026 (7 Báo Cáo x 9 Tháng) & Checkpoint 2D State Persistence

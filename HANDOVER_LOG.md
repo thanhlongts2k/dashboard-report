@@ -3,6 +3,72 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-09-08 14:02:00] Task: Chuẩn Hóa Doanh Số Bán Chéo (Cross-Selling) & Tách Biệt Nhân Sự Biên Chế BU ECO — [DONE ✅]
+
+- **Current Objective**: 
+  1. Xử lý Backend (`sales_performance_service.py`): Đối với các giao dịch phát sinh từ nhân sự ngoài BU (như Lý Kế Phú - AgriTech 256.1M, Lê Thị Thạch - Cung ứng 500k), không gom vào Region hành chính giả "Tổng Miền Nam". Gom vào Node/Region phụ đặc thù `CROSS_SELLING` ("Doanh số bán chéo & Vãng lai"), gắn cờ `is_cross_selling: True`, đính kèm phòng ban gốc (`department_name`), bảo toàn 100% tổng doanh thu BU ECO là 6.530.733.497 đ.
+  2. Đồng bộ Frontend (`SalesPerformanceTable.jsx`):
+     - Loại trừ hoàn toàn cụm bán chéo khỏi `allEmployees` của Action Hub và Tabs lọc; nhãn nút mở rộng ghi rõ: "Xem danh sách bảng số liệu chi tiết (3 nhân sự BU)"; nhãn tab lọc ghi rõ: "Nhân sự BU (3)".
+     - Bảng chi tiết Desktop:
+       + Cụm 1: "Nhân sự BU ECO (3 nhân sự)" -> Tự động mở rộng mặc định, hiển thị Phạm Văn Mừng (4.1 tỷ), Phan Thái Vũ (2.2 tỷ), Nguyễn Quốc Huy (27.5 tr) kèm Target và % hoàn thành.
+       + Cụm 2: "🔄 Doanh số bán chéo & Vãng lai (2 nhân sự ngoài BU)" -> Mặc định thu gọn hiển thị tổng 256.6 triệu (Ngoài KH); khi bấm bung hiển thị chi tiết Lê Thị Thạch (#1013 - 500k, badge "Bán chéo • SS Cung ứng") và Lý Kế Phú (#7503 - 256.1M, badge "Bán chéo • BU Agritech-Eco").
+     - Bảng chi tiết Mobile: Tích hợp accordion card "🔄 Bán chéo & Vãng lai" (2 ngoài BU • 256.6 tr), khi chạm mở ra danh sách 2 nhân sự với đầy đủ badge phòng ban và ghi chú "Ngoài kế hoạch biên chế".
+     - Action Hub: Giữ nguyên logic vinh danh Mừng (#1), Vũ (#2) và cảnh báo duy nhất Huy (#1). Tuyệt đối không đưa nhân sự bán chéo vào Action Hub.
+- **Kỹ thuật Đã Triển Khai**:
+  1. `dashboard-report/accounting/services/sales_performance_service.py`:
+     - Khi `not is_composite_view`: gom các actuals của nhân sự ngoài target vào `reg_key = 'CROSS_SELLING'`, `name = 'Doanh số bán chéo & Vãng lai'`, `is_cross_selling: True`.
+     - Lấy `department_name` và `title_name` từ `EmployeeAssignment` để chuyển tiếp xuống API tree.
+  2. `project-dashboard/src/components/sales/SalesPerformanceTable.jsx`:
+     - `allEmployees` loại trừ các node có `is_cross_selling: true` hoặc tên chứa "bán chéo".
+     - Tự động mở rộng mặc định cho các Region chính thức (`!reg.is_cross_selling`) khi tải dữ liệu; giữ thu gọn cho cụm bán chéo.
+     - Định dạng tên Region chính thức: `regNode.name.replace("Tổng BU", "Nhân sự BU")`.
+     - Render thẻ accordion mobile riêng biệt cho `crossSellingRegion`.
+- **Kết quả Kiểm Thử & Nghiệm Thu Trực Quan (Visual Verification)**:
+  - Backend Test: `python manage.py test accounting` -> **Ran 64 tests in 15.788s - OK! (100% PASS)**.
+  - Frontend Build: `npm run build` -> **✓ built in 648ms, 0 errors!**
+  - Trực quan Desktop (`/bu/eco`):
+    + Tổng doanh thu BU ECO trên cùng = 6.530.733.497 đ (đúng 6.53 tỷ).
+    + Action Hub vinh danh Mừng (#1 - 4.1 tỷ), Vũ (#2 - 2.2 tỷ); Báo động Huy (#1 - 2.1%).
+    + Tab ghi: `Nhân sự BU (3)`. Nút mở rộng: `Xem danh sách bảng số liệu chi tiết (3 nhân sự BU)`.
+    + Cụm 1: `Nhân sự BU ECO (3 nhân sự)` mở sẵn với 3 nhân sự chính thức.
+    + Cụm 2: `🔄 Doanh số bán chéo & Vãng lai (2 nhân sự ngoài BU)` hiển thị 256.6 triệu (Ngoài KH), khi mở rộng hiển thị Lê Thị Thạch và Lý Kế Phú kèm badge phòng ban gốc.
+  - Trực quan Mobile (`/bu/eco`): Thẻ 3 nhân sự hiển thị sắc nét; khối bán chéo hiển thị gọn gàng 1 dòng `🔄 Bán chéo & Vãng lai (2 ngoài BU) 256.6 tr`, mở ra hiển thị 2 card chi tiết.
+- **Files Modified**:
+  - `d:/Sources/dashboard-report/accounting/services/sales_performance_service.py` (Backend)
+  - `d:/Sources/project-dashboard/src/components/sales/SalesPerformanceTable.jsx` (Frontend)
+  - `d:/Sources/dashboard-report/HANDOVER_LOG.md` (Document)
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-08 13:38:00] Task: Xử Lý Triệt Để Lỗi Lọt Nhân Sự Chéo BU & Nghịch Lý Vinh Danh/Báo Động Tại /bu/eco — [DONE ✅]
+
+- **Current Objective**: 
+  1. Triệt tiêu 100% lỗi lọt nhân sự chéo BU tại trang `/bu/eco`: Tách bạch rõ ràng `BU_ECO`, `BU_AGRITECH`, `BU_SAB` ở cả Backend (`sales_performance_service.py`) và Frontend (`SalesPerformanceTable.jsx`), đảm bảo khi xem BU ECO chỉ hiển thị đúng 3 nhân sự thuộc ECO (Phạm Văn Mừng, Phan Thái Vũ, Nguyễn Quốc Huy).
+  2. Xóa bỏ nghịch lý xếp hạng (Logic Conflict): Cài đặt cơ chế Loại trừ lẫn nhau (Mutual Exclusivity 2 chiều) — nhân sự dẫn đầu doanh thu toàn BU (Top 1 Revenue Driver - anh Mừng 4.1 tỷ) được miễn trừ khỏi Báo động; nhân sự chậm tiến độ (anh Huy 2.1%) bị cách ly khỏi Top Vinh Danh. Bảng báo động chỉ cảnh báo đúng mắt xích cần can thiệp.
+- **Kỹ thuật & Tinh chỉnh Đã Áp Dụng**:
+  1. `dashboard-report/accounting/services/sales_performance_service.py`:
+     - Sửa hàm `resolve_target_bu_codes`: Phân tách độc lập `clean in ('eco', 'bueco')` -> `['BU_ECO']`, `clean in ('agritech', 'buagritech')` -> `['BU_AGRITECH']`, `clean in ('sab', 'busab')` -> `['BU_SAB', 'SAB']`. Bổ sung mã `clean in ('totaleco', 'totalecoagritech', 'khoieco')` cho khối liên hợp.
+     - Sửa logic gom `TOTAL_ECO_AGRITECH`: Chỉ gom khi xem toàn công ty (`ALL` / `not resolved_bu_codes`) hoặc composite view. Khi query BU đơn lẻ, giữ nguyên mã node BU chuẩn.
+  2. `project-dashboard/src/components/sales/SalesPerformanceTable.jsx`:
+     - Sửa `getBuCodeFromKey`: Ánh xạ `agritech` -> `"BU_AGRITECH"`, `sab` -> `"BU_SAB"`, `eco` -> `"BU_ECO"`.
+     - Defense-in-depth cho `allEmployees`: Lọc bỏ triệt để các region và nhân sự chéo BU (Lý Kế Phú, Trần Hồng Quân không lọt vào BU ECO; Phạm Văn Mừng không lọt vào AgriTech).
+     - Xóa bỏ hardcode `AGRITECH` và `SAB` khỏi bộ lọc tab Miền Nam của ECO.
+     - Cài đặt cơ chế **Mutual Exclusivity 2 chiều**:
+       + Xác định `topRevenueEmployeeId` (anh Mừng 4.1 tỷ - 63% BU) miễn trừ khỏi danh sách Báo Động.
+       + `actionRequiredList`: Lọc nhân sự có target và `rate < warningRateThreshold` (chỉ duy nhất anh Huy đạt 2.1%).
+       + `topPerformers`: Loại trừ các ID đã nằm trong `actionRequiredList` -> Gồm đúng 2 người: Anh Mừng (#1) và Anh Vũ (#2 - Vượt KH 168.1%).
+- **Kết quả Kiểm Thử & Nghiệm Thu Trực Quan (Visual Verification)**:
+  - Backend Test Suite: `python manage.py test accounting` -> **Ran 64 tests in 16.603s - OK! (100% PASS)**.
+  - Frontend Build: `npm run build` -> **✓ built in 724ms, 0 lỗi biên dịch!**
+  - Nghiệm thu trực quan qua Browser Subagent:
+    + `/bu/eco`: Danh sách chi tiết hiển thị đúng 3 nhân sự ECO. Tab Vinh danh gồm #1 Phạm Văn Mừng (4.1 tỷ) và #2 Phan Thái Vũ (2.2 tỷ). Tab Báo động hiển thị `⚠️ Cảnh báo (1)` gồm duy nhất Nguyễn Quốc Huy (2.1%). Không còn anh Mừng ở bảng Báo động.
+    + `/bu/agritech`: Nhân sự Lý Kế Phú (#7503) hiển thị chuẩn xác tại BU AGRITECH.
+    + `/bu/sab`: Nhân sự Trần Hồng Quân (#2000477) hiển thị chuẩn xác tại BU SAB.
+- **Files Modified**:
+  - `dashboard-report/accounting/services/sales_performance_service.py` (Modified)
+  - `project-dashboard/src/components/sales/SalesPerformanceTable.jsx` (Modified)
+  - `dashboard-report/HANDOVER_LOG.md` (Updated)
+- **Current Status**: **[DONE ✅]**
+
 ## [2026-09-08 13:13:00] Task: Tối Ưu Hóa Toàn Diện Giao Diện Mobile (< 768px) Cho Trang Tổng Quan — [DONE ✅]
 
 - **Current Objective**: Khắc phục lỗi hiển thị Mobile vỡ chữ: Sửa trục X nhãn BU biểu đồ bị đè chữ bằng vuốt ngang mượt mà (`overflow-x: auto; min-width: 660px; scrollbar-none`); bổ sung Segmented Tabs chuyển đổi `[ 📊 Tổng Hợp BU (10) ]` và `[ 🚨 Cảnh Báo (6) ]` trên Mobile (< 768px); chuyển đổi bảng BU trên Mobile thành danh sách Mobile Cards dạng compact 2 cột (Doanh thu & Thu tiền tích hợp micro-bar, run-rate, pace badge); ghim thẻ TỔNG TOÀN CÔNG TY lên đầu với nền `bg-slate-100`; giữ nguyên 100% Desktop (>= 768px).

@@ -39,11 +39,13 @@ def resolve_target_bu_codes(bu_code_input):
     if 'elevator' in clean or 'thang' in clean:
         return ['BU_ELEVATOR']
     if clean in ('eco', 'bueco'):
-        return ['BU_ECO', 'BU_AGRITECH', 'BU_SAB', 'SAB']
+        return ['BU_ECO']
     if clean in ('agritech', 'buagritech'):
         return ['BU_AGRITECH']
     if clean in ('sab', 'busab'):
         return ['BU_SAB', 'SAB']
+    if clean in ('totaleco', 'totalecoagritech', 'khoieco'):
+        return ['BU_ECO', 'BU_AGRITECH', 'BU_SAB', 'SAB']
     if 'manufacturing' in clean or 'sanxuat' in clean:
         return ['BU_MANUFACTURING']
     if 'dtct' in clean or 'chothue' in clean:
@@ -284,10 +286,11 @@ def get_sales_performance_data(target_date=None, period=None, bu_code=None, user
         }
 
         # Khởi tạo BU Node nếu chưa có
-        # Gom nhóm BU ECO, AGRITECH, SAB thành khối TỔNG ECO+AGRITECH nếu xem ALL hoặc nhiều BU
+        # Gom nhóm BU ECO, AGRITECH, SAB thành khối TỔNG ECO+AGRITECH nếu xem ALL toàn công ty
         group_bu_code = b_code
         group_bu_name = BU_DISPLAY_NAMES.get(group_bu_code, f"Đơn vị {group_bu_code}")
-        if b_code in ['BU_ECO', 'BU_AGRITECH', 'BU_SAB'] and (not resolved_bu_codes or len(resolved_bu_codes) > 1):
+        is_composite_view = (not resolved_bu_codes) or any('TOTAL' in str(c) for c in (resolved_bu_codes or []))
+        if b_code in ['BU_ECO', 'BU_AGRITECH', 'BU_SAB'] and is_composite_view:
             group_bu_code = 'TOTAL_ECO_AGRITECH'
             group_bu_name = BU_DISPLAY_NAMES['TOTAL_ECO_AGRITECH']
 
@@ -351,10 +354,21 @@ def get_sales_performance_data(target_date=None, period=None, bu_code=None, user
             'day_revenue': day_rev,
         }
 
-        reg_name = 'Miền Nam'
+        # Xác định Region và cờ Bán chéo (Cross-selling) cho nhân sự ngoài kế hoạch của BU
         assign = emp.assignments.first()
-        if assign and ('bắc' in assign.department.department_name.lower() or 'mb' in assign.title.title_name.lower()):
-            reg_name = 'Miền Bắc'
+        dept_name = assign.department.department_name if assign and assign.department else ""
+        title_name = assign.title.title_name if assign and assign.title else ""
+
+        if not is_composite_view:
+            reg_key = 'CROSS_SELLING'
+            reg_name = 'Doanh số bán chéo & Vãng lai'
+            is_cross = True
+        else:
+            reg_name = 'Miền Nam'
+            if assign and ('bắc' in dept_name.lower() or 'mb' in title_name.lower()):
+                reg_name = 'Miền Bắc'
+            reg_key = reg_name
+            is_cross = False
 
         sales_item = {
             'id': f"emp_{emp.employee_code}",
@@ -364,12 +378,15 @@ def get_sales_performance_data(target_date=None, period=None, bu_code=None, user
             'sales_group': f"{reg_name}_{b_code}",
             'region': reg_name,
             'display_order': 99,
+            'is_cross_selling': is_cross,
+            'department_name': dept_name,
+            'title_name': title_name,
             'metrics': s_metrics
         }
 
         group_bu_code = b_code
         group_bu_name = BU_DISPLAY_NAMES.get(group_bu_code, f"Đơn vị {group_bu_code}")
-        if b_code in ['BU_ECO', 'BU_AGRITECH', 'BU_SAB'] and (not resolved_bu_codes or len(resolved_bu_codes) > 1):
+        if b_code in ['BU_ECO', 'BU_AGRITECH', 'BU_SAB'] and is_composite_view:
             group_bu_code = 'TOTAL_ECO_AGRITECH'
             group_bu_name = BU_DISPLAY_NAMES['TOTAL_ECO_AGRITECH']
 
@@ -384,17 +401,19 @@ def get_sales_performance_data(target_date=None, period=None, bu_code=None, user
             }
         bu_entry = bu_nodes[group_bu_code]
 
-        if reg_name not in bu_entry['regions']:
-            bu_entry['regions'][reg_name] = {
-                'id': f"reg_{group_bu_code.lower().replace(' ', '_')}_{len(bu_entry['regions'])+1}",
+        if reg_key not in bu_entry['regions']:
+            reg_display_name = reg_name if is_cross else (f"Tổng {reg_name}" if not reg_name.startswith('Tổng') else reg_name)
+            bu_entry['regions'][reg_key] = {
+                'id': f"reg_{group_bu_code.lower().replace(' ', '_')}_{reg_key.lower()}",
                 'type': 'REGION',
-                'name': f"Tổng {reg_name}",
+                'name': reg_display_name,
                 'region_name': reg_name,
+                'is_cross_selling': is_cross,
                 'sales_group': f"{reg_name}_{b_code}",
                 'metrics': empty_metrics(),
                 'children': []
             }
-        reg_entry = bu_entry['regions'][reg_name]
+        reg_entry = bu_entry['regions'][reg_key]
         reg_entry['children'].append(sales_item)
         add_metrics(reg_entry['metrics'], s_metrics)
         add_metrics(bu_entry['metrics'], s_metrics)
