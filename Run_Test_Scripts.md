@@ -27,6 +27,7 @@ Tài liệu này là **Nguồn tham chiếu trung tâm (Single Source of Truth)*
 | Gửi Thử Nghiệm / Live Email Nhắc Nợ | `python scripts/send_live_debt_reminders.py` | [Mục 6.15](#615-công-cụ-kích-hoạt-gửi-email-nhắc-nợ-cli--live-send_live_debt_reminderspy) |
 | **🚀 Tải Saved Reports Tháng trước & Tính KPI (1-Click)** | `python scripts/download_last_month_saved_reports.py --auto-import` | [Mục 6.16](#616-script-1-click-tải-báo-cáo-misa-đã-lưu-tháng-trước--tự-động-tính-kpi-download_last_month_saved_reportspy) |
 | **⚡ Tải Saved Reports Tháng này & Tính KPI (1-Click)** | `python scripts/sync_current_month.py` | [Mục 6.18](#618-script-1-click-tải-báo-cáo-misa-đã-lưu-tháng-này--tự-động-tính-kpi-sync_current_monthpy) |
+| **🔄 Đồng Bộ Tuổi Nợ & Báo Cáo Hàng Ngày (Daily Sync)** | `python scripts/download_batch_saved_reports_2026.py --daily-sync` | [Mục 6.19](#619-script-batch-điều-phối-tải-misa--đồng-bộ-tự-động-hàng-ngày-download_batch_saved_reports_2026py) |
 | **📊 Gửi Email Báo Cáo Điều Hành BOD (Executive Dashboard)** | `python manage.py send_executive_dashboard --to-email <email>` | [Mục 6.17](#617-lệnh-gửi-email-báo-cáo-điều-hành-ban-lãnh-đạo-send_executive_dashboard) |
 | Chạy Unit Test Suite kiểm thử hệ thống | `python manage.py test accounting` | [Mục 5.2](#52-chạy-toàn-bộ-test-suite-backend) |
 
@@ -485,6 +486,31 @@ python manage.py calculate_global_performance
 
 # Tính lại KPI cho 1 BU cụ thể trong tháng hiện tại:
 python manage.py calculate_bu_performance --bu_id <bu_id>
+```
+
+### 6.19. Script Batch Điều Phối Tải MISA & Đồng Bộ Tự Động Hàng Ngày (`download_batch_saved_reports_2026.py`)
+
+Script điều phối tổng thể với cơ chế máy đọc Checkpoint 2D (`batch_checkpoint.json`), quản lý toàn bộ 9 tháng (từ Tháng 01/2026 đến Tháng 09/2026) cho 7 loại báo cáo MISA. Tích hợp cơ chế **Active Period Protection** (`is_active_period()`) tự động mở khóa tháng hiện hành và hỗ trợ đồng bộ dữ liệu hàng ngày qua cờ `--daily-sync`.
+
+#### Các lệnh thực thi chính:
+
+```powershell
+# 1. 🔥 LỆNH ĐỒNG BỘ HÀNG NGÀY (DAILY-SYNC) — KHUYẾN NGHỊ VẬN HÀNH:
+# Tự động lấy cutoff = ngày hôm nay, reset checkpoint tháng hiện hành, tải Tuổi nợ & Dòng tiền, nạp CSDL và tính lại toàn bộ KPI:
+python scripts/download_batch_saved_reports_2026.py --daily-sync
+
+# 2. 🔄 ĐỒNG BỘ TOÀN DIỆN HÀNG TUẦN (WEEKLY-SYNC):
+# Tải và cập nhật toàn bộ dải tháng từ 2026-01 đến tháng hiện tại, tự động nạp DB và tính KPI:
+python scripts/download_batch_saved_reports_2026.py --weekly-sync
+
+# 3. 🎯 TẢI BÁO CÁO CỤ THỂ CHO 1 KỲ CHỈ ĐỊNH (Kèm tự động import & tính KPI):
+python scripts/download_batch_saved_reports_2026.py --from-month 2026-09 --to-month 2026-09 --reports TUOI_NO_KH --auto-import --recalc-kpi
+
+# 4. ⚡ CHẠY BÙ (RESUME) CÁC BÁO CÁO CHƯA HOÀN THÀNH:
+python scripts/download_batch_saved_reports_2026.py --from-month 2026-01 --to-month 2026-09 --reports GROUP_1,GROUP_2 --auto-import --recalc-kpi --resume
+
+# 5. ⚠️ ÉP TẢI LẠI TOÀN BỘ (BỎ QUA CHECKPOINT):
+python scripts/download_batch_saved_reports_2026.py --from-month 2026-09 --to-month 2026-09 --reports TUOI_NO_KH --auto-import --recalc-kpi --force
 ```
 
 
