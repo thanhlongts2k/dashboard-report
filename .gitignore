@@ -23,8 +23,19 @@ celerybeat-schedule*
 # Redis persistence files
 dump.rdb
 
-# .env file
-.env
+# Database Dumps & Backups
+*.dump
+*.sql
+*.bak*
+
+# Archives
+*.zip
+*.tar.gz
+*.tar
+
+# Environment & Secret files
+.env*
+!.env.example
 
 # Scratch temporary files
 scratch/
@@ -36,3 +47,7 @@ scripts/generate_dev_token.py
 scripts/swap_dev_email.py
 scripts/audit_all_user_rbac.py
 scripts/scratch/
+
+# Deployment docs & Internal guides
+docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md
+*DEPLOYMENT_GUIDE*

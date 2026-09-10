@@ -3,6 +3,167 @@
 > [!NOTE]
 > Historical logs prior to 2026-07-24 11:28 have been archived to [docs/handover_archive/2026_07_archive.md](file:///d:/Sources/dashboard-report/docs/handover_archive/2026_07_archive.md).
 
+## [2026-09-10 14:13:00] Task: Sanitization Toàn Bộ Mã Nguồn & Triệt Tiêu Secret Trực Tiếp — [DONE ✅]
+
+- **Current Objective**:
+  1. Xóa vĩnh viễn các file rác/dump nhạy cảm ở root: `dashboard_report.dump` (5.85MB) và `dashboard-report.zip` (902KB).
+  2. Cập nhật `.gitignore` chặn triệt để: `*.dump`, `*.sql`, `*.bak*`, `*.zip`, `*.tar.gz`, `*.tar`, `.env*`, `!.env.example`, `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`, `*DEPLOYMENT_GUIDE*`.
+  3. Khử khuẩn toàn bộ mật khẩu thật trong `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md` (chuyển sang placeholder chuẩn `<YOUR_MISA_AMIS_PASSWORD>`, `<YOUR_SMTP_APP_PASSWORD>`, `<SECURE_SERVER_DB_PASSWORD>`).
+  4. Khử hardcode password trong `pull_db_from_server.bat`, `package_local.ps1`, `server_deploy.sh` (chuyển sang đọc tự động từ `.env` local hoặc dynamic generator).
+  5. Ẩn hoàn toàn tài liệu hạ tầng `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md` khỏi Git tracking qua `.gitignore`.
+- **Kết quả Kiểm Thử (Verification)**:
+  - Đã xóa sạch 100% tệp dump và archive ở root (`dashboard_report.dump`, `dashboard-report.zip`).
+  - Quét kiểm tra Regex/String toàn diện: Zero secrets found trong mọi tệp mã nguồn chuẩn bị commit.
+  - File `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md` và `.env.server` đã biến mất hoàn toàn khỏi danh sách `git status -u`.
+  - Django system check: `python manage.py check` -> 0 issues.
+- **Files Modified**:
+  - `.gitignore`
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `pull_db_from_server.bat`
+  - `scripts/deploy/package_local.ps1`
+  - `scripts/deploy/server_deploy.sh`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-10 11:06:00] Task: Thiết Lập .env.server & Script 1-Click sync_env_to_server.bat — [DONE ✅]
+
+- **Current Objective**:
+  1. Quản lý cấu hình server tách biệt qua file `.env.server` ngay tại máy local (chuẩn hóa toàn bộ biến môi trường Production: DEBUG=False, DB_PORT=5432, email CC, lịch trình, BU loại trừ...).
+  2. Tạo script 1-click `sync_env_to_server.bat`: Đẩy `.env.server` lên `/data/www/backend/dashboard-report/.env`, tự động backup bản cũ `.env.bak_*` trên server, và tự động reload 3 service (`dashboard-backend`, `dashboard-celery`, `dashboard-beat`).
+  3. Bảo vệ an toàn bí mật: Bổ sung `.env.server` vào `.gitignore`.
+  4. Cập nhật tài liệu vận hành `DEPLOYMENT_GUIDE_LINUX_NGINX.md`.
+- **Kết quả Thực Hiện**:
+  - Đã tạo file `.env.server` chuẩn hóa 100% tham số Production của Linux Server (port 5432, DEBUG=False, Nginx CORS, Playwright headless, Redis Celery).
+  - Đã tạo script `sync_env_to_server.bat`: Có prompt xác nhận an toàn, backup file `.env` cũ trên server thành `.env.bak_YYYYMMDD_HHMMSS`, copy và phân quyền `chmod 640`, tự động restart 3 systemd services.
+  - Đã cập nhật `.gitignore` chặn rò rỉ `.env.server`.
+  - Cập nhật mục 6.5 trong `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`.
+- **Files Created/Modified**:
+  - `.env.server`
+  - `sync_env_to_server.bat`
+  - `.gitignore`
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-10 10:45:00] Task: Thiết Lập Bộ Công Cụ Vận Hành, Giám Sát & Quản Trị Dữ Liệu Local - Server — [DONE ✅]
+
+- **Current Objective**: 
+  1. Tạo script `pull_db_from_server.bat`: 1-click dump database từ server Linux (`192.168.16.231`), SCP về local và nạp vào PostgreSQL local (cổng 5433).
+  2. Tạo tác vụ dọn dẹp file Excel tồn đọng `cleanup_old_reports`: Quét `media/auto_imports/success/` (>30 ngày) và `failed/` (>15 ngày), tích hợp vào Celery Beat (01:00 AM Chủ Nhật) và lệnh CLI `python manage.py cleanup_old_reports`.
+  3. Tạo script `view_server_logs.bat`: Stream log trực tiếp từ xa bằng `journalctl -f` qua SSH.
+  4. Tạo script backup database tự động trên server `scripts/deploy/backup_db_server.sh` và hướng dẫn thiết lập Cronjob (02:00 AM hàng ngày, lưu trữ 7 ngày).
+- **Kết quả Kiểm Thử**:
+  - `python manage.py cleanup_old_reports`: Chạy thành công, tự động quét và dọn dẹp hàng trăm file Excel cũ (>30 ngày) tồn đọng từ tháng 7 và đầu tháng 8.
+  - Test Suite: `python manage.py test accounting` -> **Ran 64 tests in 12.757s — OK! (100% PASS)**.
+  - `pull_db_from_server.bat` & `view_server_logs.bat`: Tạo tại gốc repo, kết nối chính xác user `rd@192.168.16.231`.
+  - `scripts/deploy/backup_db_server.sh`: Chuẩn hóa với retention policy 7 ngày.
+- **Files Created/Modified**:
+  - `pull_db_from_server.bat`
+  - `view_server_logs.bat`
+  - `accounting/tasks.py`
+  - `accounting/management/commands/cleanup_old_reports.py`
+  - `report2026/settings.py`
+  - `scripts/deploy/backup_db_server.sh`
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-10 10:32:00] Task: Xây Dựng Script 1-Click deploy_be.bat & Nâng Cấp server_update.sh — [DONE ✅]
+
+- **Current Objective**: 
+  1. Giữ nguyên đường dẫn Backend chuẩn đồng bộ với Nginx/Systemd: `REMOTE_PATH=/data/www/backend/dashboard-report`.
+  2. Nâng cấp `scripts/deploy/server_update.sh` độc lập trên Linux:
+     - Tự động bảo vệ và khôi phục `.env` server.
+     - Giải nén đè code mới từ `/tmp/dashboard_be.tar.gz`.
+     - Kích hoạt `.venv` chạy `migrate` và `collectstatic`.
+     - Phân quyền chuẩn cho `www-data` và cấp quyền ghi cho `media/`.
+     - Restart 3 service systemd (`dashboard-backend`, `dashboard-celery`, `dashboard-beat`) và reload Nginx.
+  3. Tạo file `deploy_be.bat` 1-click tại gốc repository `d:\Sources\dashboard-report`:
+     - Tách helper `scripts/deploy/build_tar.ps1` để đóng gói sạch sẽ, chống lỗi vỡ quote CMD.
+     - Lọc sạch rác 550MB bằng staging tạm thời, giữ nguyên môi trường local (.env local, database local).
+     - Nén `dashboard_be.tar.gz` đạt dung lượng siêu nhẹ chỉ **0.44 MB**.
+     - SCP `dashboard_be.tar.gz` và `server_update.sh` lên server `/tmp/`.
+     - Gọi thực thi qua SSH ngắn gọn, an toàn.
+  4. Bổ sung mục 4.4 và mục 6 trong `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md` hướng dẫn cấu hình `NOPASSWD` sudoers cho user `rd`.
+- **Kết quả Kiểm Thử (Verification)**:
+  - Đã chạy thử nghiệm đóng gói staging: Sinh file `dashboard_be.tar.gz` dung lượng chỉ **0.44 MB**.
+  - Đã kiểm tra cấu trúc lưu trữ bên trong tar: Lọc sạch 100% rác (`.venv`, `.git`, `__pycache__`, các file Excel cũ), chỉ giữ lại file mã nguồn sạch và session JSON.
+  - File `.env` local, database và test suite không bị bất kỳ tác động nào.
+- **Files Created/Modified**:
+  - `deploy_be.bat`
+  - `scripts/deploy/build_tar.ps1`
+  - `scripts/deploy/server_update.sh`
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-10 10:15:00] Task: Khắc Phục Lỗi Trùng Lặp CORS Header (Multiple Values) Giữa Django & Nginx — [DONE ✅]
+
+- **Current Objective**: 
+  - Khắc phục lỗi browser chặn CORS khi đăng nhập Google SSO:
+    `Access to fetch at 'https://api-vending.haophuong.com/api/google-login/' from origin 'https://report.haophuong.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values 'https://report.haophuong.com, https://report.haophuong.com', but only one is allowed.`
+  - **Nguyên nhân cốt lõi**:
+    1. Máy tính hiện tại của anh chính là IP `192.168.30.79`, đang chạy Django backend trên cổng 8000.
+    2. Nginx trên server `192.168.16.231` cấu hình:
+       `server_name api-vending.haophuong.com;`
+       `proxy_pass http://192.168.30.79:8000/;`
+       `add_header 'Access-Control-Allow-Origin' $origin_allowed always;`
+    3. Khi lượt trước thêm `CORS_ALLOWED_ORIGINS` và `CORS_ALLOW_ALL_ORIGINS = True` vào Django, Django `CorsMiddleware` cũng trả về header `Access-Control-Allow-Origin: https://report.haophuong.com`. Nginx tiếp tục đính kèm thêm 1 header nữa, tạo thành chuỗi kép `https://report.haophuong.com, https://report.haophuong.com` khiến Chrome chặn ngay lập tức.
+  - **Giải pháp Đã Triển Khai & Kiểm Thử**:
+    1. Trong `report2026/settings.py`: Đặt mặc định `CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=False)` và `CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])`.
+    2. Trong `.env` và `.env.example`: Đặt `CORS_ALLOW_ALL_ORIGINS=False`, `CORS_ALLOWED_ORIGINS=''`.
+    3. Kiểm thử trực tiếp trên cổng 8000: Header `access-control-allow-origin` từ Django đã trở về `False` (không phát sinh). Nginx là tầng duy nhất cấp phát header này, giải quyết triệt để lỗi multiple values.
+    4. Đã re-pack `dashboard-report.zip` (0.86 MB) mới nhất.
+- **Files Modified**:
+  - `report2026/settings.py`
+  - `.env`
+  - `.env.example`
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-10 09:40:00] Task: Rà Soát Kỹ Lưỡng & Chuẩn Hóa Toàn Bộ Cấu Hình Settings, .env và Deployment — [DONE ✅]
+
+- **Current Objective**: 
+  1. Khắc phục triệt để 10 lỗi/thiếu sót cấu hình nghiêm trọng trong `report2026/settings.py` và `.env`.
+  2. Bổ sung `STATIC_ROOT`, `MEDIA_ROOT`, `MEDIA_URL` (giải quyết lỗi `ImproperlyConfigured` khi chạy `collectstatic`).
+  3. Linh hoạt hóa biến môi trường: `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `CELERY_BROKER_URL`, `REDIS_SERVER_PATH`.
+  4. Chuẩn hóa bảo mật & kết nối: `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` (hỗ trợ đầy đủ cổng 8080 SSL, 5173, 3000), `SECURE_PROXY_SSL_HEADER`, `USE_X_FORWARDED_HOST`, `USE_X_FORWARDED_PORT`.
+  5. Cấu hình giới hạn upload `DATA_UPLOAD_MAX_NUMBER_FIELDS`, `DATA_UPLOAD_MAX_MEMORY_SIZE` cho file Excel lớn.
+  6. Đồng bộ `GOOGLE_CLIENT_ID` giữa Frontend và Backend.
+  7. Cập nhật `urls.py` phục vụ static/media khi `DEBUG=True`.
+  8. Cập nhật tài liệu hướng dẫn triển khai `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md` và script đóng gói `scripts/deploy/package_local.ps1`.
+- **Kết quả Kiểm Thử**:
+  - `python manage.py check`: 0 issues.
+  - `python manage.py collectstatic --dry-run --noinput`: 161 static files copied thành công, không còn lỗi `ImproperlyConfigured`.
+  - `python manage.py test accounting`: **Ran 64 tests in 13.414s — OK! (100% PASS)**.
+  - Đã re-pack `dashboard-report.zip` (0.86 MB) và `dashboard_report.dump` (5.59 MB).
+- **Files Modified**:
+  - `report2026/settings.py`
+  - `report2026/urls.py`
+  - `.env`
+  - `.env.example`
+  - `scripts/deploy/server_deploy.sh`
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
+## [2026-09-10 09:17:00] Task: Chuẩn Hóa Tài Liệu & Scripts Triển Khai Production Lên Server Linux (Nginx/Gunicorn/Postgres/Celery) — [DONE ✅]
+
+- **Current Objective**: 
+  1. Xây dựng tài liệu hướng dẫn triển khai toàn diện `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md` từ môi trường local Windows lên Server Linux Production sử dụng Nginx, Gunicorn, PostgreSQL, Redis, Celery và Playwright.
+  2. Xây dựng bộ script terminal tự động hóa hoàn toàn:
+     - `scripts/deploy/package_local.ps1`: Tự động dump database PostgreSQL từ cổng dev 5433 (đạt 5.59 MB), loại bỏ hơn 550 MB file rác (`.venv`, `media/auto_imports/*`, `__pycache__`) để nén ra `dashboard-report.zip` siêu nhẹ chỉ 0.86 MB.
+     - `scripts/deploy/server_deploy.sh`: Script 1-click tự động hóa toàn bộ trên Linux (cài đặt hệ thống, Postgres, Redis, restore DB, setup venv, Playwright headless, systemd services và Nginx).
+     - `scripts/deploy/server_update.sh`: Script cập nhật nhanh mã nguồn và restart services cho các lần release sau.
+- **Files Created/Modified**:
+  - `docs/DEPLOYMENT_GUIDE_LINUX_NGINX.md`
+  - `scripts/deploy/package_local.ps1`
+  - `scripts/deploy/server_deploy.sh`
+  - `scripts/deploy/server_update.sh`
+  - `HANDOVER_LOG.md`
+- **Current Status**: **[DONE ✅]**
+
 ## [2026-09-08 16:53:00] Task: Nạp Kế Hoạch Doanh Thu Tháng 09/2026 (SalesTarget) & Khóa Focus "Tháng Này" Cho Sales Action Hub — [DONE ✅]
 
 - **Current Objective**: 

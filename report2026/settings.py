@@ -25,15 +25,25 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l&h1%%+nd)co)hne$x4+6n0j9tr$%5*ai9zz!+==^gw&uv@b@4'
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-l&h1%%+nd)co)hne$x4+6n0j9tr$%5*ai9zz!+==^gw&uv@b@4')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = ["*"]
-# CORS_ALLOW_ALL_ORIGINS = True
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+
+# -----------------------------------------------------------------------------
+# CORS & CSRF CONFIGURATION
+# -----------------------------------------------------------------------------
+# LƯU Ý CỐT TỬ VỀ CORS:
+# Trên máy chủ Production (api-vending.haophuong.com), Nginx reverse proxy ĐÃ cấu hình sẵn
+# add_header 'Access-Control-Allow-Origin' ... always;.
+# Nếu Django CorsMiddleware cũng trả về header này, trình duyệt sẽ nhận giá trị kép có dấu phẩy:
+# 'https://report.haophuong.com, https://report.haophuong.com' và CHẶN ĐỨNG TOÀN BỘ API!
+# Vì vậy, mặc định CORS_ALLOWED_ORIGINS để rỗng và CORS_ALLOW_ALL_ORIGINS = False để Nginx phụ trách.
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=False)
 CORS_ALLOW_CREDENTIALS = True
-
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 
 CORS_ALLOW_METHODS = [
     "DELETE",
@@ -44,10 +54,21 @@ CORS_ALLOW_METHODS = [
     "PUT",
 ]
 
-CSRF_TRUSTED_ORIGINS = [
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     "https://report.haophuong.com",
-    "https://api-vending.haophuong.com"
-]
+    "https://report.haophuong.com:8080",
+    "https://api-vending.haophuong.com",
+    "https://api-vending.haophuong.com:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+])
+
+# Reverse Proxy SSL Header Configuration (Nginx SSL -> Gunicorn HTTP)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 
 # Application definition
@@ -70,8 +91,8 @@ INSTALLED_APPS = [
     'django_filters',
 ]
 
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='django-db')
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/0')
 
 IMPORT_EXPORT_USE_TRANSACTIONS = True
 
@@ -168,6 +189,12 @@ CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] if os.path.exists(os.path.join(BASE_DIR, 'static')) else []
+
+# Media files (File uploads, MISA automated excel downloads)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # Cấu hình Celery Beat Schedule động từ .env (Hỗ trợ chạy theo ngày, tuần, tháng hoặc custom)
@@ -179,6 +206,14 @@ CELERY_BEAT_SCHEDULE = {
     'auto_import_excel_daily': {
         'task': 'accounting.tasks.misa_pipeline_master',
         'schedule': schedule_val,
+    },
+    'cleanup_old_reports_weekly': {
+        'task': 'accounting.tasks.cleanup_old_reports',
+        'schedule': crontab(hour=1, minute=0, day_of_week=0),  # 01:00 AM Chủ Nhật hàng tuần
+        'kwargs': {
+            'days_success': 30,
+            'days_temp': 15,
+        },
     },
 }
 
@@ -259,7 +294,7 @@ else:
 
 
 # Đường dẫn khởi chạy Redis Server tự động
-REDIS_SERVER_PATH = r"d:\downloads\redis-x64-5.0.14.1\redis-server.exe"
+REDIS_SERVER_PATH = env('REDIS_SERVER_PATH', default=None)
 
 # Cấu hình tự động tải báo cáo từ MISA AMIS
 MISA_AMIS_LOGIN_URL = env('MISA_AMIS_LOGIN_URL', default='https://act.amis.vn/')
@@ -392,6 +427,11 @@ LOGGING = {
         },
     },
 }
+
+# Cấu hình giới hạn kích thước upload và số lượng trường dữ liệu (cho tệp Excel MISA lớn)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = env.int('DATA_UPLOAD_MAX_NUMBER_FIELDS', default=10000)
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int('DATA_UPLOAD_MAX_MEMORY_SIZE', default=52428800)  # 50MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int('FILE_UPLOAD_MAX_MEMORY_SIZE', default=52428800)  # 50MB
 
 
 

@@ -561,4 +561,63 @@ def send_executive_dashboard_task(self, to_email=None, cc_emails=None, report_da
         'message': msg
     }
 
+
+@shared_task
+def cleanup_old_reports(days_success=30, days_temp=15):
+    """
+    Tự động dọn dẹp các tệp Excel báo cáo MISA cũ tồn đọng để giải phóng dung lượng ổ cứng.
+    - media/auto_imports/success/: Xóa các file đã nhập thành công có tuổi thọ > days_success (mặc định: 30 ngày).
+    - media/auto_imports/ và media/auto_imports/failed/: Xóa file tạm/lỗi có tuổi thọ > days_temp (mặc định: 15 ngày).
+    """
+    now = datetime.now()
+    base_dir = getattr(settings, 'MEDIA_ROOT', os.path.join(settings.BASE_DIR, 'media'))
+    auto_imports_dir = os.path.join(base_dir, 'auto_imports')
+    
+    deleted_files = []
+    
+    if not os.path.exists(auto_imports_dir):
+        return {'status': 'skipped', 'message': f'Thư mục {auto_imports_dir} không tồn tại.'}
+        
+    # 1. Quét thư mục success (các file đã nạp thành công > 30 ngày)
+    success_dir = os.path.join(auto_imports_dir, 'success')
+    if os.path.exists(success_dir):
+        cutoff_success = now - timedelta(days=days_success)
+        for item in os.listdir(success_dir):
+            item_path = os.path.join(success_dir, item)
+            if os.path.isfile(item_path) and (item.lower().endswith('.xlsx') or item.lower().endswith('.xls')):
+                mtime = datetime.fromtimestamp(os.path.getmtime(item_path))
+                if mtime < cutoff_success:
+                    try:
+                        os.remove(item_path)
+                        deleted_files.append(f"success/{item}")
+                        logger.info(f"🗑️ [cleanup_old_reports] Đã xóa file thành công cũ: {item} (mtime: {mtime})")
+                    except Exception as e:
+                        logger.warning(f"Không thể xóa file {item_path}: {e}")
+
+    # 2. Quét thư mục failed và thư mục gốc auto_imports (các file tạm/lỗi > 15 ngày)
+    temp_dirs = [auto_imports_dir, os.path.join(auto_imports_dir, 'failed')]
+    cutoff_temp = now - timedelta(days=days_temp)
+    for tdir in temp_dirs:
+        if os.path.exists(tdir):
+            for item in os.listdir(tdir):
+                item_path = os.path.join(tdir, item)
+                if os.path.isfile(item_path) and (item.lower().endswith('.xlsx') or item.lower().endswith('.xls') or item.lower().endswith('.tmp')):
+                    mtime = datetime.fromtimestamp(os.path.getmtime(item_path))
+                    if mtime < cutoff_temp:
+                        try:
+                            os.remove(item_path)
+                            deleted_files.append(f"{os.path.basename(tdir)}/{item}")
+                            logger.info(f"🗑️ [cleanup_old_reports] Đã xóa file tạm/lỗi cũ: {item} (mtime: {mtime})")
+                        except Exception as e:
+                            logger.warning(f"Không thể xóa file {item_path}: {e}")
+
+    result_msg = f"Đã dọn dẹp {len(deleted_files)} tệp báo cáo cũ tồn đọng."
+    logger.info(f"✅ [cleanup_old_reports] {result_msg}")
+    return {
+        'status': 'success',
+        'deleted_count': len(deleted_files),
+        'deleted_files': deleted_files,
+        'message': result_msg
+    }
+
 

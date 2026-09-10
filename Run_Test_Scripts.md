@@ -531,5 +531,33 @@ python scripts/seed_target_plans.py --month 8 --year 2026
 python scripts/seed_target_plans.py --month 7 --year 2026
 ```
 
+### 6.21. Lệnh Dọn Dẹp File Báo Cáo Excel Tồn Đọng (`cleanup_old_reports`)
 
+Lệnh dọn dẹp các file Excel báo cáo MISA cũ tồn đọng để giải phóng dung lượng đĩa:
+- Quét `media/auto_imports/success/`: Xóa file đã nạp thành công > 30 ngày.
+- Quét `media/auto_imports/` và `media/auto_imports/failed/`: Xóa file tạm/lỗi > 15 ngày.
+- Lệnh được lập lịch tự động qua Celery Beat chạy lúc 01:00 AM Chủ Nhật hàng tuần.
 
+```powershell
+# 1. Chạy với tham số mặc định (success > 30 ngày, temp > 15 ngày):
+python manage.py cleanup_old_reports
+
+# 2. Tùy chỉnh số ngày giữ lại file:
+python manage.py cleanup_old_reports --days-success 60 --days-temp 30
+```
+
+### 6.22. Bộ Công Cụ Vận Hành 1-Click Local - Server (Batch Scripts)
+
+Các công cụ dạng click đúp hỗ trợ vận hành và giám sát hệ thống từ máy local:
+- `deploy_be.bat`: 1-Click đóng gói staging sạch (lọc sạch 550MB rác) và deploy Backend lên Linux Server.
+- `sync_env_to_server.bat`: 1-Click đồng bộ file `.env.server` lên server, tự động backup `.env.bak_*` và restart services.
+- `pull_db_from_server.bat`: 1-Click dump database từ server Linux, kéo về local và nạp vào PostgreSQL local cổng 5433 (đọc mật khẩu tự động từ `.env`).
+- `view_server_logs.bat`: 1-Click stream log thời gian thực của cả 3 services `dashboard-backend`, `dashboard-celery`, `dashboard-beat` qua SSH.
+
+```cmd
+# Chạy trực tiếp hoặc click đúp chuột trong File Explorer:
+deploy_be.bat
+sync_env_to_server.bat
+pull_db_from_server.bat
+view_server_logs.bat
+```
